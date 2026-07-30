@@ -67,4 +67,4 @@ cargo build --release --bins
 
 ## 上游与许可
 
-本项目基于 [zhom/cocobrowser](https://github.com/zhom/cocobrowser)，浏览器内核来自 [adryfish/fingerprint-chromium](https://github.com/adryfish/fingerprint-chromium)。代码继续遵循仓库中的 [AGPL-3.0 License](LICENSE)。第三方组件适用其各自许可。
+本项目基于 [zhom/donutbrowser](https://github.com/zhom/donutbrowser)，浏览器内核来自 [adryfish/fingerprint-chromium](https://github.com/adryfish/fingerprint-chromium)。代码继续遵循仓库中的 [AGPL-3.0 License](LICENSE)。第三方组件适用其各自许可。
