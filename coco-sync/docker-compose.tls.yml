@@ -1,0 +1,36 @@
+# Public-TLS overlay for docker-compose.selfhost.yml. Use together:
+#
+#   cp Caddyfile.example Caddyfile
+#   docker compose -f docker-compose.selfhost.yml -f docker-compose.tls.yml \
+#     --profile minio up -d
+#
+# Caddy fronts both public names, so the API and MinIO no longer publish their own
+# host ports.
+
+name: coco-sync
+
+services:
+  sync:
+    ports: !override []
+
+  minio:
+    ports: !override []
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    environment:
+      SYNC_DOMAIN: ${SYNC_DOMAIN:?set SYNC_DOMAIN in .env}
+      S3_DOMAIN: ${S3_DOMAIN:?set S3_DOMAIN in .env}
+      ACME_EMAIL: ${ACME_EMAIL:?set ACME_EMAIL in .env}
+
+volumes:
+  caddy_data:
+  caddy_config:

@@ -1,0 +1,26 @@
+# Reverse proxy for the tls profile of docker-compose.selfhost.yml.
+# Copy to ./Caddyfile — the compose file mounts that exact name.
+#
+# Two public names are needed, because the desktop client talks to both:
+#   SYNC_DOMAIN — the sync API
+#   S3_DOMAIN   — object storage, reached through the presigned URLs the API returns
+#
+# Caddy obtains and renews certificates automatically. Both names must already
+# resolve to this host and port 80 must be reachable for the ACME challenge.
+
+{
+	email {$ACME_EMAIL}
+}
+
+{$SYNC_DOMAIN} {
+	reverse_proxy sync:12342
+}
+
+{$S3_DOMAIN} {
+	# Profile syncing uploads whole browser-profile files; keep the body limit
+	# generous or large objects fail mid-transfer.
+	request_body {
+		max_size 5GB
+	}
+	reverse_proxy minio:9000
+}

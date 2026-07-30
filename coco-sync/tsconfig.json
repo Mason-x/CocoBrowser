@@ -14,6 +14,11 @@
     "sourceMap": true,
     "outDir": "./dist",
     "incremental": true,
+    // Must live inside outDir. nest-cli sets deleteOutDir, so a build info file
+    // kept outside dist survives the wipe and tells tsc everything is already
+    // up to date — the second consecutive `pnpm build` then emits nothing and
+    // still exits 0, leaving `node dist/main` with no modules to load.
+    "tsBuildInfoFile": "./dist/.tsbuildinfo",
     "skipLibCheck": true,
     "strictNullChecks": true,
     "strictPropertyInitialization": false,

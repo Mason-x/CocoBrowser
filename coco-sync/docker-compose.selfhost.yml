@@ -1,0 +1,85 @@
+# Self-hosted CocoBrowser sync stack.
+#
+# Copy .env.example to .env, fill it in, then:
+#
+#   external S3/R2 :  docker compose -f docker-compose.selfhost.yml up -d
+#   bundled MinIO  :  docker compose -f docker-compose.selfhost.yml --profile minio up -d
+#
+# For public TLS, add the overlay (it needs two DNS records — see Caddyfile.example):
+#
+#   docker compose -f docker-compose.selfhost.yml -f docker-compose.tls.yml \
+#     --profile minio up -d
+#
+# The overlay is a separate file on purpose: Compose interpolates every service's
+# variables regardless of the selected profiles, so keeping the TLS-only required
+# variables out of this file lets it run without them.
+#
+# IMPORTANT — S3_ENDPOINT must be reachable from the CocoBrowser desktop client,
+# not just from inside this network. The server hands the client presigned S3
+# URLs built from S3_ENDPOINT and has no separate public-endpoint override, so
+# `http://minio:9000` would produce URLs the client cannot resolve.
+
+name: coco-sync
+
+services:
+  sync:
+    build:
+      # The Dockerfile copies `coco-sync/...`, so the context is the repo root.
+      context: ..
+      dockerfile: coco-sync/Dockerfile
+    restart: unless-stopped
+    environment:
+      PORT: 12342
+      # Bearer token the desktop client sends. Generate with `openssl rand -hex 32`.
+      # The server refuses to start on a placeholder or anything under 24 chars.
+      SYNC_TOKEN: ${SYNC_TOKEN:?set SYNC_TOKEN in .env}
+      S3_ENDPOINT: ${S3_ENDPOINT:?set S3_ENDPOINT in .env}
+      S3_REGION: ${S3_REGION:-us-east-1}
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:?set S3_ACCESS_KEY_ID in .env}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:?set S3_SECRET_ACCESS_KEY in .env}
+      S3_BUCKET: ${S3_BUCKET:-coco-sync}
+      # Path style suits MinIO; set false for AWS S3 virtual-hosted buckets.
+      S3_FORCE_PATH_STYLE: ${S3_FORCE_PATH_STYLE:-true}
+    ports:
+      # Bound to loopback by default. Publish through the tls profile, or set
+      # SYNC_BIND=0.0.0.0 only if something else terminates TLS in front.
+      - "${SYNC_BIND:-127.0.0.1}:${SYNC_PORT:-12342}:12342"
+    # S3_ENDPOINT is normally a public hostname. Routing it back to this host
+    # avoids depending on the provider's hairpin NAT.
+    extra_hosts:
+      - "${S3_HOST_ALIAS:-s3.invalid}:host-gateway"
+    healthcheck:
+      # /readyz also checks that the bucket exists and is reachable.
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:12342/readyz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  minio:
+    profiles: ["minio"]
+    image: minio/minio:latest
+    restart: unless-stopped
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY_ID:?set S3_ACCESS_KEY_ID in .env}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_ACCESS_KEY:?set S3_SECRET_ACCESS_KEY in .env}
+    command: server /data --console-address ":9001"
+    ports:
+      - "${MINIO_BIND:-127.0.0.1}:${MINIO_PORT:-8987}:9000"
+      - "${MINIO_BIND:-127.0.0.1}:${MINIO_CONSOLE_PORT:-8988}:9001"
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - minio_data:/data
+
+volumes:
+  minio_data:

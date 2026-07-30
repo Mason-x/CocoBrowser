@@ -1,0 +1,10 @@
+# The coco-sync image is built with the repository root as its context (its
+# Dockerfile copies `coco-sync/...`). Without this file the context would include
+# src-tauri/target, which is tens of gigabytes. Exclude everything, then re-admit
+# only the files the Dockerfile actually copies.
+**
+
+!coco-sync/package.json
+!coco-sync/tsconfig.json
+!coco-sync/tsconfig.build.json
+!coco-sync/src/**
