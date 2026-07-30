@@ -11,7 +11,10 @@ name: Publish sync image
 
 on:
   push:
-    branches: [master]
+    # The remote's default branch is `main`; the local clone this is developed on
+    # uses `master` and pushes `master:main`. Both are listed so the trigger does
+    # not depend on which name the pushing side happens to use.
+    branches: [main, master]
     # Only the server's own inputs. The desktop app is irrelevant to this image.
     paths:
       - "coco-sync/**"
