@@ -601,7 +601,7 @@
       "notConfigured": "同步服务未配置。",
       "configureService": "配置同步服务"
     },
-    "title": "同步服务",
+    "title": "同步服务器",
     "config": {
       "serverUrlRequired": "请输入服务器 URL",
       "connectionSuccess": "连接成功!",
@@ -615,7 +615,7 @@
       "testing": "测试中..."
     },
     "serverUrl": "服务器 URL",
-    "serverUrlPlaceholder": "https://sync.example.com",
+    "serverUrlPlaceholder": "http://192.168.1.20:12342",
     "token": "同步令牌",
     "tokenPlaceholder": "输入您的同步令牌",
     "status": {

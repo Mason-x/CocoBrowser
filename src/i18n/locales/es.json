@@ -601,7 +601,7 @@
       "notConfigured": "Servicio de sincronización no configurado.",
       "configureService": "Configurar servicio de sincronización"
     },
-    "title": "Servicio de Sincronización",
+    "title": "Servidor de sincronización",
     "config": {
       "serverUrlRequired": "Introduce la URL del servidor",
       "connectionSuccess": "¡Conexión exitosa!",
@@ -615,7 +615,7 @@
       "testing": "Probando..."
     },
     "serverUrl": "URL del Servidor",
-    "serverUrlPlaceholder": "https://sync.ejemplo.com",
+    "serverUrlPlaceholder": "http://192.168.1.20:12342",
     "token": "Token de Sincronización",
     "tokenPlaceholder": "Ingresa tu token de sincronización",
     "status": {

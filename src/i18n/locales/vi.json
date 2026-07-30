@@ -601,7 +601,7 @@
       "notConfigured": "Chưa cấu hình dịch vụ đồng bộ.",
       "configureService": "Cấu hình dịch vụ đồng bộ"
     },
-    "title": "Tài khoản",
+    "title": "Máy chủ đồng bộ",
     "config": {
       "serverUrlRequired": "Vui lòng nhập URL máy chủ",
       "connectionSuccess": "Kết nối thành công!",
@@ -615,7 +615,7 @@
       "testing": "Đang kiểm tra..."
     },
     "serverUrl": "URL máy chủ",
-    "serverUrlPlaceholder": "https://sync.example.com",
+    "serverUrlPlaceholder": "http://192.168.1.20:12342",
     "token": "Token đồng bộ",
     "tokenPlaceholder": "Nhập token đồng bộ của bạn",
     "status": {

@@ -601,7 +601,7 @@
       "notConfigured": "同期サービスが設定されていません。",
       "configureService": "同期サービスを設定"
     },
-    "title": "同期サービス",
+    "title": "同期サーバー",
     "config": {
       "serverUrlRequired": "サーバーURLを入力してください",
       "connectionSuccess": "接続に成功しました!",
@@ -615,7 +615,7 @@
       "testing": "テスト中..."
     },
     "serverUrl": "サーバーURL",
-    "serverUrlPlaceholder": "https://sync.example.com",
+    "serverUrlPlaceholder": "http://192.168.1.20:12342",
     "token": "同期トークン",
     "tokenPlaceholder": "同期トークンを入力",
     "status": {

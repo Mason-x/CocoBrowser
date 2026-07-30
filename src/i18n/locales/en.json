@@ -601,7 +601,7 @@
       "notConfigured": "Sync service not configured.",
       "configureService": "Configure Sync Service"
     },
-    "title": "Account",
+    "title": "Sync Server",
     "config": {
       "serverUrlRequired": "Please enter a server URL",
       "connectionSuccess": "Connection successful!",
@@ -615,7 +615,7 @@
       "testing": "Testing..."
     },
     "serverUrl": "Server URL",
-    "serverUrlPlaceholder": "https://sync.example.com",
+    "serverUrlPlaceholder": "http://192.168.1.20:12342",
     "token": "Sync Token",
     "tokenPlaceholder": "Enter your sync token",
     "status": {

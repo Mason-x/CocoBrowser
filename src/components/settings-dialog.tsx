@@ -9,6 +9,7 @@ import { useTranslation } from "react-i18next";
 import { BsCamera, BsMic } from "react-icons/bs";
 import { DnsBlocklistDialog } from "@/components/dns-blocklist-dialog";
 import { LoadingButton } from "@/components/loading-button";
+import { SyncServerSettings } from "@/components/sync-server-settings";
 import { useTheme } from "@/components/theme-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -995,6 +996,17 @@ export function SettingsDialog({
               >
                 {t("dnsBlocklist.manageLists")}
               </RippleButton>
+            </div>
+
+            {/* Sync Server Section. Deliberately before the encryption section:
+                the server has to be configured first, and the E2E password is
+                meaningless without one. */}
+            <div className="space-y-4">
+              <Label className="text-base font-medium">{t("sync.title")}</Label>
+              <p className="text-xs text-muted-foreground">
+                {t("sync.description")}
+              </p>
+              <SyncServerSettings key={String(isOpen)} />
             </div>
 
             {/* Sync Encryption Section */}

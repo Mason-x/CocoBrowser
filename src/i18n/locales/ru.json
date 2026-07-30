@@ -601,7 +601,7 @@
       "notConfigured": "Сервис синхронизации не настроен.",
       "configureService": "Настроить сервис синхронизации"
     },
-    "title": "Служба синхронизации",
+    "title": "Сервер синхронизации",
     "config": {
       "serverUrlRequired": "Введите URL сервера",
       "connectionSuccess": "Подключение успешно!",
@@ -615,7 +615,7 @@
       "testing": "Проверка..."
     },
     "serverUrl": "URL сервера",
-    "serverUrlPlaceholder": "https://sync.example.com",
+    "serverUrlPlaceholder": "http://192.168.1.20:12342",
     "token": "Токен синхронизации",
     "tokenPlaceholder": "Введите токен синхронизации",
     "status": {

@@ -601,7 +601,7 @@
       "notConfigured": "동기화 서비스가 구성되지 않았습니다.",
       "configureService": "동기화 서비스 구성"
     },
-    "title": "계정",
+    "title": "동기화 서버",
     "config": {
       "serverUrlRequired": "서버 URL을 입력하세요",
       "connectionSuccess": "연결 성공!",
@@ -615,7 +615,7 @@
       "testing": "테스트 중..."
     },
     "serverUrl": "서버 URL",
-    "serverUrlPlaceholder": "https://sync.example.com",
+    "serverUrlPlaceholder": "http://192.168.1.20:12342",
     "token": "동기화 토큰",
     "tokenPlaceholder": "동기화 토큰 입력",
     "status": {
