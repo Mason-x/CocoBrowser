@@ -119,6 +119,11 @@ export const SHORTCUTS: ShortcutDef[] = [
  * the static SHORTCUTS table.
  */
 export function matchesGroupDigit(e: KeyboardEvent): number | null {
+  // Same missing-`key` case as `matchesShortcut`. Without this the range check
+  // passes (both comparisons against undefined are false) and the function
+  // returns Number(undefined) — NaN, which the caller reads as a real digit and
+  // then swallows the keystroke via preventDefault.
+  if (typeof e.key !== "string") return null;
   if (e.key < "1" || e.key > "9") return null;
   const mod = isMac() ? e.metaKey : e.ctrlKey;
   const oppositeMod = isMac() ? e.ctrlKey : e.metaKey;
@@ -176,6 +181,12 @@ function prettyKey(key: string): string {
  * Ctrl+K).
  */
 export function matchesShortcut(s: ShortcutDef, e: KeyboardEvent): boolean {
+  // `key` is typed as a string but is not always present on events that reach a
+  // window-level listener — IME composition, synthetic events from password
+  // managers, and the webview's own media keys have all been observed without it.
+  // This runs inside the global keydown handler, where a throw would abandon the
+  // rest of the dispatch loop, so treat a missing key as simply "no match".
+  if (typeof e.key !== "string") return false;
   if (e.key.toLowerCase() !== s.key.toLowerCase()) return false;
   const mod = isMac() ? e.metaKey : e.ctrlKey;
   const oppositeMod = isMac() ? e.ctrlKey : e.metaKey;
