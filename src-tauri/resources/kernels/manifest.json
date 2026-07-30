@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "kernels": [
+    {
+      "id": "fingerprint-chromium",
+      "version": "148.0.7778.215",
+      "platform": "windows-x64",
+      "url": "https://github.com/adryfish/fingerprint-chromium/releases/download/148.0.7778.215/ungoogled-chromium_148.0.7778.215-1.1_windows_x64.zip",
+      "sha256": "9ef3f471b7a6641b4224532522b29141ce3746e27d55788d88e2fd951f362579",
+      "size": 189767686,
+      "executableCandidates": ["chrome.exe", "Chromium/Application/chrome.exe"],
+      "sourceStatus": "source-available"
+    }
+  ]
+}

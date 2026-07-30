@@ -1,0 +1,16 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Coco
+Name[en]=Coco
+GenericName=Web Browser
+X-GNOME-FullName=Coco
+Comment=Simple Yet Powerful Anti-Detect Browser
+Exec=cocobrowser %u
+Icon=cocobrowser
+StartupNotify=true
+NoDisplay=false
+Categories=Network;WebBrowser;
+MimeType=x-scheme-handler/http;x-scheme-handler/https;text/html;application/xhtml+xml;
+StartupWMClass=cocobrowser
+Keywords=browser;web;internet;productivity;

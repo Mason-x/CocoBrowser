@@ -1,0 +1,58 @@
+CocoBrowser
+===========
+
+CocoBrowser is a local-first, multi-profile fingerprint browser manager for
+Windows. It is a derivative work of Donut Browser.
+
+Upstream project
+----------------
+
+    Donut Browser
+    https://github.com/zhom/donutbrowser
+    Licensed under the GNU Affero General Public License, version 3
+
+CocoBrowser retains that licence. The full text is in the LICENSE file, and it
+applies to this work in its entirety, including the modifications listed below.
+Copyright in the unmodified portions remains with the original authors and
+contributors of Donut Browser.
+
+Nature of the modifications
+---------------------------
+
+Substantial changes were made relative to upstream:
+
+  * Replaced the browser kernel. Profiles run adryfish/fingerprint-chromium,
+    installed only from an audited manifest with a pinned SHA-256, instead of
+    the upstream Wayfern kernel.
+  * Removed the hosted-account surface. There is no sign-in, no subscription,
+    no remote entitlement delivery, and no reachable path to any Donut Browser
+    cloud service. Cloud-tier IPC commands are not registered.
+  * Added a local fingerprint Persona model with a stable per-profile seed,
+    a capability matrix, and consistency gating between the proxy exit location
+    and the profile's timezone and locale.
+  * Added a local fingerprint audit suite, including a ten-cold-start stability
+    check against the real kernel.
+  * Rebranded the product, including its name, icons and data directories.
+    "Donut Browser" and its logo are marks of the upstream project and are not
+    used by CocoBrowser.
+
+Third-party components
+----------------------
+
+Dependencies retain their own licences; see the respective package manifests
+(package.json, src-tauri/Cargo.toml) and lock files.
+
+The browser kernel (adryfish/fingerprint-chromium, a Chromium derivative) is
+downloaded at runtime rather than bundled, and is covered by its own licence.
+Its integrity is verified against a pinned SHA-256 before installation.
+
+The GeoIP database (GeoLite2-City) is downloaded at runtime and is subject to
+MaxMind's licence terms.
+
+Source availability
+-------------------
+
+The AGPL requires that recipients can obtain the corresponding source of the
+version they are running, including when the software is made available over a
+network (section 13). If you distribute or host a modified CocoBrowser, you
+must offer its complete source under the same licence.
