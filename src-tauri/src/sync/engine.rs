@@ -479,19 +479,6 @@ impl SyncEngine {
       return Ok(());
     }
 
-    // Skip if profile is locked by another team member
-    if crate::team_lock::TEAM_LOCK
-      .is_locked_by_another(&profile.id.to_string())
-      .await
-    {
-      log::info!(
-        "Skipping sync for profile locked by another team member: {} ({})",
-        profile.name,
-        profile.id
-      );
-      return Ok(());
-    }
-
     // Derive encryption key if encrypted sync
     let encryption_key = if profile.is_encrypted_sync() {
       let password = encryption::load_e2e_password()

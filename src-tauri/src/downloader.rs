@@ -538,12 +538,6 @@ impl Downloader {
     browser_str: String,
     version: String,
   ) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
-    // Only check Wayfern terms if Wayfern is already downloaded
-    let terms_manager = crate::wayfern_terms::WayfernTermsManager::instance();
-    if terms_manager.is_wayfern_downloaded() && !terms_manager.is_terms_accepted() {
-      return Err("Please accept Wayfern Terms and Conditions before downloading browsers".into());
-    }
-
     // Validate the browser type before touching the in-flight maps so a bad
     // request can't leave state behind.
     let browser_type =

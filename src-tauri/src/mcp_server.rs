@@ -18,7 +18,6 @@ use tokio::sync::Mutex as AsyncMutex;
 use uuid::Uuid;
 
 use crate::browser::ProxySettings;
-use crate::cloud_auth::CLOUD_AUTH;
 use crate::group_manager::GROUP_MANAGER;
 use crate::profile::{BrowserProfile, ProfileManager};
 use crate::proxy_manager::PROXY_MANAGER;
@@ -1594,9 +1593,7 @@ impl McpServer {
   ) -> Result<serde_json::Value, McpError> {
     if matches!(
       tool_name,
-      "get_team_locks"
-        | "get_team_lock_status"
-        | "start_sync_session"
+      "start_sync_session"
         | "stop_sync_session"
         | "get_sync_sessions"
         | "remove_sync_follower"
@@ -1683,8 +1680,6 @@ impl McpServer {
       // Cookie management
       "import_profile_cookies" => self.handle_import_profile_cookies(arguments).await,
       // Team lock tools
-      "get_team_locks" => self.handle_get_team_locks().await,
-      "get_team_lock_status" => self.handle_get_team_lock_status(arguments).await,
       // Synchronizer tools
       "start_sync_session" => {
         Self::require_capability("Synchronizer", true).await?;
@@ -1859,14 +1854,6 @@ impl McpServer {
       });
     }
 
-    // Team lock check
-    crate::team_lock::acquire_team_lock_if_needed(profile)
-      .await
-      .map_err(|e| McpError {
-        code: -32000,
-        message: e,
-      })?;
-
     // Get app handle to launch
     let inner = self.inner.lock().await;
     let app_handle = inner.app_handle.as_ref().ok_or_else(|| McpError {
@@ -1953,8 +1940,6 @@ impl McpServer {
         message: format!("Failed to kill browser: {e}"),
       })?;
 
-    crate::team_lock::release_team_lock_if_needed(profile).await;
-
     Ok(serde_json::json!({
       "content": [{
         "type": "text",
@@ -2027,10 +2012,6 @@ impl McpServer {
         lines.push(format!(
           "{profile_id}: unsupported browser (MCP supports fingerprint-chromium only)"
         ));
-        continue;
-      }
-      if let Err(e) = crate::team_lock::acquire_team_lock_if_needed(profile).await {
-        lines.push(format!("{profile_id}: {e}"));
         continue;
       }
       let cdp_port = match Self::find_free_loopback_port() {
@@ -2116,7 +2097,6 @@ impl McpServer {
         .await
       {
         Ok(_) => {
-          crate::team_lock::release_team_lock_if_needed(profile).await;
           stopped += 1;
           lines.push(format!("{}: stopped", profile.name));
         }
@@ -3683,50 +3663,6 @@ impl McpServer {
     Ok(serde_json::to_value(profile).unwrap())
   }
 
-  async fn handle_get_team_locks(&self) -> Result<serde_json::Value, McpError> {
-    if !CLOUD_AUTH.is_on_team_plan().await {
-      return Err(McpError {
-        code: -32000,
-        message: "Team features require an active team plan".to_string(),
-      });
-    }
-    let locks = crate::team_lock::TEAM_LOCK.get_locks().await;
-    Ok(serde_json::json!({
-      "content": [{
-        "type": "text",
-        "text": serde_json::to_string_pretty(&locks).unwrap_or_default()
-      }]
-    }))
-  }
-
-  async fn handle_get_team_lock_status(
-    &self,
-    arguments: &serde_json::Value,
-  ) -> Result<serde_json::Value, McpError> {
-    if !CLOUD_AUTH.is_on_team_plan().await {
-      return Err(McpError {
-        code: -32000,
-        message: "Team features require an active team plan".to_string(),
-      });
-    }
-    let profile_id = arguments
-      .get("profile_id")
-      .and_then(|v| v.as_str())
-      .ok_or_else(|| McpError {
-        code: -32602,
-        message: "Missing profile_id".to_string(),
-      })?;
-    let lock_status = crate::team_lock::TEAM_LOCK
-      .get_lock_status(profile_id)
-      .await;
-    Ok(serde_json::json!({
-      "content": [{
-        "type": "text",
-        "text": serde_json::to_string_pretty(&lock_status).unwrap_or_default()
-      }]
-    }))
-  }
-
   // --- CDP utility methods for browser interaction ---
 
   fn find_free_loopback_port() -> Result<u16, McpError> {
@@ -5146,8 +5082,6 @@ mod tests {
     // Cookie tools
     assert!(tool_names.contains(&"import_profile_cookies"));
     for inactive_tool in [
-      "get_team_locks",
-      "get_team_lock_status",
       "start_sync_session",
       "stop_sync_session",
       "get_sync_sessions",

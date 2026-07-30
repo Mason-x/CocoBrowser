@@ -1996,11 +1996,6 @@ async fn run_profile(
     return Err(StatusCode::BAD_REQUEST);
   }
 
-  // Team lock check (no-op without cloud team)
-  crate::team_lock::acquire_team_lock_if_needed(profile)
-    .await
-    .map_err(|_| StatusCode::CONFLICT)?;
-
   let remote_debugging_port = {
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
       .await
@@ -2108,7 +2103,6 @@ async fn kill_profile(
     .await
     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-  crate::team_lock::release_team_lock_if_needed(profile).await;
 
   Ok(StatusCode::NO_CONTENT)
 }
@@ -2163,13 +2157,6 @@ async fn batch_run_profiles(
     };
     if profile.is_cross_os() {
       results.push(fail("cross-OS profiles cannot be launched"));
-      continue;
-    }
-    if crate::team_lock::acquire_team_lock_if_needed(profile)
-      .await
-      .is_err()
-    {
-      results.push(fail("profile is locked by another team member"));
       continue;
     }
 
@@ -2251,8 +2238,7 @@ async fn batch_stop_profiles(
       .await
     {
       Ok(_) => {
-        crate::team_lock::release_team_lock_if_needed(profile).await;
-        results.push(BatchStopResult {
+              results.push(BatchStopResult {
           profile_id: profile_id.clone(),
           ok: true,
           error: None,

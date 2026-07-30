@@ -49,16 +49,13 @@ pub mod sync;
 mod synchronizer;
 pub mod traffic_stats;
 mod wayfern_manager;
-mod wayfern_terms;
 // mod theme_detector; // removed: theme detection handled in webview via CSS prefers-color-scheme
 pub mod cloud_auth;
-mod commercial_license;
 mod cookie_manager;
 pub mod events;
 mod mcp_integrations;
 mod mcp_server;
 mod tag_manager;
-mod team_lock;
 mod version_updater;
 pub mod vpn;
 pub mod vpn_worker_runner;
@@ -451,36 +448,10 @@ async fn export_profile_cookies(
   .map_err(|e| format!("Failed to export profile cookies: {e}"))?
 }
 
-#[tauri::command]
-fn check_wayfern_terms_accepted() -> bool {
-  wayfern_terms::WayfernTermsManager::instance().is_terms_accepted()
-}
 
-#[tauri::command]
-fn check_wayfern_downloaded() -> bool {
-  wayfern_terms::WayfernTermsManager::instance().is_wayfern_downloaded()
-}
 
-#[tauri::command]
-async fn get_commercial_trial_status(
-  app_handle: tauri::AppHandle,
-) -> Result<commercial_license::TrialStatus, String> {
-  commercial_license::CommercialLicenseManager::instance()
-    .get_trial_status(&app_handle)
-    .await
-}
 
-#[tauri::command]
-async fn acknowledge_trial_expiration(app_handle: tauri::AppHandle) -> Result<(), String> {
-  commercial_license::CommercialLicenseManager::instance()
-    .acknowledge_expiration(&app_handle)
-    .await
-}
 
-#[tauri::command]
-fn has_acknowledged_trial_expiration(app_handle: tauri::AppHandle) -> Result<bool, String> {
-  commercial_license::CommercialLicenseManager::instance().has_acknowledged(&app_handle)
-}
 
 #[tauri::command]
 async fn start_mcp_server(app_handle: tauri::AppHandle) -> Result<u16, String> {
@@ -2018,14 +1989,6 @@ pub fn run() {
 
                   // Release the cloud team lock when the browser exits naturally
                   // (window closed by the user). The explicit kill path in
-                  // browser_runner.rs already releases it, but this branch did
-                  // not — leaking the lock, which the 30s heartbeat then renews
-                  // indefinitely. No-op for non-sync/non-paid
-                  // profiles thanks to the guards inside the helper.
-                  if !is_running {
-                    crate::team_lock::release_team_lock_if_needed(&profile).await;
-                  }
-
                   last_running_states.insert(profile_id, is_running);
                 } else {
                   // Update the state even if unchanged to ensure we have it tracked
@@ -2312,11 +2275,6 @@ pub fn run() {
       copy_profile_cookies,
       import_cookies_from_file,
       export_profile_cookies,
-      check_wayfern_terms_accepted,
-      check_wayfern_downloaded,
-      get_commercial_trial_status,
-      acknowledge_trial_expiration,
-      has_acknowledged_trial_expiration,
       start_mcp_server,
       stop_mcp_server,
       get_mcp_server_status,
@@ -2343,8 +2301,6 @@ pub fn run() {
       cloud_auth::cloud_get_wayfern_token,
       cloud_auth::cloud_refresh_wayfern_token,
       // Team lock commands
-      team_lock::get_team_locks,
-      team_lock::get_team_lock_status,
       // Synchronizer commands
       synchronizer::start_sync_session,
       synchronizer::stop_sync_session,
@@ -2417,12 +2373,6 @@ mod tests {
       "cloud_get_wayfern_token",
       "cloud_refresh_wayfern_token",
       "lock_profile",
-      // Local-first: commercial trial / Wayfern license UI removed from the frontend.
-      "check_wayfern_terms_accepted",
-      "check_wayfern_downloaded",
-      "get_commercial_trial_status",
-      "has_acknowledged_trial_expiration",
-      "acknowledge_trial_expiration",
     ];
 
     // Extract command names from the generate_handler! macro in this file

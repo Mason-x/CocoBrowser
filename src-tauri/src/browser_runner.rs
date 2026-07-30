@@ -1584,9 +1584,6 @@ pub async fn launch_browser_profile_impl(
     ));
   }
 
-  // Team lock check: if profile is sync-enabled and user is on a team, acquire lock
-  crate::team_lock::acquire_team_lock_if_needed(&profile).await?;
-
   // Notify sync scheduler that profile is now running and queue sync for when it stops
   if let Some(scheduler) = crate::sync::get_global_scheduler() {
     let pid = profile.id.to_string();
@@ -1723,7 +1720,6 @@ pub async fn kill_browser_profile(
       );
 
       // Release team lock if applicable
-      crate::team_lock::release_team_lock_if_needed(&profile).await;
 
       // Notify sync scheduler that profile stopped (sync was queued at launch)
       if let Some(scheduler) = crate::sync::get_global_scheduler() {
