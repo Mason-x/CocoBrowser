@@ -7,10 +7,10 @@ use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use tokio_util::sync::CancellationToken;
 
-use crate::api_client::ApiClient;
 use crate::browser::{create_browser, BrowserType};
 use crate::browser_version_manager::DownloadInfo;
 use crate::events;
+use crate::version_cache::VersionCache;
 
 // Maximum time to wait for the next chunk of a streaming download before treating
 // the connection as stalled. Converts an indefinite hang into a terminal error so
@@ -55,7 +55,7 @@ pub struct DownloadProgress {
 
 pub struct Downloader {
   client: Client,
-  api_client: &'static ApiClient,
+  version_cache: &'static VersionCache,
   registry: &'static crate::downloaded_browsers_registry::DownloadedBrowsersRegistry,
   version_service: &'static crate::browser_version_manager::BrowserVersionManager,
   extractor: &'static crate::extraction::Extractor,
@@ -73,7 +73,7 @@ impl Downloader {
         .read_timeout(STREAM_IDLE_TIMEOUT)
         .build()
         .unwrap_or_else(|_| Client::new()),
-      api_client: ApiClient::instance(),
+      version_cache: VersionCache::instance(),
       registry: crate::downloaded_browsers_registry::DownloadedBrowsersRegistry::instance(),
       version_service: crate::browser_version_manager::BrowserVersionManager::instance(),
       extractor: crate::extraction::Extractor::instance(),
@@ -88,7 +88,7 @@ impl Downloader {
   pub fn new_for_test() -> Self {
     Self {
       client: Client::new(),
-      api_client: ApiClient::instance(),
+      version_cache: VersionCache::instance(),
       registry: crate::downloaded_browsers_registry::DownloadedBrowsersRegistry::instance(),
       version_service: crate::browser_version_manager::BrowserVersionManager::instance(),
       extractor: crate::extraction::Extractor::instance(),
@@ -504,31 +504,6 @@ impl Downloader {
     let browser_type =
       BrowserType::from_str(&browser_str).map_err(|e| format!("Invalid browser type: {e}"))?;
     let browser = create_browser(browser_type.clone());
-
-    // For Wayfern, only the currently published version can be fetched.
-    // Requesting any other not-yet-downloaded version is an error — silently
-    // substituting the latest would install a version the caller never asked
-    // for while the response still echoes the requested one. The fetch must
-    // succeed too: proceeding unverified would let resolve_download_url fetch
-    // the current build into the requested version's directory (a mislabeled
-    // install), and that URL resolution needs the same endpoint anyway.
-    if browser_str == "wayfern" && !self.registry.is_browser_downloaded(&browser_str, &version) {
-      let info = self
-        .api_client
-        .fetch_wayfern_version_with_caching(true)
-        .await
-        .map_err(|e| format!("Failed to determine the current Wayfern version: {e}"))?;
-      if info.version != version {
-        return Err(
-          serde_json::json!({
-            "code": "KERNEL_VERSION_NOT_AVAILABLE",
-            "params": { "requested": version, "current": info.version }
-          })
-          .to_string()
-          .into(),
-        );
-      }
-    }
 
     // Check if this browser-version pair is already being downloaded
     let download_key = format!("{browser_str}-{version}");

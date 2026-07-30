@@ -29,35 +29,20 @@ pub enum SyncWorkItem {
   Tombstone(String, String),
 }
 
-/// Where a subscription's sync token comes from, so reconnects can re-fetch a
-/// fresh one (tokens are short-lived, ~15 min).
-#[derive(Clone, Copy)]
-enum TokenSource {
-  Cloud,
-  SelfHosted,
-}
-
 pub struct SyncSubscription {
   client: Client,
   base_url: String,
   token: String,
-  source: TokenSource,
   running: Arc<AtomicBool>,
   work_tx: mpsc::UnboundedSender<SyncWorkItem>,
 }
 
 impl SyncSubscription {
-  fn new(
-    base_url: String,
-    token: String,
-    source: TokenSource,
-    work_tx: mpsc::UnboundedSender<SyncWorkItem>,
-  ) -> Self {
+  fn new(base_url: String, token: String, work_tx: mpsc::UnboundedSender<SyncWorkItem>) -> Self {
     Self {
       client: Client::new(),
       base_url: base_url.trim_end_matches('/').to_string(),
       token,
-      source,
       running: Arc::new(AtomicBool::new(false)),
       work_tx,
     }
@@ -67,20 +52,6 @@ impl SyncSubscription {
     app_handle: &tauri::AppHandle,
     work_tx: mpsc::UnboundedSender<SyncWorkItem>,
   ) -> Result<Option<Self>, String> {
-    // Cloud auth takes priority
-    if crate::cloud_auth::CLOUD_AUTH.is_logged_in().await {
-      let url = crate::cloud_auth::CLOUD_SYNC_URL.to_string();
-      let token = crate::cloud_auth::CLOUD_AUTH
-        .get_or_refresh_sync_token()
-        .await
-        .map_err(|e| format!("Failed to get cloud sync token: {e}"))?;
-      let Some(token) = token else {
-        return Ok(None);
-      };
-      return Ok(Some(Self::new(url, token, TokenSource::Cloud, work_tx)));
-    }
-
-    // Fall back to self-hosted settings
     let manager = SettingsManager::instance();
     let settings = manager
       .load_settings()
@@ -99,12 +70,7 @@ impl SyncSubscription {
       return Ok(None);
     };
 
-    Ok(Some(Self::new(
-      server_url,
-      token,
-      TokenSource::SelfHosted,
-      work_tx,
-    )))
+    Ok(Some(Self::new(server_url, token, work_tx)))
   }
 
   pub fn is_running(&self) -> bool {
@@ -122,7 +88,6 @@ impl SyncSubscription {
 
     let running = self.running.clone();
     let base_url = self.base_url.clone();
-    let source = self.source;
     let work_tx = self.work_tx.clone();
     let client = self.client.clone();
     let mut token = self.token.clone();
@@ -147,7 +112,7 @@ impl SyncSubscription {
           // expired while the stream was open (tokens last ~15 min); reusing
           // the construction-time token otherwise produces an endless 401
           // reconnect loop until the app is restarted.
-          match Self::fetch_sync_token(source, &app_handle).await {
+          match Self::fetch_sync_token(&app_handle).await {
             Ok(Some(fresh)) => token = fresh,
             Ok(None) => {
               log::info!("Sync token no longer available; stopping subscription");
@@ -164,22 +129,12 @@ impl SyncSubscription {
     });
   }
 
-  /// Fetch a current sync token from the same source the subscription was
-  /// created from, so reconnects never reuse a stale (expired) token.
-  async fn fetch_sync_token(
-    source: TokenSource,
-    app_handle: &tauri::AppHandle,
-  ) -> Result<Option<String>, String> {
-    match source {
-      TokenSource::Cloud => crate::cloud_auth::CLOUD_AUTH
-        .get_or_refresh_sync_token()
-        .await
-        .map_err(|e| format!("Failed to refresh cloud sync token: {e}")),
-      TokenSource::SelfHosted => SettingsManager::instance()
-        .get_sync_token(app_handle)
-        .await
-        .map_err(|e| format!("Failed to refresh self-hosted sync token: {e}")),
-    }
+  /// Fetch a current sync token so reconnects never reuse a stale (expired) one.
+  async fn fetch_sync_token(app_handle: &tauri::AppHandle) -> Result<Option<String>, String> {
+    SettingsManager::instance()
+      .get_sync_token(app_handle)
+      .await
+      .map_err(|e| format!("Failed to refresh self-hosted sync token: {e}"))
   }
 
   async fn connect_and_listen(

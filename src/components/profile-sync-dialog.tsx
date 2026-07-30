@@ -16,8 +16,6 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { useCloudAuth } from "@/hooks/use-cloud-auth";
-import { getEntitlements } from "@/lib/entitlements";
 import { showErrorToast, showSuccessToast } from "@/lib/toast-utils";
 import type { BrowserProfile, SyncMode, SyncSettings } from "@/types";
 import { isSyncEnabled } from "@/types";
@@ -36,13 +34,9 @@ export function ProfileSyncDialog({
   onSyncConfigOpen,
 }: ProfileSyncDialogProps) {
   const { t } = useTranslation();
-  const { user: cloudUser } = useCloudAuth();
-  const isCloudSyncEligible = getEntitlements(cloudUser).cloudBackup;
-  // Encryption available to everyone except team members who aren't owners
-  const canUseEncryption =
-    cloudUser == null ||
-    cloudUser.plan !== "team" ||
-    cloudUser.teamRole === "owner";
+  // Encryption is always available: the only restriction was for non-owner
+  // members of a hosted team, and this build has no accounts.
+  const canUseEncryption = true;
   const [isSaving, setIsSaving] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncMode, setSyncMode] = useState<SyncMode>(
@@ -53,7 +47,8 @@ export function ProfileSyncDialog({
   const [isCheckingConfig, setIsCheckingConfig] = useState(false);
   const [userChangedMode, setUserChangedMode] = useState(false);
 
-  const hasConfig = isCloudSyncEligible || hasSelfHostedConfig;
+  // Self-hosted is the only sync backend in this build.
+  const hasConfig = hasSelfHostedConfig;
 
   const checkSyncConfig = useCallback(async () => {
     setIsCheckingConfig(true);
@@ -129,15 +124,7 @@ export function ProfileSyncDialog({
         setIsSaving(false);
       }
     },
-    [
-      profile,
-      hasConfig,
-      hasE2ePassword,
-      canUseEncryption,
-      onSyncConfigOpen,
-      onClose,
-      t,
-    ],
+    [profile, hasConfig, hasE2ePassword, onSyncConfigOpen, onClose, t],
   );
 
   const handleSyncNow = useCallback(async () => {

@@ -319,7 +319,7 @@ impl DownloadedBrowsersRegistry {
         if versions.len() >= total {
           if let Some(latest) = versions
             .iter()
-            .max_by(|a, b| crate::api_client::compare_versions(a, b))
+            .max_by(|a, b| crate::version_cache::compare_versions(a, b))
           {
             keep_per_browser.insert(browser.clone(), latest.clone());
           }
@@ -736,7 +736,7 @@ impl DownloadedBrowsersRegistry {
       // Sort available versions to find the latest
       available_versions.sort_by(|a, b| {
         // Sort versions using semantic versioning logic
-        crate::api_client::compare_versions(b, a)
+        crate::version_cache::compare_versions(b, a)
       });
 
       let latest_version = &available_versions[0];
@@ -1266,132 +1266,12 @@ mod tests {
 #[allow(dead_code)]
 #[tauri::command]
 pub async fn ensure_active_browsers_downloaded(
-  app_handle: tauri::AppHandle,
+  _app_handle: tauri::AppHandle,
 ) -> Result<Vec<String>, String> {
-  let registry = DownloadedBrowsersRegistry::instance();
-  let version_manager = crate::browser_version_manager::BrowserVersionManager::instance();
-  let mut downloaded = Vec::new();
-
-  // Compatibility entry point only. Installs are explicit user actions in the
-  // local-first build, so the startup path must not enqueue any browser.
-  for browser in &[] as &[&str] {
-    // Check if any version is already downloaded
-    let existing = registry.get_downloaded_versions(browser);
-    if !existing.is_empty() {
-      log::info!(
-        "ensure_active: Skipping {browser}: already have {} version(s) downloaded",
-        existing.len()
-      );
-      continue;
-    }
-    log::info!("ensure_active: No {browser} versions found, will download");
-
-    // Resolve the version to download. For wayfern, only the currently
-    // published version is downloadable, so ask the API fresh — the release-type
-    // cache can be stale right after a new version is published, and the
-    // downloader rejects requests for versions that are no longer available.
-    let version = if *browser == "wayfern" {
-      match crate::api_client::ApiClient::instance()
-        .fetch_wayfern_version_with_caching(true)
-        .await
-      {
-        Ok(info) => info.version,
-        Err(e) => {
-          log::warn!("Failed to resolve current {browser} version: {e}");
-          continue;
-        }
-      }
-    } else {
-      // Get the latest release type for this browser
-      let release_types = match version_manager.get_browser_release_types(browser).await {
-        Ok(rt) => rt,
-        Err(e) => {
-          log::warn!("Failed to get release types for {browser}: {e}");
-          continue;
-        }
-      };
-
-      // Use stable version (the only release type for these browsers)
-      match release_types.stable {
-        Some(v) => v,
-        None => {
-          log::debug!("No stable version available for {browser} on this platform, skipping");
-          continue;
-        }
-      }
-    };
-
-    log::info!("Auto-downloading {browser} {version} (no versions found locally)");
-
-    // Retry transient failures a few times. Each attempt is wrapped in an overall
-    // timeout so that a hang anywhere in the download pipeline (version resolution,
-    // a stalled stream, extraction) cannot block the next browser forever. This is
-    // the core of the bug fix: Wayfern downloads proceed independently.
-    const MAX_ATTEMPTS: u32 = 3;
-    const ATTEMPT_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(600);
-    let mut succeeded = false;
-    for attempt in 1..=MAX_ATTEMPTS {
-      let result = tokio::time::timeout(
-        ATTEMPT_TIMEOUT,
-        crate::downloader::download_browser(
-          app_handle.clone(),
-          browser.to_string(),
-          version.clone(),
-        ),
-      )
-      .await;
-
-      match result {
-        Ok(Ok(_)) => {
-          downloaded.push(format!("{browser} {version}"));
-          log::info!("Successfully auto-downloaded {browser} {version}");
-          succeeded = true;
-          break;
-        }
-        Ok(Err(e)) => {
-          log::warn!(
-            "Failed to auto-download {browser} {version} (attempt {attempt}/{MAX_ATTEMPTS}): {e}"
-          );
-        }
-        Err(_) => {
-          // The download future itself hung past the overall timeout and was dropped,
-          // so its own cleanup never ran. Clear any leftover in-progress bookkeeping
-          // (by browser prefix, as a catch-all for whatever key was in flight) and
-          // emit a terminal error event so the UI stops spinning.
-          log::warn!(
-            "Auto-download of {browser} {version} timed out after {}s (attempt {attempt}/{MAX_ATTEMPTS})",
-            ATTEMPT_TIMEOUT.as_secs()
-          );
-          crate::downloader::clear_download_state_for_browser(browser);
-          let progress = crate::downloader::DownloadProgress {
-            browser: (*browser).to_string(),
-            version: version.clone(),
-            downloaded_bytes: 0,
-            total_bytes: None,
-            percentage: 0.0,
-            speed_bytes_per_sec: 0.0,
-            eta_seconds: None,
-            stage: "error".to_string(),
-          };
-          let _ = crate::events::emit("download-progress", &progress);
-        }
-      }
-
-      if attempt < MAX_ATTEMPTS {
-        // Short backoff before retrying a transient failure.
-        let backoff = std::time::Duration::from_secs(2u64.pow(attempt - 1));
-        tokio::time::sleep(backoff).await;
-      }
-    }
-
-    if !succeeded {
-      // Do NOT abort the whole routine: continue with remaining browsers
-      // still gets its chance even though this one failed/timed out.
-      log::warn!("Giving up on auto-download of {browser} {version} after {MAX_ATTEMPTS} attempts");
-    }
-  }
-
-  Ok(downloaded)
+  // Kept as a compatibility entry point only. Installing a kernel is an explicit
+  // user action in this build, so startup never enqueues a download. The previous
+  // body iterated an empty slice and could not run.
+  Ok(Vec::new())
 }
 
 #[tauri::command]

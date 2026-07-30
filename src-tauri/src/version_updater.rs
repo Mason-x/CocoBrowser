@@ -466,7 +466,7 @@ pub async fn get_version_update_status() -> Result<(Option<u64>, u64), String> {
 pub async fn clear_all_version_cache_and_refetch(
   app_handle: tauri::AppHandle,
 ) -> Result<(), String> {
-  let api_client = crate::api_client::ApiClient::instance();
+  let api_client = crate::version_cache::VersionCache::instance();
   let version_updater = VersionUpdater::new();
 
   // Clear all cache first

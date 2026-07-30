@@ -1,6 +1,6 @@
 #![allow(dead_code)] // Legacy Wayfern metadata remains readable for migrated profiles.
 
-use crate::api_client::{sort_versions, ApiClient, BrowserRelease};
+use crate::version_cache::{sort_versions, BrowserRelease, VersionCache};
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
@@ -30,13 +30,13 @@ pub struct DownloadInfo {
 }
 
 pub struct BrowserVersionManager {
-  api_client: &'static ApiClient,
+  version_cache: &'static VersionCache,
 }
 
 impl BrowserVersionManager {
   fn new() -> Self {
     Self {
-      api_client: ApiClient::instance(),
+      version_cache: VersionCache::instance(),
     }
   }
 
@@ -88,7 +88,7 @@ impl BrowserVersionManager {
   /// Get cached browser versions immediately (returns None if no cache exists)
   pub fn get_cached_browser_versions(&self, browser: &str) -> Option<Vec<String>> {
     self
-      .api_client
+      .version_cache
       .load_cached_versions(browser)
       .map(|releases| releases.into_iter().map(|r| r.version).collect())
   }
@@ -98,7 +98,7 @@ impl BrowserVersionManager {
     &self,
     browser: &str,
   ) -> Option<Vec<BrowserVersionInfo>> {
-    let cached_releases = self.api_client.load_cached_versions(browser)?;
+    let cached_releases = self.version_cache.load_cached_versions(browser)?;
 
     // Convert cached versions to detailed info (without dates since cache doesn't store them)
     let detailed_info: Vec<BrowserVersionInfo> = cached_releases
@@ -114,7 +114,7 @@ impl BrowserVersionManager {
 
   /// Check if cache should be updated (expired or doesn't exist)
   pub fn should_update_cache(&self, browser: &str) -> bool {
-    self.api_client.is_cache_expired(browser)
+    self.version_cache.is_cache_expired(browser)
   }
 
   /// Get the latest Wayfern version (fresh cache first)
@@ -140,7 +140,7 @@ impl BrowserVersionManager {
     // Only trust an unexpired cache. A stale entry can point at a version that
     // is no longer published — the downloader rejects such requests, so serving
     // it here would make every download started from this list fail.
-    if !self.api_client.is_cache_expired(browser) {
+    if !self.version_cache.is_cache_expired(browser) {
       if let Some(cached_versions) = self.get_cached_browser_versions_detailed(browser) {
         return Ok(BrowserReleaseTypes {
           stable: cached_versions.first().map(|v| v.version.clone()),
@@ -183,7 +183,7 @@ impl BrowserVersionManager {
   ) -> Result<BrowserVersionsResult, Box<dyn std::error::Error + Send + Sync>> {
     // Get existing cached versions to compare and merge
     let existing_versions = self
-      .api_client
+      .version_cache
       .load_cached_versions(browser)
       .unwrap_or_default();
     let existing_set: HashSet<String> = existing_versions.into_iter().map(|r| r.version).collect();
@@ -202,7 +202,6 @@ impl BrowserVersionManager {
           .ok_or("no audited fingerprint-chromium version in manifest")?;
         vec![v]
       }
-      "wayfern" => self.fetch_wayfern_versions(true).await?,
       _ => return Err(format!("Unsupported browser: {browser}").into()),
     };
 
@@ -220,7 +219,7 @@ impl BrowserVersionManager {
     let mut merged_versions: Vec<String> = existing_set.union(&fresh_set).cloned().collect();
 
     // Sort versions using the existing sorting logic
-    crate::api_client::sort_versions(&mut merged_versions);
+    crate::version_cache::sort_versions(&mut merged_versions);
 
     // Save the merged cache (unless explicitly bypassing cache)
     if !no_caching {
@@ -232,7 +231,7 @@ impl BrowserVersionManager {
         })
         .collect();
       if let Err(e) = self
-        .api_client
+        .version_cache
         .save_cached_versions(browser, &merged_releases)
       {
         log::error!("Failed to save merged cache for {browser}: {e}");
@@ -285,7 +284,7 @@ impl BrowserVersionManager {
   ) -> Result<usize, Box<dyn std::error::Error + Send + Sync>> {
     // Get existing cached versions
     let existing_versions = self
-      .api_client
+      .version_cache
       .load_cached_versions(browser)
       .unwrap_or_default();
     let existing_set: HashSet<String> = existing_versions.into_iter().map(|r| r.version).collect();
@@ -312,7 +311,7 @@ impl BrowserVersionManager {
         date: "".to_string(),
       })
       .collect();
-    if let Err(e) = self.api_client.save_cached_versions(browser, &releases) {
+    if let Err(e) = self.version_cache.save_cached_versions(browser, &releases) {
       log::error!("Failed to save updated cache for {browser}: {e}");
     }
 
@@ -387,27 +386,6 @@ impl BrowserVersionManager {
     };
 
     (os.to_string(), arch.to_string())
-  }
-
-  async fn fetch_wayfern_versions(
-    &self,
-    no_caching: bool,
-  ) -> Result<Vec<String>, Box<dyn std::error::Error + Send + Sync>> {
-    let version_info = self
-      .api_client
-      .fetch_wayfern_version_with_caching(no_caching)
-      .await?;
-
-    // Check if current platform has a download available
-    if self
-      .api_client
-      .has_wayfern_compatible_download(&version_info)
-    {
-      Ok(vec![version_info.version])
-    } else {
-      // No compatible download for current platform
-      Ok(vec![])
-    }
   }
 }
 

@@ -97,7 +97,7 @@ interface ProfileInfoDialogProps {
   onOpenTrafficDialog?: (profileId: string) => void;
   onOpenProfileSyncDialog?: (profile: BrowserProfile) => void;
   onAssignProfilesToGroup?: (profileIds: string[]) => void;
-  onConfigureWayfern?: (profile: BrowserProfile) => void;
+  onConfigureIdentity?: (profile: BrowserProfile) => void;
   onCopyCookiesToProfile?: (profile: BrowserProfile) => void;
   onOpenCookieManagement?: (profile: BrowserProfile) => void;
   onAssignExtensionGroup?: (profileIds: string[]) => void;
@@ -273,7 +273,7 @@ export function ProfileInfoDialog({
   onOpenTrafficDialog,
   onOpenProfileSyncDialog,
   onAssignProfilesToGroup,
-  onConfigureWayfern,
+  onConfigureIdentity,
   onCopyCookiesToProfile,
   onOpenCookieManagement,
   onAssignExtensionGroup,
@@ -419,7 +419,7 @@ export function ProfileInfoDialog({
           ? t("identity.configure")
           : t("profiles.actions.changeFingerprint"),
       onClick: () => {
-        handleAction(() => onConfigureWayfern?.(profile));
+        handleAction(() => onConfigureIdentity?.(profile));
       },
       disabled: isDisabled,
       proBadge: false,
@@ -428,7 +428,7 @@ export function ProfileInfoDialog({
         !(
           profile.browser === "fingerprint-chromium" ||
           profile.browser === "wayfern"
-        ) || !onConfigureWayfern,
+        ) || !onConfigureIdentity,
     },
     {
       id: "audit",

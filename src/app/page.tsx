@@ -43,7 +43,6 @@ import { SyncFollowerDialog } from "@/components/sync-follower-dialog";
 import { ThankYouDialog } from "@/components/thank-you-dialog";
 import { WelcomeDialog } from "@/components/welcome-dialog";
 import { WindowResizeWarningDialog } from "@/components/window-resize-warning-dialog";
-import { useCloudAuth } from "@/hooks/use-cloud-auth";
 import { useGroupEvents } from "@/hooks/use-group-events";
 import type { PermissionType } from "@/hooks/use-permissions";
 import { usePermissions } from "@/hooks/use-permissions";
@@ -196,8 +195,6 @@ export default function Home() {
   const [syncLeaderProfile, setSyncLeaderProfile] =
     useState<BrowserProfile | null>(null);
 
-  // Cloud auth retained only for optional self-hosted sync configuration.
-  const { user: cloudUser } = useCloudAuth();
   // Local automation is not a cloud entitlement. Cross-OS spoofing stays
   // disabled because fingerprint-chromium cannot safely honor it.
   const crossOsUnlocked = false;
@@ -212,11 +209,11 @@ export default function Home() {
       const hasConfig = Boolean(
         settings.sync_server_url && settings.sync_token,
       );
-      setSelfHostedSyncConfigured(hasConfig && !cloudUser);
+      setSelfHostedSyncConfigured(hasConfig);
     } catch {
       setSelfHostedSyncConfigured(false);
     }
-  }, [cloudUser]);
+  }, []);
 
   const syncUnlocked = crossOsUnlocked || selfHostedSyncConfigured;
 
@@ -1441,7 +1438,7 @@ export default function Home() {
                 onRemovePassword={handleRemovePassword}
                 onDeleteProfile={handleDeleteProfile}
                 onRenameProfile={handleRenameProfile}
-                onConfigureWayfern={handleConfigureIdentity}
+                onConfigureIdentity={handleConfigureIdentity}
                 onCopyCookiesToProfile={handleCopyCookiesToProfile}
                 onOpenCookieManagement={handleOpenCookieManagement}
                 runningProfiles={runningProfiles}

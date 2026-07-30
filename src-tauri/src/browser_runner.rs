@@ -129,7 +129,6 @@ impl BrowserRunner {
     remote_debugging_port: Option<u16>,
     headless: bool,
   ) -> Result<BrowserProfile, Box<dyn std::error::Error + Send + Sync>> {
-
     // fingerprint-chromium: Persona + Job Object + geo gate via KernelDriver.
     if profile.browser == "fingerprint-chromium" {
       use crate::kernel::geo_consistency::{
@@ -655,7 +654,6 @@ impl BrowserRunner {
       return Ok(());
     }
 
-
     Err(
       format!(
         "Unsupported browser '{}' for profile '{}' — only Wayfern is supported",
@@ -887,7 +885,7 @@ pub async fn kill_browser_profile(
         let registry = crate::downloaded_browsers_registry::DownloadedBrowsersRegistry::instance();
         let mut versions = registry.get_downloaded_versions(&browser_for_update);
         if !versions.is_empty() {
-          versions.sort_by(|a, b| crate::api_client::compare_versions(b, a));
+          versions.sort_by(|a, b| crate::version_cache::compare_versions(b, a));
           let latest_version = &versions[0];
 
           let auto_updater = crate::auto_updater::AutoUpdater::instance();

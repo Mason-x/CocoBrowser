@@ -1593,10 +1593,7 @@ impl McpServer {
   ) -> Result<serde_json::Value, McpError> {
     if matches!(
       tool_name,
-      "start_sync_session"
-        | "stop_sync_session"
-        | "get_sync_sessions"
-        | "remove_sync_follower"
+      "start_sync_session" | "stop_sync_session" | "get_sync_sessions" | "remove_sync_follower"
     ) {
       return Err(McpError {
         code: -32601,
@@ -2166,7 +2163,7 @@ impl McpServer {
       .filter(|entry| std::path::Path::new(&entry.executable).is_file())
       .map(|entry| entry.version.clone())
       .collect();
-    versions.sort_by(|a, b| crate::api_client::compare_versions(b, a));
+    versions.sort_by(|a, b| crate::version_cache::compare_versions(b, a));
     let version = versions.first().ok_or_else(|| McpError {
       code: -32000,
       message: format!("No installed kernel found for {browser}. Install it first."),

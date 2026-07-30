@@ -21,13 +21,11 @@ fn atomic_write(path: &Path, data: &[u8]) -> std::io::Result<()> {
   fs::rename(&tmp, path)
 }
 
-pub struct ProfileManager {
-}
+pub struct ProfileManager {}
 
 impl ProfileManager {
   fn new() -> Self {
-    Self {
-    }
+    Self {}
   }
 
   pub fn instance() -> &'static ProfileManager {
@@ -1370,7 +1368,6 @@ impl ProfileManager {
 
     Ok(is_running)
   }
-
 }
 
 #[cfg(test)]

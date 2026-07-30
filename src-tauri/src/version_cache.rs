@@ -1,4 +1,9 @@
-use reqwest::Client;
+//! Browser version comparison and on-disk version cache.
+//!
+//! This module performs no network I/O. It used to also fetch the upstream
+//! engine's published version over HTTP; that endpoint belonged to the upstream
+//! project's service and was removed with the engine.
+
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
@@ -90,41 +95,22 @@ pub struct BrowserRelease {
   pub date: String,
 }
 
-/// Wayfern version info from https://cocobrowser.com/wayfern.json
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct WayfernVersionInfo {
-  pub version: String,
-  pub downloads: std::collections::HashMap<String, Option<String>>,
-}
-
+/// On-disk cache entry for a browser's version list.
 #[derive(Debug, Serialize, Deserialize)]
 struct CachedVersionData {
   releases: Vec<BrowserRelease>,
   timestamp: u64,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-struct CachedWayfernData {
-  version_info: WayfernVersionInfo,
-  timestamp: u64,
-}
+pub struct VersionCache;
 
-pub struct ApiClient {
-  client: Client,
-}
-
-impl ApiClient {
+impl VersionCache {
   pub fn new() -> Self {
-    let client = Client::builder()
-      .timeout(std::time::Duration::from_secs(30))
-      .build()
-      .unwrap_or_else(|_| Client::new());
-
-    Self { client }
+    Self
   }
 
-  pub fn instance() -> &'static ApiClient {
-    &API_CLIENT
+  pub fn instance() -> &'static VersionCache {
+    &VERSION_CACHE
   }
 
   fn get_cache_dir() -> Result<PathBuf, Box<dyn std::error::Error + Send + Sync>> {
@@ -218,143 +204,6 @@ impl ApiClient {
     Ok(())
   }
 
-  fn load_cached_wayfern_version(&self) -> Option<WayfernVersionInfo> {
-    let cache_dir = Self::get_cache_dir().ok()?;
-    let cache_file = cache_dir.join("wayfern_version.json");
-
-    if !cache_file.exists() {
-      return None;
-    }
-
-    let content = fs::read_to_string(&cache_file).ok()?;
-    let cached_data: CachedWayfernData = serde_json::from_str(&content).ok()?;
-
-    Some(cached_data.version_info)
-  }
-
-  fn save_cached_wayfern_version(
-    &self,
-    version_info: &WayfernVersionInfo,
-  ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let cache_dir = Self::get_cache_dir()?;
-    let cache_file = cache_dir.join("wayfern_version.json");
-
-    let cached_data = CachedWayfernData {
-      version_info: version_info.clone(),
-      timestamp: Self::get_current_timestamp(),
-    };
-
-    let content = serde_json::to_string_pretty(&cached_data)?;
-    fs::write(&cache_file, content)?;
-    log::info!("Cached Wayfern version: {}", version_info.version);
-    Ok(())
-  }
-
-  /// Fetch Wayfern version info from https://cocobrowser.com/wayfern.json
-  pub async fn fetch_wayfern_version_with_caching(
-    &self,
-    no_caching: bool,
-  ) -> Result<WayfernVersionInfo, Box<dyn std::error::Error + Send + Sync>> {
-    if !no_caching {
-      if let Some(cached_version) = self.load_cached_wayfern_version() {
-        log::info!("Using cached Wayfern version: {}", cached_version.version);
-        return Ok(cached_version);
-      }
-    }
-
-    log::info!("Fetching Wayfern version from https://cocobrowser.com/wayfern.json");
-    let url = "https://cocobrowser.com/wayfern.json";
-
-    let mut last_err = None;
-    let mut version_info: Option<WayfernVersionInfo> = None;
-
-    for attempt in 1..=3 {
-      match self
-        .client
-        .get(url)
-        .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36")
-        .send()
-        .await
-      {
-        Ok(response) => {
-          if !response.status().is_success() {
-            last_err = Some(format!("HTTP {}", response.status().as_u16()));
-          } else {
-            match response.json::<WayfernVersionInfo>().await {
-              Ok(info) => {
-                version_info = Some(info);
-                break;
-              }
-              Err(e) => last_err = Some(format!("Failed to parse response: {e}")),
-            }
-          }
-        }
-        Err(e) => {
-          log::warn!("Wayfern fetch attempt {attempt}/3 failed: {e}");
-          last_err = Some(e.to_string());
-        }
-      }
-
-      if attempt < 3 {
-        tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
-      }
-    }
-
-    let version_info = version_info.ok_or_else(|| {
-      format!(
-        "Failed to fetch Wayfern version after 3 attempts: {}",
-        last_err.unwrap_or_default()
-      )
-    })?;
-    log::info!("Fetched Wayfern version: {}", version_info.version);
-
-    if !no_caching {
-      if let Err(e) = self.save_cached_wayfern_version(&version_info) {
-        log::error!("Failed to cache Wayfern version: {e}");
-      }
-    }
-
-    Ok(version_info)
-  }
-
-  /// Get the download URL for Wayfern based on current platform
-  pub fn get_wayfern_download_url(&self, version_info: &WayfernVersionInfo) -> Option<String> {
-    let (os, arch) = Self::get_platform_info();
-    let platform_key = format!("{os}-{arch}");
-
-    version_info
-      .downloads
-      .get(&platform_key)
-      .and_then(|url| url.clone())
-  }
-
-  /// Check if Wayfern has a compatible download for current platform
-  pub fn has_wayfern_compatible_download(&self, version_info: &WayfernVersionInfo) -> bool {
-    self.get_wayfern_download_url(version_info).is_some()
-  }
-
-  fn get_platform_info() -> (String, String) {
-    let os = if cfg!(target_os = "windows") {
-      "windows"
-    } else if cfg!(target_os = "linux") {
-      "linux"
-    } else if cfg!(target_os = "macos") {
-      "macos"
-    } else {
-      "unknown"
-    };
-
-    let arch = if cfg!(target_arch = "x86_64") {
-      "x64"
-    } else if cfg!(target_arch = "aarch64") {
-      "arm64"
-    } else {
-      "unknown"
-    };
-
-    (os.to_string(), arch.to_string())
-  }
-
   pub fn clear_all_cache(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let cache_dir = Self::get_cache_dir()?;
 
@@ -375,7 +224,7 @@ impl ApiClient {
 }
 
 lazy_static::lazy_static! {
-  static ref API_CLIENT: ApiClient = ApiClient::new();
+  static ref VERSION_CACHE: VersionCache = VersionCache::new();
 }
 
 #[cfg(test)]

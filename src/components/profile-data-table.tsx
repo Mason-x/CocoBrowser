@@ -84,7 +84,6 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useBrowserState } from "@/hooks/use-browser-state";
-import { useCloudAuth } from "@/hooks/use-cloud-auth";
 import { useProxyEvents } from "@/hooks/use-proxy-events";
 import { useScrollFade } from "@/hooks/use-scroll-fade";
 import { useTableSorting } from "@/hooks/use-table-sorting";
@@ -219,7 +218,7 @@ interface TableMeta {
 
   // Overflow actions
   onAssignProfilesToGroup?: (profileIds: string[]) => void;
-  onConfigureWayfern?: (profile: BrowserProfile) => void;
+  onConfigureIdentity?: (profile: BrowserProfile) => void;
   onCloneProfile?: (profile: BrowserProfile) => void;
   onCopyCookiesToProfile?: (profile: BrowserProfile) => void;
   onOpenCookieManagement?: (profile: BrowserProfile) => void;
@@ -1178,7 +1177,7 @@ interface ProfilesDataTableProps {
   onCloneProfile: (profile: BrowserProfile) => void | Promise<void>;
   onDeleteProfile: (profile: BrowserProfile) => void | Promise<void>;
   onRenameProfile: (profileId: string, newName: string) => Promise<void>;
-  onConfigureWayfern: (profile: BrowserProfile) => void;
+  onConfigureIdentity: (profile: BrowserProfile) => void;
   onCopyCookiesToProfile?: (profile: BrowserProfile) => void;
   onOpenCookieManagement?: (profile: BrowserProfile) => void;
   runningProfiles: Set<string>;
@@ -1228,7 +1227,7 @@ export function ProfilesDataTable({
   onCloneProfile,
   onDeleteProfile,
   onRenameProfile,
-  onConfigureWayfern,
+  onConfigureIdentity,
   onCopyCookiesToProfile,
   onOpenCookieManagement,
   runningProfiles,
@@ -1370,8 +1369,8 @@ export function ProfilesDataTable({
 
   const { storedProxies } = useProxyEvents();
   const { vpnConfigs } = useVpnEvents();
-  const { user } = useCloudAuth();
-  const { isProfileLocked, getLockInfo } = useTeamLocks(user?.id);
+  // Team locking was a hosted feature; the hook now reports nothing locked.
+  const { isProfileLocked, getLockInfo } = useTeamLocks(undefined);
 
   const [proxyOverrides, setProxyOverrides] = React.useState<
     Record<string, string | null>
@@ -1997,7 +1996,7 @@ export function ProfilesDataTable({
             void onCloneProfile(profile);
           }
         : undefined,
-      onConfigureWayfern,
+      onConfigureIdentity,
       onCopyCookiesToProfile,
       onOpenCookieManagement,
 
@@ -2070,7 +2069,7 @@ export function ProfilesDataTable({
       onLaunchProfile,
       onAssignProfilesToGroup,
       onCloneProfile,
-      onConfigureWayfern,
+      onConfigureIdentity,
       onCopyCookiesToProfile,
       onOpenCookieManagement,
       syncStatuses,
@@ -3321,7 +3320,7 @@ export function ProfilesDataTable({
               }}
               onOpenProfileSyncDialog={onOpenProfileSyncDialog}
               onAssignProfilesToGroup={onAssignProfilesToGroup}
-              onConfigureWayfern={onConfigureWayfern}
+              onConfigureIdentity={onConfigureIdentity}
               onCopyCookiesToProfile={onCopyCookiesToProfile}
               onOpenCookieManagement={onOpenCookieManagement}
               onAssignExtensionGroup={onAssignExtensionGroup}

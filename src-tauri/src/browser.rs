@@ -603,9 +603,7 @@ mod tests {
   }
 
   #[test]
-  fn test_wayfern_config_has_no_executable_path() {
-
-  }
+  fn test_wayfern_config_has_no_executable_path() {}
 
   #[test]
   fn test_profile_data_path_is_dynamic() {

@@ -66,9 +66,6 @@ pub struct CreateProfileRequest {
   pub vpn_id: Option<String>,
   pub launch_hook: Option<String>,
   pub release_type: Option<String>,
-  /// Legacy import field. New local profiles generate a stable Persona.
-  #[schema(value_type = Option<Object>)]
-  pub wayfern_config: Option<serde_json::Value>,
   pub group_id: Option<String>,
   pub tags: Option<Vec<String>>,
 }
@@ -980,7 +977,7 @@ async fn create_profile(
         .collect();
       // browsers is a HashMap, so keys are unordered — sort newest-first by
       // semver before taking the latest.
-      versions.sort_by(|a, b| crate::api_client::compare_versions(b, a));
+      versions.sort_by(|a, b| crate::version_cache::compare_versions(b, a));
       match versions.into_iter().next() {
         Some(v) => v,
         None => {
@@ -2099,7 +2096,6 @@ async fn kill_profile(
     .await
     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-
   Ok(StatusCode::NO_CONTENT)
 }
 
@@ -2234,7 +2230,7 @@ async fn batch_stop_profiles(
       .await
     {
       Ok(_) => {
-              results.push(BatchStopResult {
+        results.push(BatchStopResult {
           profile_id: profile_id.clone(),
           ok: true,
           error: None,
@@ -2439,7 +2435,7 @@ mod tests {
   fn update_profile_request_ignores_unknown_fields() {
     // `browser` is no longer a field, plus a wholly unknown field. Both must
     // be accepted and ignored, not rejected.
-    let json = r#"{"name": "p", "browser": "wayfern", "totally_unknown": 123}"#;
+    let json = r#"{"name": "p", "browser": "legacy-engine", "totally_unknown": 123}"#;
     let parsed: UpdateProfileRequest =
       serde_json::from_str(json).expect("unknown fields must be ignored, not rejected");
     assert_eq!(parsed.name.as_deref(), Some("p"));
@@ -2455,15 +2451,13 @@ mod tests {
 
   #[test]
   fn create_profile_request_allows_omitting_version_and_configs() {
-    // Minimal body: no version, no wayfern_config. Must
-    // deserialize (version resolves to latest-downloaded at the handler; an
-    // absent config triggers fresh-fingerprint generation).
+    // Minimal body: no version. Must deserialize — version resolves to the
+    // latest downloaded kernel at the handler.
     let json = r#"{"name": "p", "browser": "fingerprint-chromium"}"#;
     let parsed: CreateProfileRequest =
       serde_json::from_str(json).expect("version and configs are optional");
     assert_eq!(parsed.browser, "fingerprint-chromium");
     assert!(parsed.version.is_none());
-    assert!(parsed.wayfern_config.is_none());
   }
 
   #[test]
@@ -2518,8 +2512,8 @@ mod tests {
 
     let create_profile = schema_required(&spec, "CreateProfileRequest");
     assert!(
-      !create_profile.iter().any(|f| f == "wayfern_config"),
-      "wayfern_config must be optional, required list: {create_profile:?}"
+      !create_profile.iter().any(|f| f == "version"),
+      "version must be optional, required list: {create_profile:?}"
     );
 
     let update_profile = schema_required(&spec, "UpdateProfileRequest");

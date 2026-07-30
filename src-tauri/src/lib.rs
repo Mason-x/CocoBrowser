@@ -14,7 +14,6 @@ static PENDING_URLS: Mutex<Vec<String>> = Mutex::new(Vec::new());
 // to the confirmation dialog.
 static QUIT_CONFIRMED: AtomicBool = AtomicBool::new(false);
 
-mod api_client;
 mod api_server;
 pub mod app_dirs;
 mod auto_updater;
@@ -48,8 +47,8 @@ pub mod socks5_local;
 pub mod sync;
 mod synchronizer;
 pub mod traffic_stats;
+mod version_cache;
 // mod theme_detector; // removed: theme detection handled in webview via CSS prefers-color-scheme
-pub mod cloud_auth;
 mod cookie_manager;
 pub mod events;
 mod mcp_integrations;
@@ -446,11 +445,6 @@ async fn export_profile_cookies(
   .await
   .map_err(|e| format!("Failed to export profile cookies: {e}"))?
 }
-
-
-
-
-
 
 #[tauri::command]
 async fn start_mcp_server(app_handle: tauri::AppHandle) -> Result<u16, String> {
@@ -2049,41 +2043,6 @@ pub fn run() {
         }
       });
 
-      // Legacy cloud refresh is never started implicitly. Self-hosted sync has
-      // its own scheduler above and does not need Wayfern/commercial tokens.
-      if std::env::var_os("COCO_ENABLE_LEGACY_CLOUD").is_some() {
-        let app_handle_cloud = app.handle().clone();
-        tauri::async_runtime::spawn(async move {
-        // On startup, refresh sync token, proxy config, and wayfern token in
-        // PARALLEL. Previously they were awaited sequentially, so the wayfern
-        // token request didn't even start until the earlier two API calls had
-        // finished. Wayfern launch can race with this task — a few seconds of
-        // serialized API calls translates directly into a slow first launch
-        // because launch_wayfern blocks waiting for the token to land.
-        // api_call_with_retry handles 401/refresh internally — no direct
-        // refresh_access_token call needed.
-        if cloud_auth::CLOUD_AUTH.is_logged_in().await {
-          let sync_token_fut = async {
-            if let Err(e) = cloud_auth::CLOUD_AUTH.get_or_refresh_sync_token().await {
-              log::warn!("Failed to refresh cloud sync token on startup: {e}");
-            }
-          };
-          let proxy_fut = async {
-            cloud_auth::CLOUD_AUTH.sync_cloud_proxy().await;
-          };
-          let wayfern_fut = async {
-            if cloud_auth::CLOUD_AUTH.has_active_paid_subscription().await {
-              if let Err(e) = cloud_auth::CLOUD_AUTH.request_wayfern_token().await {
-                log::warn!("Failed to request wayfern token on startup: {e}");
-              }
-            }
-          };
-          tokio::join!(sync_token_fut, proxy_fut, wayfern_fut);
-        }
-          cloud_auth::CloudAuthManager::start_sync_token_refresh_loop(app_handle_cloud).await;
-        });
-      }
-
       Ok(())
     })
     .invoke_handler(tauri::generate_handler![
@@ -2239,9 +2198,7 @@ pub fn run() {
       // Sync service control. The hosted-account and cloud-proxy commands are
       // intentionally not exposed: this build has no cloud tier, so the
       // frontend has no path to them and they must not be reachable over IPC.
-      cloud_auth::restart_sync_service,
-      cloud_auth::cloud_get_wayfern_token,
-      cloud_auth::cloud_refresh_wayfern_token,
+      sync::restart_sync_service,
       // Team lock commands
       // Synchronizer commands
       synchronizer::start_sync_session,
@@ -2434,7 +2391,7 @@ mod tests {
             // Remove trailing comma and whitespace
             let command = line.trim_end_matches(',').trim();
             if !command.is_empty() {
-              // Strip module prefix (e.g., "cloud_auth::cloud_get_user" -> "cloud_get_user")
+              // Strip module prefix (e.g., "sync::restart_sync_service" -> "restart_sync_service")
               let command = command.rsplit("::").next().unwrap_or(command);
               commands.push(command.to_string());
             }

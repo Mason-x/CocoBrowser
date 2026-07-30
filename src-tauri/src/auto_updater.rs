@@ -396,11 +396,11 @@ impl AutoUpdater {
   }
 
   fn is_version_newer(&self, version1: &str, version2: &str) -> bool {
-    crate::api_client::is_version_newer(version1, version2)
+    crate::version_cache::is_version_newer(version1, version2)
   }
 
   fn compare_versions(&self, version1: &str, version2: &str) -> std::cmp::Ordering {
-    crate::api_client::compare_versions(version1, version2)
+    crate::version_cache::compare_versions(version1, version2)
   }
 
   fn get_auto_update_state_file(&self) -> PathBuf {

@@ -42,3 +42,61 @@ pub fn queue_profile_sync_if_eligible(profile: &crate::profile::BrowserProfile) 
     }
   });
 }
+
+/// Restart the sync pipeline after the server URL or token changed.
+///
+/// Stops the running scheduler, then rebuilds the subscription + scheduler pair
+/// against the current settings. Lived in the hosted-auth module previously
+/// because it also refreshed a cloud token; sync is self-hosted only now.
+#[tauri::command]
+pub async fn restart_sync_service(app_handle: tauri::AppHandle) -> Result<(), String> {
+  if let Some(scheduler) = get_global_scheduler() {
+    scheduler.stop();
+  }
+
+  let app_handle_sync = app_handle.clone();
+  tauri::async_runtime::spawn(async move {
+    let mut subscription_manager = SubscriptionManager::new();
+    let work_rx = subscription_manager.take_work_receiver();
+
+    if let Err(e) = subscription_manager.start(app_handle_sync.clone()).await {
+      log::warn!("Failed to start sync subscription: {e}");
+      return;
+    }
+
+    if let Some(work_rx) = work_rx {
+      let scheduler = std::sync::Arc::new(SyncScheduler::new());
+      set_global_scheduler(scheduler.clone());
+
+      scheduler.sync_all_enabled_profiles(&app_handle_sync).await;
+
+      match SyncEngine::create_from_settings(&app_handle_sync).await {
+        Ok(engine) => {
+          if let Err(e) = engine
+            .check_for_missing_synced_profiles(&app_handle_sync)
+            .await
+          {
+            log::warn!("Failed to check for missing profiles: {e}");
+          }
+          if let Err(e) = engine
+            .check_for_missing_synced_entities(&app_handle_sync)
+            .await
+          {
+            log::warn!("Failed to check for missing entities: {e}");
+          }
+        }
+        Err(e) => {
+          log::warn!("Sync not configured, skipping missing profile check: {e}");
+        }
+      }
+
+      scheduler
+        .clone()
+        .start(app_handle_sync.clone(), work_rx)
+        .await;
+      log::info!("Sync scheduler restarted");
+    }
+  });
+
+  Ok(())
+}
