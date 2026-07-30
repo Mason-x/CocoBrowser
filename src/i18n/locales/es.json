@@ -654,9 +654,6 @@
       "roleAdmin": "Administrador",
       "roleMember": "Miembro",
       "manageOnWeb": "Gestionar equipo en el panel web",
-      "profileLocked": "En uso por {{email}}",
-      "profileLockedShort": "En uso",
-      "cannotLaunchLocked": "No se puede iniciar — el perfil está en uso por {{email}}",
       "createdBy": "Creado por {{email}}"
     },
     "disabled": "Desactivada",
@@ -668,7 +665,16 @@
     "enabledToast": "Sincronización activada",
     "disabledToast": "Sincronización desactivada",
     "enabledDescription": "Se ha activado la sincronización del perfil",
-    "disabledDescription": "Se ha desactivado la sincronización del perfil"
+    "disabledDescription": "Se ha desactivado la sincronización del perfil",
+    "deviceLock": {
+      "inUseBy": "Abierto en {{device}}",
+      "cannotLaunch": "No se puede abrir: este perfil está abierto en {{device}}",
+      "forceRelease": "Liberar el bloqueo",
+      "forceReleaseHint": "Si ese dispositivo sigue usando el perfil, volverá a tomar el bloqueo en unos minutos.",
+      "forceReleased": "Bloqueo liberado",
+      "degradedTitle": "Abierto sin comprobar el servidor de sincronización",
+      "degradedDescription": "{{name}} puede estar por detrás de otro dispositivo y nada impide que un segundo dispositivo lo abra. Revisa el servidor de sincronización."
+    }
   },
   "integrations": {
     "title": "Integraciones",
@@ -1771,7 +1777,7 @@
     "extensionGroupNotFound": "Grupo de extensiones no encontrado",
     "cannotModifyCloudManagedProxy": "No se puede modificar la sincronización de un proxy gestionado en la nube",
     "syncLockedByProfile": "No se puede desactivar la sincronización mientras se usa en perfiles sincronizados",
-    "syncNotConfigured": "La sincronización no está configurada. Inicia sesión o configura un servidor propio.",
+    "syncNotConfigured": "La sincronización no está configurada. Configura primero un servidor autoalojado.",
     "internal": "Algo salió mal: {{detail}}",
     "invalidLaunchHookUrl": "URL del hook de inicio no válida. Usa una URL completa http:// o https://.",
     "cookieDbLocked": "No se pudieron leer las cookies — la base de datos está bloqueada. Cierra el navegador e inténtalo de nuevo.",
@@ -1796,7 +1802,8 @@
     "importFailed": "Error al importar: {{detail}}",
     "kernelNotInstalled": "Instala el núcleo auditado Fingerprint Chromium 148 antes de importar.",
     "extensionPackageInvalid": "Paquete de extensión rechazado: {{detail}}",
-    "kernelVersionNotAvailable": "La versión de núcleo {{requested}} no está disponible para descargar. La versión actual es {{current}}."
+    "kernelVersionNotAvailable": "La versión de núcleo {{requested}} no está disponible para descargar. La versión actual es {{current}}.",
+    "profileLockedByDevice": "Este perfil está abierto en {{device}}. Ciérralo allí primero."
   },
   "rail": {
     "profiles": "Perfiles",

@@ -654,9 +654,6 @@
       "roleAdmin": "Admin",
       "roleMember": "Member",
       "manageOnWeb": "Manage team on the web dashboard",
-      "profileLocked": "In use by {{email}}",
-      "profileLockedShort": "In use",
-      "cannotLaunchLocked": "Cannot launch — profile is in use by {{email}}",
       "createdBy": "Created by {{email}}"
     },
     "disabled": "Disabled",
@@ -668,7 +665,16 @@
     "enabledToast": "Sync enabled",
     "disabledToast": "Sync disabled",
     "enabledDescription": "Profile sync has been enabled",
-    "disabledDescription": "Profile sync has been disabled"
+    "disabledDescription": "Profile sync has been disabled",
+    "deviceLock": {
+      "inUseBy": "Open on {{device}}",
+      "cannotLaunch": "Cannot open — this profile is open on {{device}}",
+      "forceRelease": "Clear the lock",
+      "forceReleaseHint": "If that device is still running the profile, it will take the lock back within a few minutes.",
+      "forceReleased": "Lock cleared",
+      "degradedTitle": "Opened without checking the sync server",
+      "degradedDescription": "{{name}} may be behind another device, and nothing is stopping a second device from opening it. Check the sync server."
+    }
   },
   "integrations": {
     "title": "Integrations",
@@ -1771,7 +1777,7 @@
     "extensionGroupNotFound": "Extension group not found",
     "cannotModifyCloudManagedProxy": "Cannot modify sync for a cloud-managed proxy",
     "syncLockedByProfile": "Sync cannot be disabled while this is used by synced profiles",
-    "syncNotConfigured": "Sync is not configured. Sign in or configure a self-hosted server first.",
+    "syncNotConfigured": "Sync is not configured. Set up a self-hosted server first.",
     "internal": "Something went wrong: {{detail}}",
     "invalidLaunchHookUrl": "Invalid launch hook URL. Use a full http:// or https:// URL.",
     "cookieDbLocked": "Could not read cookies — the database is locked. Close the browser and try again.",
@@ -1796,7 +1802,8 @@
     "importFailed": "Profile import failed: {{detail}}",
     "kernelNotInstalled": "Install the audited Fingerprint Chromium 148 kernel before importing a profile.",
     "extensionPackageInvalid": "The extension package was rejected: {{detail}}",
-    "kernelVersionNotAvailable": "Kernel version {{requested}} is not available for download. The current version is {{current}}."
+    "kernelVersionNotAvailable": "Kernel version {{requested}} is not available for download. The current version is {{current}}.",
+    "profileLockedByDevice": "This profile is open on {{device}}. Close it there first."
   },
   "rail": {
     "profiles": "Profiles",

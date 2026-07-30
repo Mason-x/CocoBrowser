@@ -654,9 +654,6 @@
       "roleAdmin": "Администратор",
       "roleMember": "Участник",
       "manageOnWeb": "Управление командой в веб-панели",
-      "profileLocked": "Используется {{email}}",
-      "profileLockedShort": "Используется",
-      "cannotLaunchLocked": "Невозможно запустить — профиль используется {{email}}",
       "createdBy": "Создано {{email}}"
     },
     "disabled": "Отключена",
@@ -668,7 +665,16 @@
     "enabledToast": "Синхронизация включена",
     "disabledToast": "Синхронизация отключена",
     "enabledDescription": "Синхронизация профиля включена",
-    "disabledDescription": "Синхронизация профиля отключена"
+    "disabledDescription": "Синхронизация профиля отключена",
+    "deviceLock": {
+      "inUseBy": "Открыт на устройстве {{device}}",
+      "cannotLaunch": "Нельзя открыть — этот профиль открыт на устройстве {{device}}",
+      "forceRelease": "Снять блокировку",
+      "forceReleaseHint": "Если то устройство всё ещё использует профиль, оно вернёт блокировку в течение нескольких минут.",
+      "forceReleased": "Блокировка снята",
+      "degradedTitle": "Открыт без проверки сервера синхронизации",
+      "degradedDescription": "{{name}} может отставать от другого устройства, и ничто не мешает второму устройству открыть его. Проверьте сервер синхронизации."
+    }
   },
   "integrations": {
     "title": "Интеграции",
@@ -1771,7 +1777,7 @@
     "extensionGroupNotFound": "Группа расширений не найдена",
     "cannotModifyCloudManagedProxy": "Невозможно изменить синхронизацию для облачного прокси",
     "syncLockedByProfile": "Невозможно отключить синхронизацию, пока используется синхронизированными профилями",
-    "syncNotConfigured": "Синхронизация не настроена. Войдите или настройте собственный сервер.",
+    "syncNotConfigured": "Синхронизация не настроена. Сначала настройте собственный сервер.",
     "internal": "Что-то пошло не так: {{detail}}",
     "invalidLaunchHookUrl": "Неверный URL хука запуска. Используйте полный URL http:// или https://.",
     "cookieDbLocked": "Не удалось прочитать куки — база данных заблокирована. Закройте браузер и попробуйте снова.",
@@ -1796,7 +1802,8 @@
     "importFailed": "Ошибка импорта: {{detail}}",
     "kernelNotInstalled": "Перед импортом установите проверенное ядро Fingerprint Chromium 148.",
     "extensionPackageInvalid": "Пакет расширения отклонён: {{detail}}",
-    "kernelVersionNotAvailable": "Версия ядра {{requested}} недоступна для загрузки. Текущая версия — {{current}}."
+    "kernelVersionNotAvailable": "Версия ядра {{requested}} недоступна для загрузки. Текущая версия — {{current}}.",
+    "profileLockedByDevice": "Этот профиль открыт на устройстве {{device}}. Сначала закройте его там."
   },
   "rail": {
     "profiles": "Профили",

@@ -410,6 +410,10 @@ impl SyncScheduler {
         let Some(profile) = profile_to_sync else {
           let mut inf = in_flight.lock().await;
           inf.remove(&profile_id);
+          drop(inf);
+          // Sync was turned off, or the profile is gone, between queueing and now.
+          // Release anyway so a lock taken at launch does not linger for its TTL.
+          super::launch_gate::release_launch_lock(&app, &profile_id).await;
           return;
         };
 
@@ -425,6 +429,14 @@ impl SyncScheduler {
           let mut inf = in_flight.lock().await;
           inf.remove(&profile_id);
         }
+
+        // The upload is done (or has failed for good), and a profile only reaches
+        // here while it is not running, so this is the point at which another
+        // device may safely take over. Released on failure too: a failed upload
+        // leaves the remote at its previous consistent state, and holding the lock
+        // would block the user's other device for the whole TTL with no
+        // explanation.
+        super::launch_gate::release_launch_lock(&app, &profile_id).await;
 
         match result {
           Ok(()) => {

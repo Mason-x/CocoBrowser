@@ -654,9 +654,6 @@
       "roleAdmin": "Quản trị viên",
       "roleMember": "Thành viên",
       "manageOnWeb": "Quản lý nhóm trên bảng điều khiển web",
-      "profileLocked": "Đang được sử dụng bởi {{email}}",
-      "profileLockedShort": "Đang sử dụng",
-      "cannotLaunchLocked": "Không thể khởi chạy — profile đang được sử dụng bởi {{email}}",
       "createdBy": "Được tạo bởi {{email}}"
     },
     "disabled": "Tắt",
@@ -668,7 +665,16 @@
     "enabledToast": "Đã bật đồng bộ",
     "disabledToast": "Đã tắt đồng bộ",
     "enabledDescription": "Đồng bộ profile đã được bật",
-    "disabledDescription": "Đồng bộ profile đã được tắt"
+    "disabledDescription": "Đồng bộ profile đã được tắt",
+    "deviceLock": {
+      "inUseBy": "Đang mở trên {{device}}",
+      "cannotLaunch": "Không thể mở — cấu hình này đang mở trên {{device}}",
+      "forceRelease": "Xóa khóa",
+      "forceReleaseHint": "Nếu thiết bị đó vẫn đang dùng cấu hình, nó sẽ giành lại khóa trong vài phút.",
+      "forceReleased": "Đã xóa khóa",
+      "degradedTitle": "Đã mở mà không kiểm tra máy chủ đồng bộ",
+      "degradedDescription": "{{name}} có thể cũ hơn thiết bị khác, và không có gì ngăn thiết bị thứ hai mở nó. Hãy kiểm tra máy chủ đồng bộ."
+    }
   },
   "integrations": {
     "title": "Tích hợp",
@@ -1771,7 +1777,7 @@
     "extensionGroupNotFound": "Không tìm thấy nhóm tiện ích",
     "cannotModifyCloudManagedProxy": "Không thể chỉnh sửa đồng bộ cho proxy được quản lý bởi đám mây",
     "syncLockedByProfile": "Không thể tắt đồng bộ khi đang được sử dụng bởi profile đã đồng bộ",
-    "syncNotConfigured": "Chưa cấu hình đồng bộ. Đăng nhập hoặc cấu hình máy chủ tự lưu trữ trước.",
+    "syncNotConfigured": "Chưa cấu hình đồng bộ. Hãy thiết lập máy chủ tự vận hành trước.",
     "internal": "Đã xảy ra lỗi: {{detail}}",
     "invalidLaunchHookUrl": "URL hook khởi chạy không hợp lệ. Sử dụng URL http:// hoặc https:// đầy đủ.",
     "cookieDbLocked": "Không thể đọc cookie — cơ sở dữ liệu bị khóa. Đóng trình duyệt và thử lại.",
@@ -1796,7 +1802,8 @@
     "importFailed": "Nhập hồ sơ thất bại: {{detail}}",
     "kernelNotInstalled": "Hãy cài kernel Fingerprint Chromium 148 đã kiểm định trước.",
     "extensionPackageInvalid": "Gói tiện ích bị từ chối: {{detail}}",
-    "kernelVersionNotAvailable": "Không thể tải phiên bản nhân {{requested}}. Phiên bản hiện tại là {{current}}."
+    "kernelVersionNotAvailable": "Không thể tải phiên bản nhân {{requested}}. Phiên bản hiện tại là {{current}}.",
+    "profileLockedByDevice": "Cấu hình này đang mở trên {{device}}. Hãy đóng ở thiết bị đó trước."
   },
   "rail": {
     "profiles": "Profile",

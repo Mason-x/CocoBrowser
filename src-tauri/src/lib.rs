@@ -95,7 +95,8 @@ use settings_manager::{
 
 use sync::{
   cancel_profile_sync, check_has_e2e_password, delete_e2e_password, enable_sync_for_all_entities,
-  get_unsynced_entity_counts, is_group_in_use_by_synced_profile, is_proxy_in_use_by_synced_profile,
+  force_release_profile_lock, get_device_identity, get_profile_locks, get_unsynced_entity_counts,
+  is_group_in_use_by_synced_profile, is_proxy_in_use_by_synced_profile,
   is_vpn_in_use_by_synced_profile, request_profile_sync, rollover_encryption_for_all_entities,
   set_e2e_password, set_extension_group_sync_enabled, set_extension_sync_enabled,
   set_group_sync_enabled, set_profile_sync_mode, set_proxy_sync_enabled, set_vpn_sync_enabled,
@@ -2199,7 +2200,10 @@ pub fn run() {
       // intentionally not exposed: this build has no cloud tier, so the
       // frontend has no path to them and they must not be reachable over IPC.
       sync::restart_sync_service,
-      // Team lock commands
+      // Cross-device profile locks
+      get_profile_locks,
+      get_device_identity,
+      force_release_profile_lock,
       // Synchronizer commands
       synchronizer::start_sync_session,
       synchronizer::stop_sync_session,
@@ -2267,10 +2271,8 @@ mod tests {
       "update_extension",
       "set_extension_sync_enabled",
       "set_extension_group_sync_enabled",
-      "get_team_lock_status",
-      "generate_sample_fingerprint",
-      "cloud_get_wayfern_token",
-      "cloud_refresh_wayfern_token",
+      // The password lock on an individual profile — unrelated to the
+      // cross-device sync lock in `sync::launch_gate`.
       "lock_profile",
     ];
 

@@ -654,9 +654,6 @@
       "roleAdmin": "管理者",
       "roleMember": "メンバー",
       "manageOnWeb": "Webダッシュボードでチームを管理",
-      "profileLocked": "{{email}} が使用中",
-      "profileLockedShort": "使用中",
-      "cannotLaunchLocked": "起動できません — {{email}} がプロファイルを使用中です",
       "createdBy": "{{email}} が作成"
     },
     "disabled": "無効",
@@ -668,7 +665,16 @@
     "enabledToast": "同期を有効化しました",
     "disabledToast": "同期を無効化しました",
     "enabledDescription": "プロファイルの同期が有効になりました",
-    "disabledDescription": "プロファイルの同期が無効になりました"
+    "disabledDescription": "プロファイルの同期が無効になりました",
+    "deviceLock": {
+      "inUseBy": "{{device}} で開いています",
+      "cannotLaunch": "開けません — このプロファイルは {{device}} で使用中です",
+      "forceRelease": "ロックを解除する",
+      "forceReleaseHint": "その端末がまだ使用中の場合、数分でロックを取り戻します。",
+      "forceReleased": "ロックを解除しました",
+      "degradedTitle": "同期サーバーを確認せずに開きました",
+      "degradedDescription": "{{name}} は他の端末より古い可能性があり、2 台目の端末が同時に開くのも防げません。同期サーバーを確認してください。"
+    }
   },
   "integrations": {
     "title": "統合",
@@ -1771,7 +1777,7 @@
     "extensionGroupNotFound": "拡張機能グループが見つかりません",
     "cannotModifyCloudManagedProxy": "クラウド管理のプロキシの同期は変更できません",
     "syncLockedByProfile": "同期済みプロファイルで使用中のため、同期を無効にできません",
-    "syncNotConfigured": "同期が設定されていません。サインインするか、セルフホストサーバーを設定してください。",
+    "syncNotConfigured": "同期が設定されていません。まず自己ホスト型サーバーを設定してください。",
     "internal": "問題が発生しました: {{detail}}",
     "invalidLaunchHookUrl": "起動フックURLが無効です。完全な http:// または https:// URL を使用してください。",
     "cookieDbLocked": "Cookie を読み取れません — データベースがロックされています。ブラウザを閉じてから再試行してください。",
@@ -1796,7 +1802,8 @@
     "importFailed": "インポート失敗：{{detail}}",
     "kernelNotInstalled": "先に監査済み Fingerprint Chromium 148 をインストールしてください。",
     "extensionPackageInvalid": "拡張機能パッケージを拒否しました：{{detail}}",
-    "kernelVersionNotAvailable": "カーネル {{requested}} はダウンロードできません。現在のバージョンは {{current}} です。"
+    "kernelVersionNotAvailable": "カーネル {{requested}} はダウンロードできません。現在のバージョンは {{current}} です。",
+    "profileLockedByDevice": "このプロファイルは {{device}} で開いています。先にその端末で閉じてください。"
   },
   "rail": {
     "profiles": "プロファイル",

@@ -83,12 +83,21 @@ export interface SyncSettings {
   sync_token?: string;
 }
 
-export interface ProfileLockInfo {
-  profileId: string;
-  lockedBy: string;
-  lockedByEmail: string;
-  lockedAt: string;
-  expiresAt?: string;
+/**
+ * Cross-device lock on a synced profile. Field names are snake_case because they
+ * come straight from the Rust `ProfileLock` with no rename attribute.
+ */
+export interface ProfileLock {
+  profile_id: string;
+  device_id: string;
+  device_name: string;
+  acquired_at: number;
+  expires_at: number;
+}
+
+export interface DeviceIdentity {
+  id: string;
+  name: string;
 }
 
 export interface ProfileSyncStatusEvent {

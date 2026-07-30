@@ -330,6 +330,12 @@ impl SyncEngine {
     }
   }
 
+  /// Lets sibling modules in `sync::` reach the object API without reimplementing
+  /// credential handling. Used by `device_lock`.
+  pub(crate) fn client(&self) -> &SyncClient {
+    &self.client
+  }
+
   pub async fn create_from_settings(app_handle: &tauri::AppHandle) -> Result<Self, String> {
     let manager = SettingsManager::instance();
     let settings = manager

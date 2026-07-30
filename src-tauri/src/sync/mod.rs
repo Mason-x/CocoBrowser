@@ -1,12 +1,15 @@
 mod client;
+pub mod device_lock;
 pub mod encryption;
 mod engine;
+pub mod launch_gate;
 pub mod manifest;
 pub mod scheduler;
 pub mod subscription;
 pub mod types;
 
 pub use client::SyncClient;
+pub use device_lock::{device_identity, DeviceIdentity, ProfileLock};
 pub use encryption::{
   check_has_e2e_password, delete_e2e_password, set_e2e_password, verify_e2e_password,
 };
@@ -20,10 +23,23 @@ pub use engine::{
   set_extension_sync_enabled, set_group_sync_enabled, set_profile_sync_mode,
   set_proxy_sync_enabled, set_vpn_sync_enabled, sync_profile, trigger_sync_for_profile, SyncEngine,
 };
+pub use launch_gate::{
+  force_release_profile_lock, get_device_identity, get_profile_locks, prepare_launch,
+  release_launch_lock, LaunchGate,
+};
 pub use manifest::{compute_diff, generate_manifest, HashCache, ManifestDiff, SyncManifest};
 pub use scheduler::{get_global_scheduler, set_global_scheduler, SyncScheduler};
 pub use subscription::{SubscriptionManager, SyncWorkItem};
 pub use types::{SyncError, SyncResult};
+
+/// Tell the UI the set of cross-device locks changed so it can refetch.
+///
+/// A single event for all locks rather than one per profile: the list is tiny (a
+/// lock only exists while a profile is open somewhere) and this keeps the frontend
+/// from having to reconcile per-profile deltas.
+pub fn events_emit_lock_changed() {
+  let _ = crate::events::emit_empty("profile-locks-changed");
+}
 
 /// Queue a profile sync if the profile has sync enabled. No-op otherwise.
 ///

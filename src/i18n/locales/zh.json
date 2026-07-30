@@ -654,9 +654,6 @@
       "roleAdmin": "管理员",
       "roleMember": "成员",
       "manageOnWeb": "在网页控制台管理团队",
-      "profileLocked": "{{email}} 正在使用中",
-      "profileLockedShort": "使用中",
-      "cannotLaunchLocked": "无法启动 — 环境正被 {{email}} 使用",
       "createdBy": "由 {{email}} 创建"
     },
     "disabled": "已禁用",
@@ -668,7 +665,16 @@
     "enabledToast": "已启用同步",
     "disabledToast": "已禁用同步",
     "enabledDescription": "已启用环境同步",
-    "disabledDescription": "已禁用环境同步"
+    "disabledDescription": "已禁用环境同步",
+    "deviceLock": {
+      "inUseBy": "已在 {{device}} 上打开",
+      "cannotLaunch": "无法打开 —— 该配置正在 {{device}} 上使用",
+      "forceRelease": "清除占用",
+      "forceReleaseHint": "如果那台设备仍在使用该配置，几分钟内会重新占用。",
+      "forceReleased": "占用已清除",
+      "degradedTitle": "未校验同步服务器就打开了",
+      "degradedDescription": "{{name}} 可能落后于其它设备，且此时无法阻止第二台设备同时打开。请检查同步服务器。"
+    }
   },
   "integrations": {
     "title": "集成",
@@ -1771,7 +1777,7 @@
     "extensionGroupNotFound": "未找到扩展分组",
     "cannotModifyCloudManagedProxy": "无法修改云管理代理的同步",
     "syncLockedByProfile": "在被已同步的环境使用时无法禁用同步",
-    "syncNotConfigured": "同步未配置。请先登录或配置自托管服务器。",
+    "syncNotConfigured": "尚未配置同步，请先设置自托管服务器。",
     "internal": "出现问题:{{detail}}",
     "invalidLaunchHookUrl": "启动钩子 URL 无效。请使用完整的 http:// 或 https:// URL。",
     "cookieDbLocked": "无法读取 Cookie — 数据库已锁定。请关闭浏览器后重试。",
@@ -1796,7 +1802,8 @@
     "importFailed": "配置导入失败：{{detail}}",
     "kernelNotInstalled": "导入配置前，请先安装已审计的 Fingerprint Chromium 148 内核。",
     "extensionPackageInvalid": "扩展包已被拒绝：{{detail}}",
-    "kernelVersionNotAvailable": "内核版本 {{requested}} 无法下载，当前版本为 {{current}}。"
+    "kernelVersionNotAvailable": "内核版本 {{requested}} 无法下载，当前版本为 {{current}}。",
+    "profileLockedByDevice": "该配置正在 {{device}} 上打开，请先在那台设备上关闭。"
   },
   "rail": {
     "profiles": "环境",

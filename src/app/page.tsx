@@ -1263,6 +1263,7 @@ export default function Home() {
   useEffect(() => {
     let disposed = false;
     let unlistenRequired: (() => void) | undefined;
+    let unlistenLaunchDegraded: (() => void) | undefined;
     let unlistenStarted: (() => void) | undefined;
     let unlistenProgress: (() => void) | undefined;
     let unlistenCompleted: (() => void) | undefined;
@@ -1284,6 +1285,25 @@ export default function Home() {
                 setCurrentPage("settings");
               },
             },
+          });
+        },
+      );
+
+      // A synced profile opened without a verified remote state: the server was
+      // unreachable, so its data may be behind another device's and nothing is
+      // stopping a second device from opening it too. Silence here would look
+      // exactly like a normal launch, so say it out loud.
+      unlistenLaunchDegraded = await listen<{ profile_name?: string }>(
+        "profile-launch-sync-degraded",
+        (event) => {
+          showToast({
+            id: `launch-degraded-${event.payload?.profile_name ?? "profile"}`,
+            type: "error",
+            title: t("sync.deviceLock.degradedTitle"),
+            description: t("sync.deviceLock.degradedDescription", {
+              name: event.payload?.profile_name ?? "",
+            }),
+            duration: 12000,
           });
         },
       );
@@ -1332,6 +1352,7 @@ export default function Home() {
       // before these handles existed — unlisten them now so nothing leaks.
       if (disposed) {
         unlistenRequired?.();
+        unlistenLaunchDegraded?.();
         unlistenStarted?.();
         unlistenProgress?.();
         unlistenCompleted?.();
@@ -1341,6 +1362,7 @@ export default function Home() {
     return () => {
       disposed = true;
       unlistenRequired?.();
+      unlistenLaunchDegraded?.();
       unlistenStarted?.();
       unlistenProgress?.();
       unlistenCompleted?.();

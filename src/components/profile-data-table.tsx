@@ -84,11 +84,12 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useBrowserState } from "@/hooks/use-browser-state";
+import { useProfileLocks } from "@/hooks/use-profile-locks";
 import { useProxyEvents } from "@/hooks/use-proxy-events";
 import { useScrollFade } from "@/hooks/use-scroll-fade";
 import { useTableSorting } from "@/hooks/use-table-sorting";
-import { useTeamLocks } from "@/hooks/use-team-locks";
 import { useVpnEvents } from "@/hooks/use-vpn-events";
+import { translateBackendError } from "@/lib/backend-errors";
 import {
   getBrowserDisplayName,
   getOSDisplayName,
@@ -96,6 +97,7 @@ import {
   isCrossOsProfile,
 } from "@/lib/browser-utils";
 import { formatRelativeTime } from "@/lib/flag-utils";
+import { showErrorToast, showSuccessToast } from "@/lib/toast-utils";
 import { cn } from "@/lib/utils";
 import type {
   BrowserProfile,
@@ -234,9 +236,10 @@ interface TableMeta {
   crossOsUnlocked?: boolean;
   syncUnlocked?: boolean;
 
-  // Team locks
+  // Cross-device locks on synced profiles
   isProfileLockedByAnother: (profileId: string) => boolean;
-  getProfileLockEmail: (profileId: string) => string | undefined;
+  getProfileLockDevice: (profileId: string) => string | undefined;
+  onForceReleaseLock: (profile: BrowserProfile) => Promise<void>;
 
   // Synchronizer
   getProfileSyncInfo: (profileId: string) =>
@@ -1369,8 +1372,24 @@ export function ProfilesDataTable({
 
   const { storedProxies } = useProxyEvents();
   const { vpnConfigs } = useVpnEvents();
-  // Team locking was a hosted feature; the hook now reports nothing locked.
-  const { isProfileLocked, getLockInfo } = useTeamLocks(undefined);
+  const { isLockedByAnotherDevice, getLockDeviceName, refetchLocks } =
+    useProfileLocks();
+
+  // Clearing a lock is safe to offer without a confirmation step: if the holding
+  // device is genuinely still running, its heartbeat re-acquires the lock within
+  // minutes. The hint in the menu says so.
+  const handleForceReleaseLock = React.useCallback(
+    async (profile: BrowserProfile) => {
+      try {
+        await invoke("force_release_profile_lock", { profileId: profile.id });
+        showSuccessToast(t("sync.deviceLock.forceReleased"));
+      } catch (error) {
+        showErrorToast(translateBackendError(t, error));
+      }
+      await refetchLocks();
+    },
+    [refetchLocks, t],
+  );
 
   const [proxyOverrides, setProxyOverrides] = React.useState<
     Record<string, string | null>
@@ -2014,10 +2033,10 @@ export function ProfilesDataTable({
       crossOsUnlocked,
       syncUnlocked,
 
-      // Team locks
-      isProfileLockedByAnother: isProfileLocked,
-      getProfileLockEmail: (profileId: string) =>
-        getLockInfo(profileId)?.lockedByEmail,
+      // Cross-device locks on synced profiles
+      isProfileLockedByAnother: isLockedByAnotherDevice,
+      getProfileLockDevice: getLockDeviceName,
+      onForceReleaseLock: handleForceReleaseLock,
 
       // Synchronizer
       getProfileSyncInfo: getProfileSyncInfo ?? (() => undefined),
@@ -2077,8 +2096,9 @@ export function ProfilesDataTable({
       onToggleProfileSync,
       crossOsUnlocked,
       syncUnlocked,
-      isProfileLocked,
-      getLockInfo,
+      isLockedByAnotherDevice,
+      getLockDeviceName,
+      handleForceReleaseLock,
       getProfileSyncInfo,
       onLaunchWithSync,
     ],
@@ -2280,9 +2300,9 @@ export function ProfilesDataTable({
             meta.browserState.canLaunchProfile(profile) &&
             !isLockedByAnother &&
             !isSyncing;
-          const lockEmail = meta.getProfileLockEmail(profile.id);
+          const lockDevice = meta.getProfileLockDevice(profile.id);
           const tooltipContent = isLockedByAnother
-            ? meta.t("sync.team.cannotLaunchLocked", { email: lockEmail })
+            ? meta.t("sync.deviceLock.cannotLaunch", { device: lockDevice })
             : meta.browserState.getLaunchTooltipContent(profile);
 
           const handleProfileStop = async (profile: BrowserProfile) => {
@@ -2574,7 +2594,7 @@ export function ProfilesDataTable({
           const isStopping = meta.stoppingProfiles.has(profile.id);
           const isDisabled =
             isRunning || isLaunching || isStopping || isCrossOsBlocked;
-          const lockedEmail = meta.getProfileLockEmail(profile.id);
+          const lockedDevice = meta.getProfileLockDevice(profile.id);
           const isLocked = meta.isProfileLockedByAnother(profile.id);
 
           return (
@@ -2606,16 +2626,36 @@ export function ProfilesDataTable({
                 {display}
               </button>
               {isLocked && (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      type="button"
+                      className="cursor-pointer border-none bg-transparent p-0"
+                      aria-label={meta.t("sync.deviceLock.inUseBy", {
+                        device: lockedDevice,
+                      })}
+                    >
                       <LuLock className="size-3 text-muted-foreground" />
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    {meta.t("sync.team.profileLocked", { email: lockedEmail })}
-                  </TooltipContent>
-                </Tooltip>
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="max-w-72">
+                    <div className="px-2 py-1.5 text-xs text-muted-foreground">
+                      {meta.t("sync.deviceLock.inUseBy", {
+                        device: lockedDevice,
+                      })}
+                    </div>
+                    <DropdownMenuItem
+                      onClick={() => {
+                        void meta.onForceReleaseLock(profile);
+                      }}
+                    >
+                      {meta.t("sync.deviceLock.forceRelease")}
+                    </DropdownMenuItem>
+                    <div className="px-2 py-1.5 text-xs text-muted-foreground">
+                      {meta.t("sync.deviceLock.forceReleaseHint")}
+                    </div>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               )}
             </div>
           );

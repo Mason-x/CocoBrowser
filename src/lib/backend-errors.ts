@@ -23,6 +23,8 @@ export type BackendErrorCode =
   | "COOKIE_EXPORT_PASSWORD_REQUIRED"
   | "COOKIE_EXPORT_DECRYPT_FAILED"
   | "SELF_HOSTED_REQUIRES_LOGOUT"
+  | "PROFILE_LOCKED_BY_DEVICE"
+  | "SYNC_NOT_CONFIGURED"
   | "PROXY_NOT_FOUND"
   | "GROUP_NOT_FOUND"
   | "GROUP_ALREADY_EXISTS"
@@ -133,6 +135,12 @@ export function translateBackendError(t: TFunction, err: unknown): string {
       return t("backendErrors.cookieExportDecryptFailed");
     case "SELF_HOSTED_REQUIRES_LOGOUT":
       return t("backendErrors.selfHostedRequiresLogout");
+    case "PROFILE_LOCKED_BY_DEVICE":
+      return t("backendErrors.profileLockedByDevice", {
+        device: parsed.params?.device ?? "",
+      });
+    case "SYNC_NOT_CONFIGURED":
+      return t("backendErrors.syncNotConfigured");
     case "PROXY_NOT_FOUND":
       return t("backendErrors.proxyNotFound");
     case "GROUP_NOT_FOUND":

@@ -734,6 +734,38 @@ pub async fn launch_browser_profile_impl(
     ));
   }
 
+  // Take the cross-device lock and pull remote changes BEFORE the process starts.
+  // Order matters twice over: `sync_profile` skips profiles it sees running, and
+  // the scheduler must not be told the profile is running until the pull is done.
+  match crate::sync::prepare_launch(&app_handle, &profile).await {
+    crate::sync::LaunchGate::NotApplicable | crate::sync::LaunchGate::Ready => {}
+    crate::sync::LaunchGate::Locked(lock) => {
+      return Err(
+        serde_json::json!({
+          "code": "PROFILE_LOCKED_BY_DEVICE",
+          "params": { "device": lock.device_name }
+        })
+        .to_string(),
+      );
+    }
+    // Offline, or the server rejected us. Launching is still the right call —
+    // refusing would make the app unusable without network — but the profile may
+    // be stale and is not protected from a second device opening it.
+    crate::sync::LaunchGate::Degraded(reason) => {
+      log::warn!(
+        "Launching profile {} without a verified sync state: {reason}",
+        profile.id
+      );
+      let _ = crate::events::emit(
+        "profile-launch-sync-degraded",
+        serde_json::json!({
+          "profile_id": profile.id.to_string(),
+          "profile_name": profile.name,
+        }),
+      );
+    }
+  }
+
   // Notify sync scheduler that profile is now running and queue sync for when it stops
   if let Some(scheduler) = crate::sync::get_global_scheduler() {
     let pid = profile.id.to_string();
@@ -869,9 +901,10 @@ pub async fn kill_browser_profile(
         profile.id
       );
 
-      // Release team lock if applicable
-
-      // Notify sync scheduler that profile stopped (sync was queued at launch)
+      // Notify sync scheduler that profile stopped, which makes the queued upload
+      // eligible. The cross-device lock is deliberately NOT released here — it is
+      // released once that upload finishes, in the scheduler, so another device
+      // cannot start pulling while this one is still writing.
       if let Some(scheduler) = crate::sync::get_global_scheduler() {
         scheduler
           .mark_profile_stopped(&profile.id.to_string())
