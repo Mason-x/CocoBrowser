@@ -271,7 +271,6 @@
       "stopLeader": "Arrêter ce profil et tous ses suiveurs",
       "stopFollower": "Suit les actions de {{leaderName}}",
       "desyncedTooltip": "La synchronisation a échoué à {{url}}",
-      "paidFeature": "Le synchroniseur est une fonctionnalité payante",
       "selectFollowers": "Sélectionner les profils suiveurs",
       "selectFollowersDesc": "Choisissez les profils qui refléteront les actions du profil principal. Seuls les profils arrêtés peuvent être sélectionnés.",
       "leader": "Leader",
@@ -280,7 +279,7 @@
       "noFollowers": "Sélectionnez au moins un profil suiveur",
       "flakyBadge": "FLAKY",
       "flakyTooltip": "Ce profil a une résolution d'écran différente de celle du leader. La mise en page des pages peut différer, ce qui peut causer des clics et interactions erronés.",
-      "localOnly": "Seuls les profils de navigateur locaux peuvent être synchronisés"
+      "localOnly": "La navigation synchronisée nécessite des profils Fingerprint Chromium"
     },
     "ephemeral": "Éphémère",
     "ephemeralDescription": "Le navigateur est contraint d'écrire les données du profil en mémoire plutôt que sur le disque. Notez que votre système d'exploitation peut écrire une partie de la mémoire sur le disque (swap) en cas de charge, donc des traces de la session pourraient rester récupérables.",

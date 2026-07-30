@@ -271,7 +271,6 @@
       "stopLeader": "Dừng hồ sơ này và tất cả hồ sơ đi theo",
       "stopFollower": "Đang đi theo hành động của {{leaderName}}",
       "desyncedTooltip": "Đồng bộ thất bại tại {{url}}",
-      "paidFeature": "Trình đồng bộ là tính năng trả phí",
       "selectFollowers": "Chọn hồ sơ đi theo",
       "selectFollowersDesc": "Chọn các hồ sơ sẽ phản chiếu hành động của hồ sơ dẫn dắt. Chỉ có thể chọn hồ sơ đã dừng.",
       "leader": "Dẫn đầu",
@@ -280,7 +279,7 @@
       "noFollowers": "Chọn ít nhất một hồ sơ đi theo",
       "flakyBadge": "KHÔNG ỔN ĐỊNH",
       "flakyTooltip": "Hồ sơ này có độ phân giải màn hình khác với hồ sơ dẫn đầu. Bố cục trang có thể khác, khiến nhấp chuột và tương tác có thể sai lệch.",
-      "localOnly": "Chỉ có thể đồng bộ các hồ sơ trình duyệt cục bộ"
+      "localOnly": "Duyệt cùng nhau yêu cầu hồ sơ Fingerprint Chromium"
     },
     "ephemeral": "Tạm thời",
     "ephemeralDescription": "Trình duyệt buộc ghi dữ liệu hồ sơ vào bộ nhớ thay vì ổ đĩa. Lưu ý rằng hệ điều hành có thể chuyển một phần bộ nhớ sang ổ đĩa khi tải nặng, nên dấu vết của phiên vẫn có thể bị khôi phục.",

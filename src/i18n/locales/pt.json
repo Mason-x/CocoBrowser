@@ -271,7 +271,6 @@
       "stopLeader": "Parar este perfil e todos os seus seguidores",
       "stopFollower": "Seguindo as ações de {{leaderName}}",
       "desyncedTooltip": "A sincronização falhou em {{url}}",
-      "paidFeature": "O sincronizador é um recurso pago",
       "selectFollowers": "Selecionar perfis seguidores",
       "selectFollowersDesc": "Escolha os perfis que espelharão as ações do perfil líder. Somente perfis parados podem ser selecionados.",
       "leader": "Líder",
@@ -280,7 +279,7 @@
       "noFollowers": "Selecione pelo menos um perfil seguidor",
       "flakyBadge": "FLAKY",
       "flakyTooltip": "Este perfil tem uma resolução de tela diferente do líder. O layout das páginas pode variar, fazendo com que cliques e interações atinjam elementos errados.",
-      "localOnly": "Somente perfis de navegador locais podem ser sincronizados"
+      "localOnly": "Navegar em conjunto requer perfis Fingerprint Chromium"
     },
     "ephemeral": "Efêmero",
     "ephemeralDescription": "O navegador é forçado a gravar os dados do perfil na memória em vez do disco. Lembre-se de que o sistema operacional pode passar partes da memória para o disco (swap) sob carga, então rastros da sessão ainda podem ser recuperáveis.",

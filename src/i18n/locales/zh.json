@@ -271,7 +271,6 @@
       "stopLeader": "停止此环境及其所有跟随者",
       "stopFollower": "正在跟随 {{leaderName}} 的操作",
       "desyncedTooltip": "在 {{url}} 同步失败",
-      "paidFeature": "同步器是付费功能",
       "selectFollowers": "选择跟随者环境",
       "selectFollowersDesc": "选择将跟随主环境操作的环境。只能选择已停止的环境。",
       "leader": "领导者",
@@ -280,7 +279,7 @@
       "noFollowers": "请至少选择一个跟随者环境",
       "flakyBadge": "FLAKY",
       "flakyTooltip": "此环境的屏幕分辨率与领导者不同。页面布局可能不同，导致点击和交互可能命中错误的元素。",
-      "localOnly": "只能同步本地浏览器环境"
+      "localOnly": "同步浏览需要 Fingerprint Chromium 环境"
     },
     "ephemeral": "临时",
     "ephemeralDescription": "浏览器被强制将环境数据写入内存而不是磁盘。请注意,在系统负载较高时,操作系统可能会将部分内存换出到磁盘(swap),因此会话的某些痕迹仍可能被恢复。",

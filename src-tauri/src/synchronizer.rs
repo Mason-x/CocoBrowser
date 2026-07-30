@@ -13,6 +13,93 @@ const MAX_CONCURRENT_LAUNCHES: usize = 5;
 
 /// Event captured from the leader browser via Wayfern.inputCaptured CDP events.
 /// Fields match the Wayfern.inputCaptured event schema directly.
+/// The only kernel this fork ships.
+const SUPPORTED_BROWSER: &str = "fingerprint-chromium";
+
+/// Name of the isolated world the capture script runs in.
+const CAPTURE_WORLD: &str = "coco_browse_together";
+
+/// Name of the CDP binding the capture script calls.
+const CAPTURE_BINDING: &str = "__cocoBrowseTogether";
+
+/// Input capture for the leader page.
+///
+/// The upstream engine exposed a proprietary `Wayfern.enableInputCapture` CDP
+/// command that captured input in the browser process. Standard CDP has no
+/// equivalent — `Input.dispatch*` sends input, it cannot observe it — so this
+/// fork listens in the page instead.
+///
+/// The script is installed into a named isolated world, so the page's own
+/// JavaScript cannot enumerate these listeners or reach the binding: that keeps
+/// the observable surface of a synchronized profile the same as an unsynchronized
+/// one, which matters because this is a fingerprinting-sensitive browser.
+/// Listeners run in the capture phase so a page calling `stopPropagation` on its
+/// own handlers cannot hide input from us.
+const CAPTURE_SCRIPT: &str = r#"
+(() => {
+  const send = (payload) => {
+    try {
+      globalThis.__cocoBrowseTogether(JSON.stringify(payload));
+    } catch (_) {
+      /* binding not attached yet; drop the event rather than throw into the page */
+    }
+  };
+
+  // CDP modifier bitmask: Alt=1, Ctrl=2, Meta=4, Shift=8
+  const mods = (e) =>
+    (e.altKey ? 1 : 0) | (e.ctrlKey ? 2 : 0) | (e.metaKey ? 4 : 0) | (e.shiftKey ? 8 : 0);
+
+  const BUTTONS = ["left", "middle", "right"];
+
+  const onMouse = (type) => (e) => {
+    send({
+      type,
+      x: e.clientX,
+      y: e.clientY,
+      button: BUTTONS[e.button] || "left",
+      clickCount: e.detail || 1,
+      modifiers: mods(e),
+      timestamp: Date.now(),
+    });
+  };
+
+  addEventListener("mousedown", onMouse("mousedown"), true);
+  addEventListener("mouseup", onMouse("mouseup"), true);
+
+  addEventListener(
+    "wheel",
+    (e) => {
+      send({ type: "wheel", deltaX: e.deltaX, deltaY: e.deltaY, timestamp: Date.now() });
+    },
+    true,
+  );
+
+  const keyPayload = (type, e) => ({
+    type,
+    key: e.key,
+    code: e.code,
+    windowsVirtualKeyCode: e.keyCode,
+    modifiers: mods(e),
+    timestamp: Date.now(),
+  });
+
+  addEventListener(
+    "keydown",
+    (e) => {
+      send(keyPayload("keydown", e));
+      // A printable keypress also needs a `char` event or the follower receives
+      // the keystroke without any text being inserted.
+      if (e.key && e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        send({ type: "char", text: e.key, modifiers: mods(e), timestamp: Date.now() });
+      }
+    },
+    true,
+  );
+
+  addEventListener("keyup", (e) => send(keyPayload("keyup", e)), true);
+})();
+"#;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CapturedEvent {
   #[serde(rename = "type")]
@@ -71,6 +158,10 @@ struct SyncSession {
   followers: HashMap<String, SyncFollowerState>,
   /// Cancellation token — drop sender to stop the listener task
   cancel_tx: tokio::sync::watch::Sender<bool>,
+  /// Loopback CDP port per profile id, assigned when this session launched the
+  /// browsers. Browse-together is the only reason these profiles run with
+  /// remote debugging enabled, and the ports live only as long as the session.
+  cdp_ports: HashMap<String, u16>,
 }
 
 pub struct SynchronizerManager {
@@ -99,7 +190,6 @@ impl SynchronizerManager {
     leader_profile_id: String,
     follower_profile_ids: Vec<String>,
   ) -> Result<SyncSessionInfo, String> {
-    // Validate: leader must be wayfern
     let profiles = ProfileManager::instance()
       .list_profiles()
       .map_err(|e| format!("Failed to list profiles: {e}"))?;
@@ -110,8 +200,10 @@ impl SynchronizerManager {
       .ok_or("Leader profile not found")?
       .clone();
 
-    if leader.browser != "wayfern" {
-      return Err("Synchronizer only supports Wayfern profiles.".to_string());
+    if leader.browser != SUPPORTED_BROWSER {
+      return Err(format!(
+        "Browse-together requires a {SUPPORTED_BROWSER} profile."
+      ));
     }
 
     // Check leader is not already running
@@ -133,9 +225,9 @@ impl SynchronizerManager {
         .find(|p| p.id.to_string() == *fid)
         .ok_or(format!("Follower profile '{fid}' not found"))?
         .clone();
-      if fp.browser != "wayfern" {
+      if fp.browser != SUPPORTED_BROWSER {
         return Err(format!(
-          "Profile '{}' is not a Wayfern profile. Only Wayfern profiles can be synchronized.",
+          "Profile '{}' cannot be synchronized: browse-together requires a {SUPPORTED_BROWSER} profile.",
           fp.name
         ));
       }
@@ -167,8 +259,19 @@ impl SynchronizerManager {
       follower_profiles.len()
     );
 
+    // Reserve one loopback CDP port per profile. Browse-together is the only
+    // path that launches with remote debugging: a normal manual launch stays
+    // debugger-free, and these ports disappear with the session.
+    let mut cdp_ports: HashMap<String, u16> = HashMap::new();
+    let leader_port = Self::reserve_loopback_port()?;
+    cdp_ports.insert(leader_profile_id.clone(), leader_port);
+    for fp in &follower_profiles {
+      cdp_ports.insert(fp.id.to_string(), Self::reserve_loopback_port()?);
+    }
+
     // Launch leader first so it gets focus
-    crate::browser_runner::launch_browser_profile(app_handle.clone(), leader.clone(), None)
+    crate::browser_runner::BrowserRunner::instance()
+      .launch_browser_with_debugging(app_handle.clone(), &leader, None, Some(leader_port), false)
       .await
       .map_err(|e| format!("Failed to launch leader: {e}"))?;
 
@@ -178,8 +281,10 @@ impl SynchronizerManager {
       for fp in chunk {
         let ah = app_handle.clone();
         let fp = fp.clone();
+        let port = cdp_ports[&fp.id.to_string()];
         set.spawn(async move {
-          crate::browser_runner::launch_browser_profile(ah, fp.clone(), None)
+          crate::browser_runner::BrowserRunner::instance()
+            .launch_browser_with_debugging(ah, &fp, None, Some(port), false)
             .await
             .map_err(|e| (fp.name.clone(), e.to_string()))
         });
@@ -232,6 +337,7 @@ impl SynchronizerManager {
       leader_profile_name: leader.name.clone(),
       followers: followers.clone(),
       cancel_tx,
+      cdp_ports: cdp_ports.clone(),
     };
 
     let info = SyncSessionInfo {
@@ -354,8 +460,7 @@ impl SynchronizerManager {
 
     // Connect to leader page-level target for reliable event capture
     log::info!("Synchronizer: getting leader CDP port");
-    let leader_profile = Self::get_profile(&leader_profile_id)?;
-    let leader_port = Self::get_cdp_port(&leader_profile).await?;
+    let leader_port = Self::get_cdp_port(&manager, &session_id, &leader_profile_id).await?;
     log::info!("Synchronizer: leader CDP port = {leader_port}, getting WS URL");
     let leader_ws_url = Self::get_page_ws_url(leader_port).await?;
 
@@ -413,11 +518,29 @@ impl SynchronizerManager {
       }
     }
 
-    // Use Wayfern's native input capture — no JS injection needed.
-    // Captures all real user input at the browser process level.
+    // Install the capture script into a named isolated world and expose a
+    // binding it can call. `Runtime.addBinding` is scoped to the same world, so
+    // the page's own JavaScript can neither see the function nor enumerate the
+    // listeners. `runImmediately` covers the already-loaded document in addition
+    // to future navigations.
     let setup_commands: Vec<(&str, serde_json::Value)> = vec![
       ("Page.enable", serde_json::json!({})),
-      ("Wayfern.enableInputCapture", serde_json::json!({})),
+      ("Runtime.enable", serde_json::json!({})),
+      (
+        "Runtime.addBinding",
+        serde_json::json!({
+          "name": CAPTURE_BINDING,
+          "executionContextName": CAPTURE_WORLD,
+        }),
+      ),
+      (
+        "Page.addScriptToEvaluateOnNewDocument",
+        serde_json::json!({
+          "source": CAPTURE_SCRIPT,
+          "worldName": CAPTURE_WORLD,
+          "runImmediately": true,
+        }),
+      ),
     ];
 
     for (method, params) in setup_commands {
@@ -458,8 +581,8 @@ impl SynchronizerManager {
         if width > 0 && height > 0 {
           log::info!("Synchronizer: leader window size {width}x{height}, resizing followers");
           for fid in &follower_profile_ids {
-            if let Ok(fp) = Self::get_profile(fid) {
-              if let Ok(port) = Self::get_cdp_port(&fp).await {
+            {
+              if let Ok(port) = Self::get_cdp_port(&manager, &session_id, fid).await {
                 if let Ok(f_ws) = Self::get_page_ws_url(port).await {
                   if let Ok((mut fws, _)) = tokio_tungstenite::connect_async(&f_ws).await {
                     // Get follower's window ID
@@ -499,7 +622,7 @@ impl SynchronizerManager {
 
     for fid in &follower_profile_ids {
       match Self::get_profile(fid) {
-        Ok(fp) => match Self::get_cdp_port(&fp).await {
+        Ok(fp) => match Self::get_cdp_port(&manager, &session_id, fid).await {
           Ok(port) => match Self::get_page_ws_url(port).await {
             Ok(url) => {
               match tokio_tungstenite::connect_async(&url).await {
@@ -579,7 +702,6 @@ impl SynchronizerManager {
                           Err(_) => continue,
                       };
 
-                      let method = value.get("method").and_then(|m| m.as_str()).unwrap_or("");
 
                       // Log CDP command response errors
                       if let Some(id) = value.get("id") {
@@ -588,8 +710,10 @@ impl SynchronizerManager {
                           }
                       }
 
-                      // Track user interaction timing
-                      if method == "Wayfern.inputCaptured" {
+                      // Track user interaction timing. A navigation that follows
+                      // real input within the window is the *result* of that input,
+                      // so the follower must not also be told to navigate.
+                      if Self::is_capture_binding_call(&value) {
                           last_user_event_time = std::time::Instant::now();
                       }
 
@@ -638,6 +762,16 @@ impl SynchronizerManager {
     Ok(())
   }
 
+  /// True when this CDP message is a capture-binding call from our isolated world.
+  fn is_capture_binding_call(value: &serde_json::Value) -> bool {
+    value.get("method").and_then(|m| m.as_str()) == Some("Runtime.bindingCalled")
+      && value
+        .get("params")
+        .and_then(|p| p.get("name"))
+        .and_then(|n| n.as_str())
+        == Some(CAPTURE_BINDING)
+  }
+
   /// Handle a single CDP event from the leader
   async fn handle_cdp_event(
     value: &serde_json::Value,
@@ -649,18 +783,30 @@ impl SynchronizerManager {
   ) {
     let method = value.get("method").and_then(|m| m.as_str()).unwrap_or("");
 
-    // Handle Wayfern.inputCaptured — native input events from the browser process
-    if method == "Wayfern.inputCaptured" {
-      if let Some(params) = value.get("params") {
-        let event_type = params.get("type").and_then(|v| v.as_str()).unwrap_or("");
-        // Skip mousemove — too noisy and not useful for synchronization
-        if event_type == "mousemove" {
-          return;
-        }
-        if let Ok(event) = serde_json::from_value::<CapturedEvent>(params.clone()) {
-          log::info!("Synchronizer: captured {event_type}");
-          for tx in follower_senders.values() {
-            let _ = tx.send(event.clone());
+    // Input arrives as a binding call from the isolated-world capture script.
+    // The payload is the JSON the script produced, matching `CapturedEvent`.
+    if Self::is_capture_binding_call(value) {
+      {
+        if let Some(payload) = value
+          .get("params")
+          .and_then(|p| p.get("payload"))
+          .and_then(|v| v.as_str())
+        {
+          match serde_json::from_str::<CapturedEvent>(payload) {
+            Ok(event) => {
+              // mousemove is never emitted by the script, but stay defensive:
+              // replaying it would flood the followers for no benefit.
+              if event.event_type == "mousemove" {
+                return;
+              }
+              log::debug!("Synchronizer: captured {}", event.event_type);
+              for tx in follower_senders.values() {
+                let _ = tx.send(event.clone());
+              }
+            }
+            Err(e) => {
+              log::warn!("Synchronizer: unparsable capture payload: {e}");
+            }
           }
         }
       }
@@ -914,20 +1060,49 @@ impl SynchronizerManager {
       .ok_or(format!("Profile '{profile_id}' not found"))
   }
 
-  async fn get_cdp_port(profile: &BrowserProfile) -> Result<u16, String> {
-    let profiles_dir = ProfileManager::instance().get_profiles_dir();
-    let profile_path = profile.get_profile_data_path(&profiles_dir);
-    let profile_path_str = profile_path.to_string_lossy();
+  /// Reserve a free loopback port by binding and immediately releasing it.
+  ///
+  /// There is an inherent race between releasing and the browser binding, but
+  /// this is the same approach the automation broker uses and the window is a
+  /// few milliseconds on a loopback interface.
+  fn reserve_loopback_port() -> Result<u16, String> {
+    let listener = std::net::TcpListener::bind("127.0.0.1:0")
+      .map_err(|e| format!("Failed to reserve a loopback CDP port: {e}"))?;
+    listener
+      .local_addr()
+      .map(|addr| addr.port())
+      .map_err(|e| format!("Failed to read the reserved CDP port: {e}"))
+  }
 
-    // The CDP port used to be discovered through the legacy engine's instance
-    // registry, which this fork removed. Sessions launched on the current kernel
-    // keep their debugging port inside the session manager and never publish it,
-    // so browse-together has no port to attach to. Fail loudly instead of
-    // spinning for 15 seconds and reporting a misleading timeout.
-    let _ = &profile_path_str;
+  /// Look up the CDP port this session assigned to a profile, waiting for the
+  /// endpoint to answer. The port comes from the session rather than from the
+  /// process, because only browse-together launches these profiles with remote
+  /// debugging enabled.
+  async fn get_cdp_port(
+    manager: &Arc<AsyncMutex<SynchronizerInner>>,
+    session_id: &str,
+    profile_id: &str,
+  ) -> Result<u16, String> {
+    let port = {
+      let inner = manager.lock().await;
+      inner
+        .sessions
+        .get(session_id)
+        .and_then(|s| s.cdp_ports.get(profile_id).copied())
+        .ok_or_else(|| format!("No CDP port recorded for profile '{profile_id}'"))?
+    };
+
+    // The browser needs a moment after launch before the endpoint accepts.
+    for attempt in 0..30 {
+      if attempt > 0 {
+        tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+      }
+      if Self::get_page_ws_url(port).await.is_ok() {
+        return Ok(port);
+      }
+    }
     Err(format!(
-      "Browse-together is unavailable on this kernel (profile '{}').",
-      profile.name
+      "CDP endpoint on port {port} did not become ready for profile '{profile_id}'"
     ))
   }
 
@@ -998,4 +1173,94 @@ pub async fn remove_sync_follower(
 #[tauri::command]
 pub async fn get_sync_sessions() -> Result<Vec<SyncSessionInfo>, String> {
   Ok(SynchronizerManager::instance().get_sessions().await)
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  /// The capture script and `CapturedEvent` form a contract across a language
+  /// boundary: the script builds these objects in the page, Rust deserializes
+  /// them. A renamed field on either side fails silently at runtime — input
+  /// would simply stop replaying — so pin the exact shapes the script emits.
+  #[test]
+  fn captured_event_parses_every_payload_the_script_emits() {
+    let mousedown = r#"{"type":"mousedown","x":12.5,"y":30,"button":"left","clickCount":1,"modifiers":8,"timestamp":1700000000000}"#;
+    let e: CapturedEvent = serde_json::from_str(mousedown).expect("mousedown");
+    assert_eq!(e.event_type, "mousedown");
+    assert_eq!(e.x, Some(12.5));
+    assert_eq!(e.button.as_deref(), Some("left"));
+    assert_eq!(e.click_count, Some(1));
+    assert_eq!(e.modifiers, Some(8));
+
+    let wheel = r#"{"type":"wheel","deltaX":0,"deltaY":-120.5,"timestamp":1700000000000}"#;
+    let e: CapturedEvent = serde_json::from_str(wheel).expect("wheel");
+    assert_eq!(e.delta_y, Some(-120.5));
+
+    let keydown = r#"{"type":"keydown","key":"a","code":"KeyA","windowsVirtualKeyCode":65,"modifiers":0,"timestamp":1}"#;
+    let e: CapturedEvent = serde_json::from_str(keydown).expect("keydown");
+    assert_eq!(e.key.as_deref(), Some("a"));
+    assert_eq!(e.code.as_deref(), Some("KeyA"));
+    assert_eq!(e.key_code, Some(65));
+
+    let ch = r#"{"type":"char","text":"a","modifiers":0,"timestamp":1}"#;
+    let e: CapturedEvent = serde_json::from_str(ch).expect("char");
+    assert_eq!(e.text.as_deref(), Some("a"));
+  }
+
+  #[test]
+  fn capture_binding_call_is_recognised() {
+    let ours = serde_json::json!({
+      "method": "Runtime.bindingCalled",
+      "params": { "name": CAPTURE_BINDING, "payload": "{}" }
+    });
+    assert!(SynchronizerManager::is_capture_binding_call(&ours));
+  }
+
+  #[test]
+  fn other_bindings_and_events_are_ignored() {
+    // A different binding on the same event must not be treated as input.
+    let other_binding = serde_json::json!({
+      "method": "Runtime.bindingCalled",
+      "params": { "name": "somethingElse", "payload": "{}" }
+    });
+    assert!(!SynchronizerManager::is_capture_binding_call(
+      &other_binding
+    ));
+
+    // Navigation events flow through the same handler and must not match.
+    let nav = serde_json::json!({
+      "method": "Page.frameNavigated",
+      "params": { "frame": { "url": "https://example.com" } }
+    });
+    assert!(!SynchronizerManager::is_capture_binding_call(&nav));
+
+    // Malformed messages must not panic or match.
+    assert!(!SynchronizerManager::is_capture_binding_call(
+      &serde_json::json!({})
+    ));
+  }
+
+  #[test]
+  fn capture_script_targets_the_isolated_world_binding() {
+    // The script calls the binding by literal name; if the constant is renamed
+    // without updating the script the two silently stop matching.
+    assert!(
+      CAPTURE_SCRIPT.contains(CAPTURE_BINDING),
+      "capture script must call the binding it is registered under"
+    );
+    // mousemove is deliberately never emitted: replaying it floods followers.
+    assert!(
+      !CAPTURE_SCRIPT.contains("\"mousemove\""),
+      "the script must not emit mousemove"
+    );
+  }
+
+  #[test]
+  fn reserved_loopback_port_is_usable() {
+    let port = SynchronizerManager::reserve_loopback_port().expect("a port is available");
+    assert!(port > 0);
+    // The port is released on return, so it must be bindable again.
+    std::net::TcpListener::bind(("127.0.0.1", port)).expect("released port rebinds");
+  }
 }

@@ -271,7 +271,6 @@
       "stopLeader": "Stop this profile and all its followers",
       "stopFollower": "Following actions of {{leaderName}}",
       "desyncedTooltip": "Synchronization failed at {{url}}",
-      "paidFeature": "Synchronizer is a paid feature",
       "selectFollowers": "Select Follower Profiles",
       "selectFollowersDesc": "Choose profiles that will mirror the actions of the leader profile. Only stopped profiles can be selected.",
       "leader": "Leader",
@@ -280,7 +279,7 @@
       "noFollowers": "Select at least one follower profile",
       "flakyBadge": "FLAKY",
       "flakyTooltip": "This profile has a different screen resolution than the leader. Page layouts may differ, causing clicks and interactions to hit the wrong elements.",
-      "localOnly": "Only local browser profiles can be synchronized"
+      "localOnly": "Browse-together requires Fingerprint Chromium profiles"
     },
     "ephemeral": "Ephemeral",
     "ephemeralDescription": "The browser is forced to write profile data into memory instead of disk. Note that your operating system can swap parts of memory to disk under load, so traces of the session may still be recoverable.",
