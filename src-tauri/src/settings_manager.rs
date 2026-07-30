@@ -40,6 +40,25 @@ pub struct AppSettings {
   pub api_token: Option<String>, // Displayed token for user to copy
   #[serde(default)]
   pub sync_server_url: Option<String>, // URL of the sync server
+  /// Open the local workbench page when a profile launches with no URL of its
+  /// own. On by default: it is the only place the browser's observed identity is
+  /// shown back to the user, so a launch that disagrees with its configuration
+  /// is visible instead of silent.
+  #[serde(default = "default_true")]
+  pub show_workbench_page: bool,
+  /// Override the workbench page's exit-IP lookup endpoint.
+  ///
+  /// The request is made from inside the browser so the answer describes the
+  /// profile's exit, which means the endpoint must send CORS headers. Empty uses
+  /// ipwho.is. ip2location.io cannot be used: it sends no CORS headers and has no
+  /// JSONP mode, so a browser refuses the request before it leaves.
+  #[serde(default)]
+  pub ip_lookup_url: Option<String>,
+  /// Have the workbench page test whether a few well-known sites are reachable
+  /// through the profile's proxy. Each check is one request from inside the
+  /// profile, so it is a real (if minimal) visit to those hosts.
+  #[serde(default = "default_true")]
+  pub workbench_reachability_checks: bool,
   #[serde(default)]
   pub first_launch_timestamp: Option<u64>, // Unix epoch seconds when app was first launched
   #[serde(default)]
@@ -69,12 +88,26 @@ pub struct AppSettings {
   /// Allow MCP/API `evaluate_javascript` (default false — arbitrary code).
   #[serde(default)]
   pub allow_js_evaluate: bool,
+  /// Derive a persona's language from the exit country's most-spoken language
+  /// instead of drawing one at random, weighted by CLDR speaker share.
+  ///
+  /// On by default. The weighted draw is the more faithful model of a country's
+  /// population — the US really does have Spanish speakers — but it is applied
+  /// per profile, where the visible result is a browser whose UI language
+  /// changes for reasons the user did not choose. Turn it off to get the
+  /// distribution back.
+  #[serde(default = "default_true")]
+  pub locale_uses_primary_language: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct SyncSettings {
   pub sync_server_url: Option<String>,
   pub sync_token: Option<String>, // Only populated when reading, not stored in JSON
+}
+
+fn default_true() -> bool {
+  true
 }
 
 fn default_theme() -> String {
@@ -93,6 +126,9 @@ impl Default for AppSettings {
       custom_theme: None,
       api_enabled: false,
       api_port: 10108,
+      show_workbench_page: true,
+      ip_lookup_url: None,
+      workbench_reachability_checks: true,
       api_token: None,
       sync_server_url: None,
       first_launch_timestamp: None,
@@ -107,6 +143,7 @@ impl Default for AppSettings {
       keep_decrypted_profiles_in_ram: false,
       allow_headless_automation: false,
       allow_js_evaluate: false,
+      locale_uses_primary_language: true,
     }
   }
 }
@@ -1209,6 +1246,9 @@ mod tests {
       custom_theme: None,
       api_enabled: false,
       api_port: 10108,
+      show_workbench_page: true,
+      ip_lookup_url: None,
+      workbench_reachability_checks: true,
       api_token: None,
       sync_server_url: None,
       first_launch_timestamp: None,
@@ -1223,6 +1263,7 @@ mod tests {
       keep_decrypted_profiles_in_ram: false,
       allow_headless_automation: false,
       allow_js_evaluate: false,
+      locale_uses_primary_language: true,
     };
 
     let save_result = manager.save_settings(&test_settings);

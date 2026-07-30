@@ -198,7 +198,22 @@
     "disableAutoUpdates": "Disable App Auto Updates",
     "disableAutoUpdatesDescription": "Prevent the app from automatically checking and installing CocoBrowser updates. Browser updates are not affected.",
     "keepDecryptedProfilesInRam": "Keep Decrypted Profiles In RAM",
-    "keepDecryptedProfilesInRamDescription": "Preserve the decrypted in-RAM copy of password-protected profiles between launches for faster startup. The on-disk copy stays encrypted regardless."
+    "keepDecryptedProfilesInRamDescription": "Preserve the decrypted in-RAM copy of password-protected profiles between launches for faster startup. The on-disk copy stays encrypted regardless.",
+    "locale": {
+      "title": "Persona language",
+      "description": "How a profile's language is chosen when it follows the proxy exit.",
+      "primaryLanguage": "Always use the country's main language",
+      "primaryLanguageDescription": "A US exit becomes en-US every time, instead of drawing from the country's languages weighted by speaker share, which hands out es-US about 9% of the time. Only affects profiles whose language follows the exit IP."
+    },
+    "workbench": {
+      "title": "Workbench page",
+      "description": "Open a local page on launch that shows the exit IP, location and what the browser presents to a site.",
+      "reachability": "Test site reachability",
+      "reachabilityDescription": "Checks whether a few well-known sites can be reached through this profile's proxy. Each check is one request from inside the profile.",
+      "lookupUrl": "Exit IP lookup URL",
+      "lookupUrlPlaceholder": "Leave empty to use ipwho.is",
+      "lookupUrlDescription": "The page calls this from inside the browser so the answer describes the profile's exit, so the endpoint must send CORS headers and return ipwho.is-shaped fields. ip2location.io cannot be used: it sends no CORS headers."
+    }
   },
   "header": {
     "searchPlaceholder": "Search profiles...",
@@ -2087,7 +2102,9 @@
     "webrtcPolicy": "WebRTC policy",
     "capabilityRevision": "Capability revision",
     "spoofingDisabled": "Disabled spoofing surfaces",
-    "spoofingDisabledHint": "Checked surfaces use the browser's native value and reduce fingerprint masking."
+    "spoofingDisabledHint": "Checked surfaces use the browser's native value and reduce fingerprint masking.",
+    "followExitIp": "Follow exit IP",
+    "followExitIpHint": "While enabled, the value is re-derived from the proxy exit on every launch. Turn it off to pin your own value."
   },
   "audit": {
     "title": "Fingerprint audit",
@@ -2113,5 +2130,40 @@
     "yes": "yes",
     "no": "no",
     "action": "Audit…"
+  },
+  "workbench": {
+    "title": "Environment check",
+    "subtitle": "What this browser presents to a site",
+    "exitIp": "Exit IP",
+    "location": "Location",
+    "isp": "Network",
+    "postcode": "Postcode",
+    "environment": "Browser environment",
+    "timezone": "Timezone",
+    "language": "Language",
+    "userAgent": "User agent",
+    "platform": "Platform",
+    "screen": "Screen",
+    "cores": "CPU cores",
+    "memory": "Memory",
+    "webgl": "WebGL",
+    "loading": "Checking…",
+    "lookupFailed": "Lookup failed",
+    "mismatch": "Does not match this profile",
+    "expectedValue": "expected",
+    "unknown": "Unknown",
+    "refresh": "Re-check",
+    "reachability": "Reachability",
+    "reachable": "reachable",
+    "unreachable": "unreachable",
+    "checking": "checking",
+    "exitTimezone": "Exit timezone",
+    "exitMismatch": "Browser timezone differs from the exit",
+    "profile": "Profile",
+    "profileName": "Name",
+    "profileGroup": "Group",
+    "profileNote": "Note",
+    "profileKernel": "Kernel",
+    "notCheckedYet": "Not checked yet — press Re-check"
   }
 }

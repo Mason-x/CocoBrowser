@@ -68,6 +68,7 @@ import {
   showSyncProgressToast,
   showToast,
 } from "@/lib/toast-utils";
+import { buildWorkbenchPage } from "@/lib/workbench-page";
 import type { BrowserProfile, SyncSettings } from "@/types";
 
 type BrowserTypeString = "fingerprint-chromium";
@@ -812,6 +813,35 @@ export default function Home() {
         }
       }
 
+      // Local landing page showing what the browser actually presents. Written
+      // per launch so it reflects the persona as configured right now. Any
+      // failure here is cosmetic — fall through and open the browser anyway.
+      try {
+        const settings = await invoke<{
+          show_workbench_page?: boolean;
+          ip_lookup_url?: string | null;
+          workbench_reachability_checks?: boolean;
+        }>("get_app_settings");
+        if (settings.show_workbench_page !== false) {
+          // Written as a new-tab-override extension; the backend loads it at
+          // launch. Nothing is passed as a URL, so the address bar stays empty.
+          const files = buildWorkbenchPage(profile, t, {
+            lookupUrl: settings.ip_lookup_url,
+            reachability: settings.workbench_reachability_checks !== false,
+            groupName: profile.group_id
+              ? groupsData.find((g) => g.id === profile.group_id)?.name
+              : undefined,
+          });
+          await invoke("write_workbench_page", {
+            profileId: profile.id,
+            html: files.html,
+            js: files.js,
+          });
+        }
+      } catch (error) {
+        console.error("Failed to prepare the workbench page:", error);
+      }
+
       try {
         const result = await invoke<BrowserProfile>("launch_browser_profile", {
           profile,
@@ -819,14 +849,20 @@ export default function Home() {
         console.log("Successfully launched profile:", result.name);
       } catch (err: unknown) {
         console.error("Failed to launch browser:", err);
-        const errorMessage = err instanceof Error ? err.message : String(err);
+        // Backend errors arrive as a JSON code object; String(err) would put the
+        // raw `{"code":...}` in front of the user, untranslated.
         showErrorToast(
-          t("errors.launchBrowserFailed", { error: errorMessage }),
+          t("errors.launchBrowserFailed", {
+            error: translateBackendError(t, err),
+          }),
         );
+        // Callers use this to clear their own launching state. Every call site
+        // must handle it — a bare `void launchProfile(...)` becomes an unhandled
+        // rejection, because the toast above does not "handle" the promise.
         throw err;
       }
     },
-    [t],
+    [t, groupsData],
   );
 
   const handleCloneProfile = useCallback((profile: BrowserProfile) => {
@@ -909,8 +945,11 @@ export default function Home() {
         // No need to manually reload - useProfileEvents will handle the update
       } catch (err: unknown) {
         console.error("Failed to kill browser:", err);
-        const errorMessage = err instanceof Error ? err.message : String(err);
-        showErrorToast(t("errors.killBrowserFailed", { error: errorMessage }));
+        showErrorToast(
+          t("errors.killBrowserFailed", {
+            error: translateBackendError(t, err),
+          }),
+        );
         // Re-throw the error so the table component can handle loading state cleanup
         throw err;
       }
@@ -1609,10 +1648,12 @@ export default function Home() {
         profiles={profiles}
         runningProfileIds={runningProfiles}
         onLaunchProfile={(profile) => {
-          void launchProfile(profile);
+          // The failure is already shown as a toast; swallow the rejection so it
+          // does not surface as an unhandled rejection.
+          void launchProfile(profile).catch(() => {});
         }}
         onKillProfile={(profile) => {
-          void handleKillProfile(profile);
+          void handleKillProfile(profile).catch(() => {});
         }}
         onShowProfileInfo={(profile) => {
           handleRailNavigate("profiles");
@@ -1678,7 +1719,7 @@ export default function Home() {
           ) {
             const target = pendingLaunchAfterUnlockRef.current;
             pendingLaunchAfterUnlockRef.current = null;
-            void launchProfile(target);
+            void launchProfile(target).catch(() => {});
           }
           // On set/change/remove, the profile's encryption state changed.
           // Push that state to the sync server immediately so other devices

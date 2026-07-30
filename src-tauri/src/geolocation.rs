@@ -156,18 +156,45 @@ impl LocaleSelector {
     Ok(Self { territories })
   }
 
+  fn languages_for(&self, region_upper: &str) -> Result<&[LanguagePopulation], GeolocationError> {
+    let languages = self
+      .territories
+      .get(region_upper)
+      .ok_or_else(|| GeolocationError::UnknownTerritory(region_upper.to_string()))?;
+
+    if languages.is_empty() {
+      return Err(GeolocationError::NoLanguageData(region_upper.to_string()));
+    }
+
+    Ok(languages)
+  }
+
+  /// The territory's single most-spoken language, with no randomness.
+  ///
+  /// CLDR gives the US `en` 96 and `es` 9.6, so [`Self::from_region`] hands out
+  /// `es-US` for roughly one American exit in eleven — which shows up as a
+  /// Chromium UI in Spanish. This is the predictable alternative behind the
+  /// `locale_uses_primary_language` setting.
+  pub fn primary_from_region(&self, region: &str) -> Result<Locale, GeolocationError> {
+    let region_upper = region.to_uppercase();
+    let languages = self.languages_for(&region_upper)?;
+
+    let primary = languages
+      .iter()
+      .max_by(|a, b| a.population_percent.total_cmp(&b.population_percent))
+      .ok_or_else(|| GeolocationError::NoLanguageData(region_upper.clone()))?;
+
+    Ok(normalize_locale(&format!(
+      "{}-{}",
+      primary.language, region_upper
+    )))
+  }
+
+  /// Weighted-random pick across every language the territory speaks.
   #[allow(clippy::wrong_self_convention)]
   pub fn from_region(&self, region: &str) -> Result<Locale, GeolocationError> {
     let region_upper = region.to_uppercase();
-
-    let languages = self
-      .territories
-      .get(&region_upper)
-      .ok_or_else(|| GeolocationError::UnknownTerritory(region.to_string()))?;
-
-    if languages.is_empty() {
-      return Err(GeolocationError::NoLanguageData(region.to_string()));
-    }
+    let languages = self.languages_for(&region_upper)?;
 
     let total: f64 = languages.iter().map(|l| l.population_percent).sum();
     let mut rng = rand::rng();
@@ -263,7 +290,17 @@ pub fn get_geolocation(ip: &str) -> Result<Geolocation, GeolocationError> {
     .to_uppercase();
 
   let selector = LocaleSelector::new()?;
-  let locale = selector.from_region(&iso_code)?;
+  // Unreadable settings fall back to the primary language: a predictable locale
+  // is the safer surprise, and it is the default the setting ships with.
+  let primary_only = crate::settings_manager::SettingsManager::instance()
+    .load_settings()
+    .map(|s| s.locale_uses_primary_language)
+    .unwrap_or(true);
+  let locale = if primary_only {
+    selector.primary_from_region(&iso_code)?
+  } else {
+    selector.from_region(&iso_code)?
+  };
 
   Ok(Geolocation {
     locale,
@@ -296,6 +333,34 @@ mod tests {
     assert!(de_locale.is_ok());
     let de = de_locale.unwrap();
     assert_eq!(de.region, Some("DE".to_string()));
+  }
+
+  #[test]
+  fn primary_language_is_deterministic_and_most_spoken() {
+    let selector = LocaleSelector::new().unwrap();
+
+    // The whole point of the setting: a US exit is `en-US` every single time,
+    // never the ~9% `es-US` the weighted draw produces.
+    for _ in 0..50 {
+      assert_eq!(
+        selector.primary_from_region("US").unwrap().as_string(),
+        "en-US"
+      );
+    }
+    assert_eq!(
+      selector.primary_from_region("de").unwrap().as_string(),
+      "de-DE"
+    );
+    assert_eq!(
+      selector.primary_from_region("JP").unwrap().as_string(),
+      "ja-JP"
+    );
+  }
+
+  #[test]
+  fn primary_language_rejects_unknown_territories() {
+    let selector = LocaleSelector::new().unwrap();
+    assert!(selector.primary_from_region("ZZ").is_err());
   }
 
   #[test]

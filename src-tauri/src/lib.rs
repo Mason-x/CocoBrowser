@@ -48,6 +48,7 @@ pub mod sync;
 mod synchronizer;
 pub mod traffic_stats;
 mod version_cache;
+mod workbench;
 // mod theme_detector; // removed: theme detection handled in webview via CSS prefers-color-scheme
 mod cookie_manager;
 pub mod events;
@@ -2200,6 +2201,7 @@ pub fn run() {
       // intentionally not exposed: this build has no cloud tier, so the
       // frontend has no path to them and they must not be reachable over IPC.
       sync::restart_sync_service,
+      workbench::write_workbench_page,
       // Cross-device profile locks
       get_profile_locks,
       get_device_identity,

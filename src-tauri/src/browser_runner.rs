@@ -321,6 +321,14 @@ impl BrowserRunner {
         crate::ephemeral_dirs::get_effective_profile_path(&updated_profile, &profiles_dir);
 
       let mut extension_paths = Vec::new();
+      // Overrides the new tab page, so the browser opens on the workbench with an
+      // empty address bar. Only when the caller asked for no particular URL —
+      // an automation client that wants a page should get that page.
+      if url.is_none() {
+        if let Some(dir) = crate::workbench::extension_if_enabled(&profile_id_str) {
+          extension_paths.push(dir);
+        }
+      }
       if updated_profile.extension_group_id.is_some() {
         let mgr = crate::extension_manager::EXTENSION_MANAGER.lock().unwrap();
         if let Ok(paths) = mgr.install_extensions_for_profile(&updated_profile, &profile_data_path)
@@ -592,10 +600,21 @@ impl BrowserRunner {
     app_handle: tauri::AppHandle,
     profile: &BrowserProfile,
   ) -> Result<bool, Box<dyn std::error::Error + Send + Sync>> {
-    self
+    let running = self
       .profile_manager
       .check_browser_status(app_handle, profile)
-      .await
+      .await?;
+
+    // Closing the browser window never goes through `kill_browser_process`, so
+    // nothing moved the session out of Running and every later launch was refused
+    // with "already launching or running". This poll is the only place that sees
+    // the process disappear on its own, so it is where the session is released.
+    if !running {
+      let _ = crate::kernel::session::SessionManager::instance()
+        .set_state(profile.id, crate::kernel::session::SessionState::Stopped);
+    }
+
+    Ok(running)
   }
 
   pub async fn kill_browser_process(

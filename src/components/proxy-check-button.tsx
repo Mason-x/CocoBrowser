@@ -118,17 +118,34 @@ export function ProxyCheckButton({
         <Button
           variant="ghost"
           size="sm"
-          className="size-7 p-0"
+          className="h-auto shrink-0 gap-1.5 px-1.5 py-1"
           onClick={handleCheck}
           disabled={isCurrentlyChecking || disabled}
         >
           {isCurrentlyChecking ? (
             <div className="size-3 animate-spin rounded-full border border-current border-t-transparent" />
           ) : result?.is_valid && result.country_code ? (
-            <span className="relative inline-flex items-center justify-center">
-              <FlagIcon countryCode={result.country_code} className="h-2.5" />
-              <FiCheck className="absolute right-[-4px] bottom-[-6px]" />
-            </span>
+            <>
+              <span className="relative inline-flex shrink-0 items-center justify-center">
+                <FlagIcon countryCode={result.country_code} className="h-2.5" />
+                <FiCheck className="absolute right-[-4px] bottom-[-6px]" />
+              </span>
+              {/* The exit was only in the tooltip, so a row of profiles gave no
+                  way to see which one is where without hovering each. Stacked
+                  rather than joined: the column is too narrow for one line and
+                  the IP is the half that gets cut off. */}
+              <span className="flex min-w-0 flex-col items-start leading-tight">
+                <span className="max-w-full truncate font-mono text-xs font-normal">
+                  {result.ip}
+                </span>
+                {/* Country only. The cell also holds the proxy selector, and a
+                    "city, country" string is long enough to squeeze the proxy
+                    name down to a letter. The city is in the tooltip. */}
+                <span className="max-w-full truncate text-[11px] font-normal text-muted-foreground">
+                  {result.country}
+                </span>
+              </span>
+            </>
           ) : result && !result.is_valid ? (
             <span className="text-sm text-destructive">✕</span>
           ) : (

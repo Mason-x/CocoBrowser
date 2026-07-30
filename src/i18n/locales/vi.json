@@ -198,7 +198,22 @@
     "disableAutoUpdates": "Tắt tự động cập nhật ứng dụng",
     "disableAutoUpdatesDescription": "Ngăn ứng dụng tự động kiểm tra và cài đặt bản cập nhật CocoBrowser. Cập nhật trình duyệt không bị ảnh hưởng.",
     "keepDecryptedProfilesInRam": "Giữ hồ sơ đã giải mã trong RAM",
-    "keepDecryptedProfilesInRamDescription": "Giữ bản sao đã giải mã trong RAM của hồ sơ được bảo vệ bằng mật khẩu giữa các lần khởi chạy để khởi động nhanh hơn. Bản sao trên ổ đĩa vẫn được mã hóa."
+    "keepDecryptedProfilesInRamDescription": "Giữ bản sao đã giải mã trong RAM của hồ sơ được bảo vệ bằng mật khẩu giữa các lần khởi chạy để khởi động nhanh hơn. Bản sao trên ổ đĩa vẫn được mã hóa.",
+    "locale": {
+      "title": "Ngôn ngữ hồ sơ",
+      "description": "Cách chọn ngôn ngữ của hồ sơ khi ngôn ngữ đi theo IP thoát của proxy.",
+      "primaryLanguage": "Luôn dùng ngôn ngữ chính của quốc gia",
+      "primaryLanguageDescription": "IP thoát ở Mỹ luôn cho en-US thay vì bốc ngẫu nhiên theo số người nói, vốn cho ra es-US khoảng 9% số lần. Chỉ ảnh hưởng đến hồ sơ có ngôn ngữ đi theo IP thoát."
+    },
+    "workbench": {
+      "title": "Trang môi trường",
+      "description": "Mở một trang cục bộ khi khởi động, hiển thị IP cổng ra, vị trí và những gì trình duyệt cho trang web thấy.",
+      "reachability": "Kiểm tra khả năng truy cập",
+      "reachabilityDescription": "Kiểm tra xem một vài trang phổ biến có truy cập được qua proxy của cấu hình này không. Mỗi lần kiểm tra là một yêu cầu gửi từ bên trong cấu hình.",
+      "lookupUrl": "URL tra cứu IP cổng ra",
+      "lookupUrlPlaceholder": "Để trống thì dùng ipwho.is",
+      "lookupUrlDescription": "Trang gọi địa chỉ này từ bên trong trình duyệt để kết quả phản ánh cổng ra của cấu hình, nên endpoint phải gửi header CORS và trả về các trường theo dạng ipwho.is. Không dùng được ip2location.io: nó không gửi header CORS nào."
+    }
   },
   "header": {
     "searchPlaceholder": "Tìm kiếm hồ sơ...",
@@ -1791,9 +1806,9 @@
     "updateChecksumsUnavailable": "Không thể xác minh bản cập nhật {{version}} vì không thể tải tệp checksum. Bản cập nhật chưa được cài đặt; sẽ thử lại sau.",
     "updateChecksumMismatch": "Tệp cập nhật đã tải xuống {{file}} không vượt qua kiểm tra checksum và đã bị loại bỏ. Vui lòng thử lại.",
     "nameCannotBeEmpty": "Tên không được để trống",
-    "cloudProxyNotSupported": "Cloud-managed proxies are not supported in local fingerprint mode. Use a self-hosted HTTP or SOCKS proxy.",
-    "proxyExitCheckFailed": "Could not verify proxy exit IP: {{reason}}",
-    "geoTimezoneMismatch": "Timezone mismatch: persona is {{personaTimezone}} but proxy exit ({{exitIp}}) is {{exitTimezone}}. Match persona to the exit before launching.",
+    "cloudProxyNotSupported": "Chế độ dấu vân tay cục bộ không hỗ trợ proxy do đám mây quản lý. Hãy dùng proxy HTTP hoặc SOCKS tự vận hành.",
+    "proxyExitCheckFailed": "Không xác minh được IP cổng ra của proxy: {{reason}}",
+    "geoTimezoneMismatch": "Múi giờ không khớp: danh tính là {{personaTimezone}} nhưng cổng ra của proxy ({{exitIp}}) ở {{exitTimezone}}. Hãy khớp danh tính với cổng ra trước khi mở.",
     "cookieExportPasswordTooShort": "Mật khẩu phải có ít nhất {{min}} ký tự.",
     "cookieExportPasswordRequired": "Nhập mật khẩu cho gói cookie đã mã hóa.",
     "cookieExportDecryptFailed": "Không thể giải mã gói cookie. Hãy kiểm tra mật khẩu và tệp.",
@@ -2087,7 +2102,9 @@
     "webrtcPolicy": "WebRTC policy",
     "capabilityRevision": "Capability revision",
     "spoofingDisabled": "Disabled spoofing surfaces",
-    "spoofingDisabledHint": "Checked surfaces use the browser's native value and reduce fingerprint masking."
+    "spoofingDisabledHint": "Checked surfaces use the browser's native value and reduce fingerprint masking.",
+    "followExitIp": "Theo IP cổng ra",
+    "followExitIpHint": "Khi bật, giá trị được tính lại từ cổng ra của proxy mỗi lần mở. Tắt để tự đặt và giữ cố định."
   },
   "audit": {
     "title": "Fingerprint audit",
@@ -2113,5 +2130,40 @@
     "yes": "yes",
     "no": "no",
     "action": "Audit…"
+  },
+  "workbench": {
+    "title": "Kiểm tra môi trường",
+    "subtitle": "Những gì trình duyệt này hiển thị cho trang web",
+    "exitIp": "IP cổng ra",
+    "location": "Vị trí",
+    "isp": "Mạng",
+    "postcode": "Mã bưu chính",
+    "environment": "Môi trường trình duyệt",
+    "timezone": "Múi giờ",
+    "language": "Ngôn ngữ",
+    "userAgent": "User Agent",
+    "platform": "Nền tảng",
+    "screen": "Màn hình",
+    "cores": "Nhân CPU",
+    "memory": "Bộ nhớ",
+    "webgl": "WebGL",
+    "loading": "Đang kiểm tra…",
+    "lookupFailed": "Tra cứu thất bại",
+    "mismatch": "Không khớp với cấu hình này",
+    "expectedValue": "mong đợi",
+    "unknown": "Không rõ",
+    "refresh": "Kiểm tra lại",
+    "reachability": "Khả năng truy cập",
+    "reachable": "truy cập được",
+    "unreachable": "không truy cập được",
+    "checking": "đang kiểm tra",
+    "exitTimezone": "Múi giờ cổng ra",
+    "exitMismatch": "Múi giờ trình duyệt khác với cổng ra",
+    "profile": "Cấu hình",
+    "profileName": "Tên",
+    "profileGroup": "Nhóm",
+    "profileNote": "Ghi chú",
+    "profileKernel": "Nhân",
+    "notCheckedYet": "Chưa kiểm tra — bấm Kiểm tra lại"
   }
 }

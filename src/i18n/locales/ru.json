@@ -198,7 +198,22 @@
     "disableAutoUpdates": "Отключить автообновление приложения",
     "disableAutoUpdatesDescription": "Запретить автоматическую проверку и установку обновлений CocoBrowser. Обновления браузеров не затрагиваются.",
     "keepDecryptedProfilesInRam": "Хранить расшифрованные профили в ОЗУ",
-    "keepDecryptedProfilesInRamDescription": "Сохранять расшифрованную копию защищённых паролем профилей в ОЗУ между запусками для ускорения старта. Копия на диске в любом случае остаётся зашифрованной."
+    "keepDecryptedProfilesInRamDescription": "Сохранять расшифрованную копию защищённых паролем профилей в ОЗУ между запусками для ускорения старта. Копия на диске в любом случае остаётся зашифрованной.",
+    "locale": {
+      "title": "Язык профиля",
+      "description": "Как выбирается язык профиля, когда он следует за выходом прокси.",
+      "primaryLanguage": "Всегда использовать основной язык страны",
+      "primaryLanguageDescription": "Выход в США всегда даёт en-US вместо случайного выбора среди языков страны по числу говорящих, при котором es-US выпадает примерно в 9% случаев. Влияет только на профили, язык которых следует за IP выхода."
+    },
+    "workbench": {
+      "title": "Страница окружения",
+      "description": "Открывать при запуске локальную страницу с IP выхода, расположением и тем, что браузер показывает сайту.",
+      "reachability": "Проверять доступность сайтов",
+      "reachabilityDescription": "Проверяет, доступны ли несколько известных сайтов через прокси этого профиля. Каждая проверка — один запрос изнутри профиля.",
+      "lookupUrl": "URL запроса IP выхода",
+      "lookupUrlPlaceholder": "Пусто — используется ipwho.is",
+      "lookupUrlDescription": "Страница вызывает его изнутри браузера, чтобы ответ описывал выход профиля, поэтому эндпоинт должен присылать заголовки CORS и поля в формате ipwho.is. ip2location.io не подходит: он не присылает заголовков CORS."
+    }
   },
   "header": {
     "searchPlaceholder": "Поиск профилей...",
@@ -1791,9 +1806,9 @@
     "updateChecksumsUnavailable": "Не удалось проверить обновление {{version}}: файл контрольных сумм не удалось получить. Обновление не было установлено; попытка будет повторена позже.",
     "updateChecksumMismatch": "Загруженный файл обновления {{file}} не прошёл проверку контрольной суммы и был удалён. Попробуйте ещё раз.",
     "nameCannotBeEmpty": "Имя не может быть пустым",
-    "cloudProxyNotSupported": "Cloud-managed proxies are not supported in local fingerprint mode. Use a self-hosted HTTP or SOCKS proxy.",
-    "proxyExitCheckFailed": "Could not verify proxy exit IP: {{reason}}",
-    "geoTimezoneMismatch": "Timezone mismatch: persona is {{personaTimezone}} but proxy exit ({{exitIp}}) is {{exitTimezone}}. Match persona to the exit before launching.",
+    "cloudProxyNotSupported": "Облачные прокси не поддерживаются в режиме локального отпечатка. Используйте свой HTTP- или SOCKS-прокси.",
+    "proxyExitCheckFailed": "Не удалось проверить IP выхода прокси: {{reason}}",
+    "geoTimezoneMismatch": "Часовой пояс не совпадает: у профиля {{personaTimezone}}, а выход прокси ({{exitIp}}) находится в {{exitTimezone}}. Приведите профиль в соответствие с выходом перед запуском.",
     "cookieExportPasswordTooShort": "Пароль должен содержать не менее {{min}} символов.",
     "cookieExportPasswordRequired": "Введите пароль зашифрованного пакета cookie.",
     "cookieExportDecryptFailed": "Не удалось расшифровать пакет. Проверьте пароль и файл.",
@@ -2087,7 +2102,9 @@
     "webrtcPolicy": "WebRTC policy",
     "capabilityRevision": "Capability revision",
     "spoofingDisabled": "Disabled spoofing surfaces",
-    "spoofingDisabledHint": "Checked surfaces use the browser's native value and reduce fingerprint masking."
+    "spoofingDisabledHint": "Checked surfaces use the browser's native value and reduce fingerprint masking.",
+    "followExitIp": "Следовать за IP выхода",
+    "followExitIpHint": "Пока включено, значение заново определяется по выходу прокси при каждом запуске. Отключите, чтобы зафиксировать своё значение."
   },
   "audit": {
     "title": "Fingerprint audit",
@@ -2113,5 +2130,40 @@
     "yes": "yes",
     "no": "no",
     "action": "Audit…"
+  },
+  "workbench": {
+    "title": "Проверка окружения",
+    "subtitle": "Что этот браузер показывает сайту",
+    "exitIp": "IP выхода",
+    "location": "Расположение",
+    "isp": "Сеть",
+    "postcode": "Почтовый индекс",
+    "environment": "Окружение браузера",
+    "timezone": "Часовой пояс",
+    "language": "Язык",
+    "userAgent": "User-Agent",
+    "platform": "Платформа",
+    "screen": "Экран",
+    "cores": "Ядра CPU",
+    "memory": "Память",
+    "webgl": "WebGL",
+    "loading": "Проверка…",
+    "lookupFailed": "Не удалось получить данные",
+    "mismatch": "Не совпадает с этим профилем",
+    "expectedValue": "ожидалось",
+    "unknown": "Неизвестно",
+    "refresh": "Проверить снова",
+    "reachability": "Доступность",
+    "reachable": "доступен",
+    "unreachable": "недоступен",
+    "checking": "проверка",
+    "exitTimezone": "Часовой пояс выхода",
+    "exitMismatch": "Часовой пояс браузера отличается от выхода",
+    "profile": "Профиль",
+    "profileName": "Имя",
+    "profileGroup": "Группа",
+    "profileNote": "Заметка",
+    "profileKernel": "Ядро",
+    "notCheckedYet": "Ещё не проверено — нажмите «Проверить снова»"
   }
 }

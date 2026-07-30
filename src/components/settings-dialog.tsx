@@ -72,6 +72,10 @@ interface AppSettings {
   keep_decrypted_profiles_in_ram?: boolean;
   allow_headless_automation: boolean;
   allow_js_evaluate: boolean;
+  show_workbench_page?: boolean;
+  ip_lookup_url?: string;
+  workbench_reachability_checks?: boolean;
+  locale_uses_primary_language?: boolean;
 }
 
 interface CustomThemeState {
@@ -112,6 +116,9 @@ export function SettingsDialog({
     mcp_token: undefined,
     allow_headless_automation: false,
     allow_js_evaluate: false,
+    show_workbench_page: true,
+    workbench_reachability_checks: true,
+    locale_uses_primary_language: true,
   });
   const [originalSettings, setOriginalSettings] = useState<AppSettings>({
     set_as_default_browser: false,
@@ -125,6 +132,9 @@ export function SettingsDialog({
     mcp_token: undefined,
     allow_headless_automation: false,
     allow_js_evaluate: false,
+    show_workbench_page: true,
+    workbench_reachability_checks: true,
+    locale_uses_primary_language: true,
   });
   const [customThemeState, setCustomThemeState] = useState<CustomThemeState>({
     selectedThemeId: null,
@@ -996,6 +1006,102 @@ export function SettingsDialog({
               >
                 {t("dnsBlocklist.manageLists")}
               </RippleButton>
+            </div>
+
+            {/* Persona Locale Section */}
+            <div className="space-y-4">
+              <Label className="text-base font-medium">
+                {t("settings.locale.title")}
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                {t("settings.locale.description")}
+              </p>
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="locale-primary-language"
+                  checked={settings.locale_uses_primary_language !== false}
+                  onCheckedChange={(checked) =>
+                    setSettings((prev) => ({
+                      ...prev,
+                      locale_uses_primary_language: checked === true,
+                    }))
+                  }
+                />
+                <Label
+                  htmlFor="locale-primary-language"
+                  className="font-normal"
+                >
+                  {t("settings.locale.primaryLanguage")}
+                </Label>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {t("settings.locale.primaryLanguageDescription")}
+              </p>
+            </div>
+
+            {/* Workbench Page Section */}
+            <div className="space-y-4">
+              <Label className="text-base font-medium">
+                {t("settings.workbench.title")}
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                {t("settings.workbench.description")}
+              </p>
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="show-workbench-page"
+                  checked={settings.show_workbench_page !== false}
+                  onCheckedChange={(checked) =>
+                    setSettings((prev) => ({
+                      ...prev,
+                      show_workbench_page: checked === true,
+                    }))
+                  }
+                />
+                <Label htmlFor="show-workbench-page" className="font-normal">
+                  {t("settings.workbench.title")}
+                </Label>
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="workbench-reachability"
+                  checked={settings.workbench_reachability_checks !== false}
+                  disabled={settings.show_workbench_page === false}
+                  onCheckedChange={(checked) =>
+                    setSettings((prev) => ({
+                      ...prev,
+                      workbench_reachability_checks: checked === true,
+                    }))
+                  }
+                />
+                <Label htmlFor="workbench-reachability" className="font-normal">
+                  {t("settings.workbench.reachability")}
+                </Label>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {t("settings.workbench.reachabilityDescription")}
+              </p>
+
+              <div className="space-y-2">
+                <Label htmlFor="ip-lookup-url">
+                  {t("settings.workbench.lookupUrl")}
+                </Label>
+                <Input
+                  id="ip-lookup-url"
+                  value={settings.ip_lookup_url ?? ""}
+                  placeholder={t("settings.workbench.lookupUrlPlaceholder")}
+                  onChange={(e) =>
+                    setSettings((prev) => ({
+                      ...prev,
+                      ip_lookup_url: e.target.value || undefined,
+                    }))
+                  }
+                />
+                <p className="text-xs text-muted-foreground">
+                  {t("settings.workbench.lookupUrlDescription")}
+                </p>
+              </div>
             </div>
 
             {/* Sync Server Section. Deliberately before the encryption section:

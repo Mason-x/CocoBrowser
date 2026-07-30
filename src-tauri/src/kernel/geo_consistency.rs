@@ -171,7 +171,25 @@ pub fn observation_from_exit_ip(
 }
 
 /// Apply exit observation onto persona (user chose “match to current exit”).
+/// Align every field the user has left following the exit.
+///
+/// Fields with their follow flag turned off are left exactly as the user set
+/// them — that is the whole point of turning the flag off. The signature is
+/// stamped either way so the next launch through the same exit is cheap.
 pub fn match_persona_to_exit(persona: &mut FingerprintPersona, obs: &ExitObservation) {
+  if persona.timezone_follows_ip {
+    persona.timezone = obs.timezone.clone();
+  }
+  if persona.language_follows_ip {
+    persona.language = obs.language.clone();
+    persona.accept_languages = obs.accept_languages.clone();
+  }
+  persona.proxy_geo_signature = Some(obs.signature.clone());
+}
+
+/// Unconditional variant for the explicit "match to exit" button, which the user
+/// pressed precisely to overwrite whatever is there.
+pub fn force_match_persona_to_exit(persona: &mut FingerprintPersona, obs: &ExitObservation) {
   persona.timezone = obs.timezone.clone();
   persona.language = obs.language.clone();
   persona.accept_languages = obs.accept_languages.clone();
@@ -197,7 +215,21 @@ pub fn evaluate_gate(
   }
 
   if persona.timezone != obs.timezone {
-    if require_match || persona.proxy_geo_signature.is_some() {
+    // Following the exit: adapt rather than refuse. Proxies are not freely
+    // interchangeable — you use the exit you have — and a persona claiming one
+    // timezone while its IP geolocates to another is a far stronger correlation
+    // signal than a timezone that follows its exit, which is just what a
+    // traveller or VPN user looks like. The caller applies the match before it
+    // builds the launch plan.
+    if persona.timezone_follows_ip {
+      return GeoGateResult::Pass {
+        observation: Some(obs),
+      };
+    }
+    // Pinned deliberately. `require_match` decides whether that is allowed to
+    // launch: the gate still exists for callers that want it (the audit path),
+    // but a user who pinned a timezone on purpose is not second-guessed here.
+    if require_match {
       return GeoGateResult::Blocked {
         reason: format!(
           "Persona timezone '{}' does not match proxy exit timezone '{}'. Match persona to exit or change proxy.",
@@ -206,13 +238,8 @@ pub fn evaluate_gate(
         observation: obs,
       };
     }
-    // First launch without stamp: block by default (plan: fail closed).
-    return GeoGateResult::Blocked {
-      reason: format!(
-        "Persona timezone '{}' does not match proxy exit timezone '{}'. Use match-to-exit before launch.",
-        persona.timezone, obs.timezone
-      ),
-      observation: obs,
+    return GeoGateResult::Pass {
+      observation: Some(obs),
     };
   }
 
@@ -302,7 +329,9 @@ pub async fn match_profile_persona_to_exit(
     | GeoGateResult::Blocked {
       observation: obs, ..
     } => {
-      match_persona_to_exit(&mut persona, &obs);
+      // The user pressed "match to exit", so overwrite even fields whose follow
+      // flag is off — that is what the button is for.
+      force_match_persona_to_exit(&mut persona, &obs);
       profile.persona = Some(persona);
       ProfileManager::instance()
         .save_profile(&profile)
@@ -381,7 +410,10 @@ pub async fn check_geo_consistency(
     }
   };
 
-  evaluate_gate(persona, Some(obs), true)
+  // `require_match: false` — a timezone disagreement adapts the persona rather
+  // than refusing the launch. Unreachable exits and unusable GeoIP data still
+  // fail closed above; only the persona-vs-exit disagreement is now self-healing.
+  evaluate_gate(persona, Some(obs), false)
 }
 
 #[cfg(test)]
@@ -401,6 +433,8 @@ mod tests {
       language: "en-US".into(),
       accept_languages: vec!["en-US".into()],
       timezone: tz.into(),
+      timezone_follows_ip: true,
+      language_follows_ip: true,
       hardware_concurrency: Some(8),
       window_width: 1920,
       window_height: 1080,
@@ -409,6 +443,14 @@ mod tests {
       proxy_geo_signature: None,
       capability_revision: "t".into(),
     }
+  }
+
+  /// A persona with both fields pinned by the user.
+  fn persona_tz_pinned(tz: &str) -> FingerprintPersona {
+    let mut p = persona_tz(tz);
+    p.timezone_follows_ip = false;
+    p.language_follows_ip = false;
+    p
   }
 
   #[test]
@@ -462,21 +504,118 @@ mod tests {
     assert!(reject_cloud_proxy_id(Some("uuid-local")).is_ok());
   }
 
-  #[test]
-  fn timezone_mismatch_blocks() {
-    let p = persona_tz("America/New_York");
-    let obs = ExitObservation {
+  fn tokyo_exit() -> ExitObservation {
+    ExitObservation {
       exit_ip: "1.1.1.1".into(),
       country_code: Some("JP".into()),
       timezone: "Asia/Tokyo".into(),
       language: "ja-JP".into(),
       accept_languages: vec!["ja-JP".into(), "ja".into()],
       signature: "v1:test".into(),
-    };
-    match evaluate_gate(&p, Some(obs), true) {
+    }
+  }
+
+  #[test]
+  fn following_the_exit_adapts_instead_of_blocking() {
+    let p = persona_tz("America/New_York");
+    // The observation must come back so the caller can apply the match; a Pass
+    // without one would silently launch the mismatched persona.
+    match evaluate_gate(&p, Some(tokyo_exit()), true) {
+      GeoGateResult::Pass {
+        observation: Some(obs),
+      } => assert_eq!(obs.timezone, "Asia/Tokyo"),
+      other => panic!("expected Pass with an observation, got {other:?}"),
+    }
+  }
+
+  #[test]
+  fn a_stale_signature_no_longer_blocks_a_new_exit() {
+    // Reconnecting through a different exit used to be a hard failure once the
+    // profile had been stamped. While following, it must re-adapt instead.
+    let mut p = persona_tz("America/New_York");
+    p.proxy_geo_signature = Some("v1:some-older-exit".into());
+    match evaluate_gate(&p, Some(tokyo_exit()), true) {
+      GeoGateResult::Pass {
+        observation: Some(obs),
+      } => assert_eq!(obs.timezone, "Asia/Tokyo"),
+      other => panic!("expected Pass with an observation, got {other:?}"),
+    }
+  }
+
+  #[test]
+  fn a_pinned_timezone_still_blocks_when_match_is_required() {
+    let p = persona_tz_pinned("America/New_York");
+    match evaluate_gate(&p, Some(tokyo_exit()), true) {
       GeoGateResult::Blocked { .. } => {}
       other => panic!("expected Blocked, got {other:?}"),
     }
+  }
+
+  #[test]
+  fn a_pinned_timezone_launches_when_match_is_not_required() {
+    let p = persona_tz_pinned("America/New_York");
+    match evaluate_gate(&p, Some(tokyo_exit()), false) {
+      GeoGateResult::Pass { .. } => {}
+      other => panic!("expected Pass, got {other:?}"),
+    }
+  }
+
+  #[test]
+  fn matching_aligns_every_following_field() {
+    let mut p = persona_tz("America/New_York");
+    match_persona_to_exit(&mut p, &tokyo_exit());
+    assert_eq!(p.timezone, "Asia/Tokyo");
+    assert_eq!(p.language, "ja-JP");
+    assert_eq!(p.accept_languages, vec!["ja-JP", "ja"]);
+    assert_eq!(p.proxy_geo_signature.as_deref(), Some("v1:test"));
+  }
+
+  #[test]
+  fn matching_leaves_pinned_fields_alone() {
+    let mut p = persona_tz_pinned("America/New_York");
+    match_persona_to_exit(&mut p, &tokyo_exit());
+    assert_eq!(p.timezone, "America/New_York");
+    assert_eq!(p.language, "en-US");
+    assert_eq!(p.accept_languages, vec!["en-US"]);
+    // Still stamped: the profile did launch through this exit, and the stamp is
+    // what makes the next launch through it cheap.
+    assert_eq!(p.proxy_geo_signature.as_deref(), Some("v1:test"));
+  }
+
+  #[test]
+  fn each_follow_flag_acts_independently() {
+    let mut p = persona_tz("America/New_York");
+    p.language_follows_ip = false;
+    match_persona_to_exit(&mut p, &tokyo_exit());
+    assert_eq!(p.timezone, "Asia/Tokyo", "timezone still follows");
+    assert_eq!(p.language, "en-US", "language was pinned");
+  }
+
+  #[test]
+  fn the_match_to_exit_button_overrides_pinned_fields() {
+    let mut p = persona_tz_pinned("America/New_York");
+    force_match_persona_to_exit(&mut p, &tokyo_exit());
+    assert_eq!(p.timezone, "Asia/Tokyo");
+    assert_eq!(p.language, "ja-JP");
+  }
+
+  #[test]
+  fn personas_saved_before_the_flags_existed_follow_only_the_timezone() {
+    // Existing profiles on disk have no such keys. Timezone must deserialise as
+    // following — reading it as pinned would silently reintroduce the launch
+    // block this change removes. Language is the opposite: it gates nothing, and
+    // a stored language is a choice, so absence means pinned.
+    let json = r#"{
+      "schemaVersion": 1, "seed": 1, "platform": "windows",
+      "platformVersion": "15.0.0", "brand": "chrome", "brandVersion": "148",
+      "language": "en-US", "acceptLanguages": ["en-US"],
+      "timezone": "America/New_York", "hardwareConcurrency": 8,
+      "windowWidth": 1920, "windowHeight": 1080,
+      "webrtcPolicy": "disable_non_proxied_udp", "capabilityRevision": "t"
+    }"#;
+    let p: FingerprintPersona = serde_json::from_str(json).expect("legacy persona must parse");
+    assert!(p.timezone_follows_ip);
+    assert!(!p.language_follows_ip);
   }
 
   #[test]

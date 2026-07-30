@@ -2311,13 +2311,15 @@ export function ProfilesDataTable({
             );
             try {
               await meta.onKillProfile(profile);
-            } catch (error) {
+            } catch {
+              // Clear the spinner the failed stop left behind. Not re-thrown:
+              // the handler already told the user, and the click site fires this
+              // without awaiting, so a rejection here would go unhandled.
               meta.setStoppingProfiles((prev: Set<string>) => {
                 const next = new Set(prev);
                 next.delete(profile.id);
                 return next;
               });
-              throw error;
             }
           };
 
@@ -2327,6 +2329,9 @@ export function ProfilesDataTable({
             );
             try {
               await meta.onLaunchProfile(profile);
+            } catch {
+              // Same as the stop path: reported by the launch handler, and this
+              // runs from a fire-and-forget click.
             } finally {
               // Always clear launching state — the running state is tracked
               // separately via profile-running-changed events
@@ -2473,7 +2478,7 @@ export function ProfilesDataTable({
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="ghost"
-                  className="h-auto cursor-pointer justify-start p-0 text-left font-semibold"
+                  className="h-auto cursor-pointer justify-start p-0 text-left text-xs font-medium text-muted-foreground hover:bg-transparent hover:text-foreground"
                 >
                   {meta.t("common.labels.name")}
                   {isActive("name", false) ? (
@@ -2788,7 +2793,9 @@ export function ProfilesDataTable({
       },
       {
         id: "proxy",
-        size: 110,
+        // Holds the proxy selector and the exit block side by side. Narrower and
+        // one of them loses: at 170 the proxy name was clipped to "bw…".
+        size: 250,
         header: ({ table }) => {
           const meta = table.options.meta as TableMeta;
           return meta.t("profiles.table.proxy");
@@ -3179,9 +3186,11 @@ export function ProfilesDataTable({
     };
   }, []);
 
-  // Compact 36px row from the redesign spec; estimateSize must match the
-  // actual rendered row height or virtualizer placement drifts under scroll.
-  const ROW_HEIGHT = 36;
+  // 48px rows: the identity cell stacks three lines of text-xs/leading-tight
+  // (45px), which the old 36px row clipped into its neighbour. estimateSize
+  // must match the actual rendered row height or virtualizer placement drifts
+  // under scroll.
+  const ROW_HEIGHT = 48;
 
   const rowVirtualizer = useVirtualizer({
     count: sortedRows.length,
@@ -3212,24 +3221,31 @@ export function ProfilesDataTable({
           )}
           style={
             {
-              // Sticky table header is 32px tall (h-8); shift the top
+              // Sticky table header is 36px tall (h-9); shift the top
               // fade band below it so the header stays fully opaque and
               // only body rows fade as they scroll past.
-              "--scroll-fade-top-offset": "32px",
+              "--scroll-fade-top-offset": "36px",
             } as React.CSSProperties
           }
         >
           <Table className="table-fixed" containerClassName="overflow-visible">
+            {/* thead carries the opaque layer so rows can't show through the
+                sticky header; the th tint sits on top of it, which is why it
+                can be translucent without bleeding. */}
             <TableHeader className="sticky top-0 z-10 overflow-visible bg-background [&_tr]:border-0">
               {table.getHeaderGroups().map((headerGroup) => (
                 <TableRow
                   key={headerGroup.id}
-                  className="overflow-visible border-0!"
+                  className="overflow-visible border-0! hover:bg-transparent"
                 >
                   {headerGroup.headers.map((header) => {
                     return (
                       <TableHead
                         key={header.id}
+                        // Divider drawn as an inset shadow, not a border: a
+                        // border on a sticky thead drops out mid-scroll under
+                        // border-collapse, and a shadow costs no layout height.
+                        className="h-9 bg-muted/50 text-xs font-medium text-muted-foreground shadow-[inset_0_-1px_0_0_var(--border)]"
                         style={{
                           width: header.column.columnDef.meta?.flexWidth
                             ? undefined
@@ -3290,7 +3306,10 @@ export function ProfilesDataTable({
                         {row.getVisibleCells().map((cell) => (
                           <TableCell
                             key={cell.id}
-                            className="overflow-visible py-0"
+                            // Row divider as an inset shadow so it adds no
+                            // height — the virtualizer assumes rows are exactly
+                            // ROW_HEIGHT and a 1px border would drift it.
+                            className="overflow-visible py-0 shadow-[inset_0_-1px_0_0_var(--border)]"
                             style={{
                               width: cell.column.columnDef.meta?.flexWidth
                                 ? undefined

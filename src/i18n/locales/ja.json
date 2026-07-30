@@ -198,7 +198,22 @@
     "disableAutoUpdates": "アプリの自動更新を無効にする",
     "disableAutoUpdatesDescription": "CocoBrowserの自動更新確認・インストールを無効にします。ブラウザの更新には影響しません。",
     "keepDecryptedProfilesInRam": "復号済みプロファイルをRAMに保持",
-    "keepDecryptedProfilesInRamDescription": "起動を高速化するため、パスワード保護されたプロファイルの復号済みコピーをRAMに保持します。ディスク上のコピーは常に暗号化されたままです。"
+    "keepDecryptedProfilesInRamDescription": "起動を高速化するため、パスワード保護されたプロファイルの復号済みコピーをRAMに保持します。ディスク上のコピーは常に暗号化されたままです。",
+    "locale": {
+      "title": "プロファイルの言語",
+      "description": "プロファイルの言語をプロキシの出口に追従させる場合に、どの言語を選ぶかを決めます。",
+      "primaryLanguage": "常にその国の主要言語を使う",
+      "primaryLanguageDescription": "米国の出口は必ず en-US になります。話者数で重み付けした抽選では約 9% の確率で es-US が選ばれますが、それを行いません。言語が出口 IP に追従するプロファイルにのみ影響します。"
+    },
+    "workbench": {
+      "title": "ワークベンチページ",
+      "description": "起動時にローカルページを開き、出口 IP・所在地・ブラウザーがサイトに提示する情報を表示します。",
+      "reachability": "サイト到達性をテスト",
+      "reachabilityDescription": "このプロファイルのプロキシ経由で主要サイトに到達できるかを確認します。各チェックはプロファイル内部からの 1 リクエストです。",
+      "lookupUrl": "出口 IP 照会 URL",
+      "lookupUrlPlaceholder": "空欄なら ipwho.is を使用",
+      "lookupUrlDescription": "結果がそのプロファイルの出口を表すよう、ページはブラウザー内部からこれを呼び出します。したがってエンドポイントは CORS ヘッダーを返し、ipwho.is と同じ形式である必要があります。ip2location.io は CORS ヘッダーを返さないため利用できません。"
+    }
   },
   "header": {
     "searchPlaceholder": "プロファイルを検索...",
@@ -1791,9 +1806,9 @@
     "updateChecksumsUnavailable": "アップデート {{version}} のチェックサムファイルを取得できなかったため、検証できませんでした。アップデートはインストールされませんでした。後で再試行されます。",
     "updateChecksumMismatch": "ダウンロードしたアップデートファイル {{file}} はチェックサム検証に失敗したため破棄されました。もう一度お試しください。",
     "nameCannotBeEmpty": "名前を空にすることはできません",
-    "cloudProxyNotSupported": "Cloud-managed proxies are not supported in local fingerprint mode. Use a self-hosted HTTP or SOCKS proxy.",
-    "proxyExitCheckFailed": "Could not verify proxy exit IP: {{reason}}",
-    "geoTimezoneMismatch": "Timezone mismatch: persona is {{personaTimezone}} but proxy exit ({{exitIp}}) is {{exitTimezone}}. Match persona to the exit before launching.",
+    "cloudProxyNotSupported": "ローカル指紋モードではクラウド管理プロキシを利用できません。自分で用意した HTTP または SOCKS プロキシを使ってください。",
+    "proxyExitCheckFailed": "プロキシの出口 IP を確認できませんでした: {{reason}}",
+    "geoTimezoneMismatch": "タイムゾーンが一致しません。identity は {{personaTimezone}} ですが、プロキシ出口（{{exitIp}}）は {{exitTimezone}} です。起動する前に identity を出口に合わせてください。",
     "cookieExportPasswordTooShort": "パスワードは {{min}} 文字以上必要です。",
     "cookieExportPasswordRequired": "暗号化 Cookie バンドルのパスワードを入力してください。",
     "cookieExportDecryptFailed": "復号できません。パスワードとファイルの完全性を確認してください。",
@@ -2087,7 +2102,9 @@
     "webrtcPolicy": "WebRTC policy",
     "capabilityRevision": "Capability revision",
     "spoofingDisabled": "Disabled spoofing surfaces",
-    "spoofingDisabledHint": "Checked surfaces use the browser's native value and reduce fingerprint masking."
+    "spoofingDisabledHint": "Checked surfaces use the browser's native value and reduce fingerprint masking.",
+    "followExitIp": "出口 IP に追従",
+    "followExitIpHint": "有効な間は、起動のたびにプロキシ出口から値を再取得します。自分の値を固定するにはオフにしてください。"
   },
   "audit": {
     "title": "Fingerprint audit",
@@ -2113,5 +2130,40 @@
     "yes": "yes",
     "no": "no",
     "action": "Audit…"
+  },
+  "workbench": {
+    "title": "環境チェック",
+    "subtitle": "このブラウザーがサイトに提示する情報",
+    "exitIp": "出口 IP",
+    "location": "所在地",
+    "isp": "ネットワーク",
+    "postcode": "郵便番号",
+    "environment": "ブラウザー環境",
+    "timezone": "タイムゾーン",
+    "language": "言語",
+    "userAgent": "ユーザーエージェント",
+    "platform": "プラットフォーム",
+    "screen": "画面",
+    "cores": "CPU コア",
+    "memory": "メモリ",
+    "webgl": "WebGL",
+    "loading": "確認中…",
+    "lookupFailed": "照会に失敗しました",
+    "mismatch": "このプロファイルと一致しません",
+    "expectedValue": "期待値",
+    "unknown": "不明",
+    "refresh": "再チェック",
+    "reachability": "到達性",
+    "reachable": "到達可能",
+    "unreachable": "到達不可",
+    "checking": "確認中",
+    "exitTimezone": "出口のタイムゾーン",
+    "exitMismatch": "ブラウザーのタイムゾーンが出口と一致しません",
+    "profile": "プロファイル",
+    "profileName": "名前",
+    "profileGroup": "グループ",
+    "profileNote": "メモ",
+    "profileKernel": "カーネル",
+    "notCheckedYet": "未チェック · 「再チェック」を押してください"
   }
 }

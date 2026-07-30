@@ -198,7 +198,22 @@
     "disableAutoUpdates": "Desactivar Actualizaciones Automáticas de la App",
     "disableAutoUpdatesDescription": "Evita que la aplicación busque e instale actualizaciones de CocoBrowser automáticamente. Las actualizaciones de navegadores no se ven afectadas.",
     "keepDecryptedProfilesInRam": "Mantener Perfiles Descifrados en RAM",
-    "keepDecryptedProfilesInRamDescription": "Conservar la copia descifrada en RAM de los perfiles protegidos por contraseña entre lanzamientos para un inicio más rápido. La copia en disco permanece cifrada en cualquier caso."
+    "keepDecryptedProfilesInRamDescription": "Conservar la copia descifrada en RAM de los perfiles protegidos por contraseña entre lanzamientos para un inicio más rápido. La copia en disco permanece cifrada en cualquier caso.",
+    "locale": {
+      "title": "Idioma del perfil",
+      "description": "Cómo se elige el idioma de un perfil cuando sigue la salida del proxy.",
+      "primaryLanguage": "Usar siempre el idioma principal del país",
+      "primaryLanguageDescription": "Una salida en EE. UU. será siempre en-US, en lugar de sortear entre los idiomas del país según el número de hablantes, lo que asigna es-US cerca del 9% de las veces. Solo afecta a los perfiles cuyo idioma sigue la IP de salida."
+    },
+    "workbench": {
+      "title": "Página de trabajo",
+      "description": "Abrir al iniciar una página local que muestra la IP de salida, la ubicación y lo que el navegador presenta a un sitio.",
+      "reachability": "Probar la accesibilidad de sitios",
+      "reachabilityDescription": "Comprueba si se puede llegar a algunos sitios conocidos a través del proxy de este perfil. Cada comprobación es una solicitud desde dentro del perfil.",
+      "lookupUrl": "URL de consulta de IP de salida",
+      "lookupUrlPlaceholder": "Vacío para usar ipwho.is",
+      "lookupUrlDescription": "La página lo llama desde dentro del navegador para que la respuesta describa la salida del perfil, así que el punto final debe enviar cabeceras CORS y devolver campos con el formato de ipwho.is. ip2location.io no sirve: no envía cabeceras CORS."
+    }
   },
   "header": {
     "searchPlaceholder": "Buscar perfiles...",
@@ -1791,9 +1806,9 @@
     "updateChecksumsUnavailable": "No se pudo verificar la actualización {{version}} porque no se pudo obtener su archivo de sumas de comprobación. La actualización no se instaló; se reintentará más tarde.",
     "updateChecksumMismatch": "El archivo de actualización descargado {{file}} no superó la verificación de suma de comprobación y fue descartado. Inténtalo de nuevo.",
     "nameCannotBeEmpty": "El nombre no puede estar vacío",
-    "cloudProxyNotSupported": "Cloud-managed proxies are not supported in local fingerprint mode. Use a self-hosted HTTP or SOCKS proxy.",
-    "proxyExitCheckFailed": "Could not verify proxy exit IP: {{reason}}",
-    "geoTimezoneMismatch": "Timezone mismatch: persona is {{personaTimezone}} but proxy exit ({{exitIp}}) is {{exitTimezone}}. Match persona to the exit before launching.",
+    "cloudProxyNotSupported": "Los proxies gestionados en la nube no se admiten en el modo de huella local. Usa un proxy HTTP o SOCKS propio.",
+    "proxyExitCheckFailed": "No se pudo verificar la IP de salida del proxy: {{reason}}",
+    "geoTimezoneMismatch": "Zona horaria incoherente: la identidad usa {{personaTimezone}} pero la salida del proxy ({{exitIp}}) está en {{exitTimezone}}. Ajusta la identidad a la salida antes de iniciar.",
     "cookieExportPasswordTooShort": "La contraseña debe tener al menos {{min}} caracteres.",
     "cookieExportPasswordRequired": "Introduce la contraseña del paquete cifrado.",
     "cookieExportDecryptFailed": "No se pudo descifrar el paquete. Comprueba la contraseña y el archivo.",
@@ -2087,7 +2102,9 @@
     "webrtcPolicy": "WebRTC policy",
     "capabilityRevision": "Capability revision",
     "spoofingDisabled": "Disabled spoofing surfaces",
-    "spoofingDisabledHint": "Checked surfaces use the browser's native value and reduce fingerprint masking."
+    "spoofingDisabledHint": "Checked surfaces use the browser's native value and reduce fingerprint masking.",
+    "followExitIp": "Seguir la IP de salida",
+    "followExitIpHint": "Mientras esté activado, el valor se vuelve a derivar de la salida del proxy en cada inicio. Desactívalo para fijar tu propio valor."
   },
   "audit": {
     "title": "Fingerprint audit",
@@ -2113,5 +2130,40 @@
     "yes": "yes",
     "no": "no",
     "action": "Audit…"
+  },
+  "workbench": {
+    "title": "Comprobación del entorno",
+    "subtitle": "Lo que este navegador muestra a un sitio",
+    "exitIp": "IP de salida",
+    "location": "Ubicación",
+    "isp": "Red",
+    "postcode": "Código postal",
+    "environment": "Entorno del navegador",
+    "timezone": "Zona horaria",
+    "language": "Idioma",
+    "userAgent": "Agente de usuario",
+    "platform": "Plataforma",
+    "screen": "Pantalla",
+    "cores": "Núcleos de CPU",
+    "memory": "Memoria",
+    "webgl": "WebGL",
+    "loading": "Comprobando…",
+    "lookupFailed": "Consulta fallida",
+    "mismatch": "No coincide con este perfil",
+    "expectedValue": "esperado",
+    "unknown": "Desconocido",
+    "refresh": "Volver a comprobar",
+    "reachability": "Accesibilidad",
+    "reachable": "accesible",
+    "unreachable": "inaccesible",
+    "checking": "comprobando",
+    "exitTimezone": "Zona horaria de salida",
+    "exitMismatch": "La zona horaria del navegador difiere de la salida",
+    "profile": "Perfil",
+    "profileName": "Nombre",
+    "profileGroup": "Grupo",
+    "profileNote": "Nota",
+    "profileKernel": "Núcleo",
+    "notCheckedYet": "Sin comprobar — pulsa Volver a comprobar"
   }
 }

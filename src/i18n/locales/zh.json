@@ -198,7 +198,22 @@
     "disableAutoUpdates": "禁用应用自动更新",
     "disableAutoUpdatesDescription": "阻止应用程序自动检查和安装 CocoBrowser 更新。浏览器更新不受影响。",
     "keepDecryptedProfilesInRam": "在内存中保留已解密的环境",
-    "keepDecryptedProfilesInRamDescription": "在启动之间保留密码保护环境的已解密内存副本,以便更快地启动。无论如何磁盘上的副本始终保持加密。"
+    "keepDecryptedProfilesInRamDescription": "在启动之间保留密码保护环境的已解密内存副本,以便更快地启动。无论如何磁盘上的副本始终保持加密。",
+    "locale": {
+      "title": "配置语言",
+      "description": "当配置的语言跟随代理出口时，如何决定使用哪种语言。",
+      "primaryLanguage": "始终使用该国家的主要语言",
+      "primaryLanguageDescription": "美国出口将始终得到 en-US，而不是按使用人数加权随机抽取——那种方式约有 9% 的概率抽到 es-US。仅影响语言跟随出口 IP 的配置。"
+    },
+    "workbench": {
+      "title": "工作台页面",
+      "description": "启动时打开本地页面，显示出口 IP、归属地，以及浏览器向网站呈现的信息。",
+      "reachability": "检测站点可达性",
+      "reachabilityDescription": "检测这几个常见站点能否通过本配置的代理访问，用来确认代理确实生效。每次检测是从环境内部发出的一个请求。",
+      "lookupUrl": "出口 IP 查询地址",
+      "lookupUrlPlaceholder": "留空则使用 ipwho.is",
+      "lookupUrlDescription": "页面从浏览器内部发起这个请求，结果才代表该配置的出口，因此接口必须返回 CORS 头、字段结构与 ipwho.is 一致。ip2location.io 不能用：它不返回任何 CORS 头。"
+    }
   },
   "header": {
     "searchPlaceholder": "搜索环境...",
@@ -1791,9 +1806,9 @@
     "updateChecksumsUnavailable": "无法验证更新 {{version}}：无法获取其校验和文件。更新未安装，稍后将重试。",
     "updateChecksumMismatch": "下载的更新文件 {{file}} 未通过校验和验证，已被丢弃。请重试。",
     "nameCannotBeEmpty": "名称不能为空",
-    "cloudProxyNotSupported": "Cloud-managed proxies are not supported in local fingerprint mode. Use a self-hosted HTTP or SOCKS proxy.",
-    "proxyExitCheckFailed": "Could not verify proxy exit IP: {{reason}}",
-    "geoTimezoneMismatch": "Timezone mismatch: persona is {{personaTimezone}} but proxy exit ({{exitIp}}) is {{exitTimezone}}. Match persona to the exit before launching.",
+    "cloudProxyNotSupported": "本地指纹模式不支持云托管代理。请使用自建的 HTTP 或 SOCKS 代理。",
+    "proxyExitCheckFailed": "无法验证代理出口 IP：{{reason}}",
+    "geoTimezoneMismatch": "时区不一致：身份时区为 {{personaTimezone}}，但代理出口（{{exitIp}}）位于 {{exitTimezone}}。启动前请先把身份匹配到出口。",
     "cookieExportPasswordTooShort": "导出密码至少需要 {{min}} 个字符。",
     "cookieExportPasswordRequired": "请输入此加密 Cookie 包的密码。",
     "cookieExportDecryptFailed": "无法解密 Cookie 包，请检查密码和文件完整性。",
@@ -2087,7 +2102,9 @@
     "webrtcPolicy": "WebRTC 策略",
     "capabilityRevision": "能力配置版本",
     "spoofingDisabled": "停用伪装的指纹面",
-    "spoofingDisabledHint": "勾选后该指纹面将使用浏览器原生值，会降低指纹伪装效果。"
+    "spoofingDisabledHint": "勾选后该指纹面将使用浏览器原生值，会降低指纹伪装效果。",
+    "followExitIp": "跟随出口 IP",
+    "followExitIpHint": "开启时，每次启动都会按代理出口重新生成该值。关闭后可自定义并固定不变。"
   },
   "audit": {
     "title": "指纹审计",
@@ -2113,5 +2130,40 @@
     "yes": "是",
     "no": "否",
     "action": "审计…"
+  },
+  "workbench": {
+    "title": "环境检测",
+    "subtitle": "本浏览器向网站呈现的信息",
+    "exitIp": "出口 IP",
+    "location": "归属地",
+    "isp": "网络",
+    "postcode": "邮编",
+    "environment": "浏览器环境",
+    "timezone": "时区",
+    "language": "语言",
+    "userAgent": "User Agent",
+    "platform": "平台",
+    "screen": "屏幕",
+    "cores": "CPU 核心",
+    "memory": "内存",
+    "webgl": "WebGL",
+    "loading": "检测中…",
+    "lookupFailed": "查询失败",
+    "mismatch": "与本配置不一致",
+    "expectedValue": "应为",
+    "unknown": "未知",
+    "refresh": "重新检测",
+    "reachability": "站点可达性",
+    "reachable": "可达",
+    "unreachable": "不可达",
+    "checking": "检测中",
+    "exitTimezone": "出口时区",
+    "exitMismatch": "浏览器时区与出口不一致",
+    "profile": "配置信息",
+    "profileName": "名称",
+    "profileGroup": "分组",
+    "profileNote": "备注",
+    "profileKernel": "内核",
+    "notCheckedYet": "尚未检测 · 点「重新检测」"
   }
 }

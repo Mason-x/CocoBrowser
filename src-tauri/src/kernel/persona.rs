@@ -103,6 +103,10 @@ impl SpoofingSurface {
   }
 }
 
+fn default_true() -> bool {
+  true
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct FingerprintPersona {
@@ -118,6 +122,27 @@ pub struct FingerprintPersona {
   pub accept_languages: Vec<String>,
   /// IANA timezone id, e.g. `America/New_York`.
   pub timezone: String,
+  /// Re-derive `timezone` from the proxy exit on every launch.
+  ///
+  /// On by default, and on for personas saved before this field existed, because
+  /// the exit is the ground truth a site can check: a browser reporting one
+  /// timezone while its IP geolocates to another is a strong correlation signal,
+  /// and exits are not freely interchangeable — you use the one you have. Turn it
+  /// off only to pin a timezone deliberately, which also silences the mismatch
+  /// gate for this profile.
+  #[serde(default = "default_true")]
+  pub timezone_follows_ip: bool,
+  /// Re-derive `language` and `accept_languages` from the proxy exit on every
+  /// launch.
+  ///
+  /// Off by default, unlike `timezone_follows_ip`. The two are not symmetric:
+  /// a timezone that disagrees with the exit is a hard mismatch a site can
+  /// compute, and it gates the launch, whereas a country maps to several
+  /// plausible languages, so following the exit means the browser's UI language
+  /// moves around on its own. The pinned default keeps the persona's language
+  /// where the user (or profile creation) put it — `en-US` unless changed.
+  #[serde(default)]
+  pub language_follows_ip: bool,
   pub hardware_concurrency: Option<u8>,
   pub window_width: u32,
   pub window_height: u32,
@@ -160,6 +185,8 @@ impl FingerprintPersona {
       language: "en-US".into(),
       accept_languages: vec!["en-US".into(), "en".into()],
       timezone: "America/New_York".into(),
+      timezone_follows_ip: true,
+      language_follows_ip: false,
       hardware_concurrency: Some(cores),
       window_width: w,
       window_height: h,

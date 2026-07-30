@@ -200,6 +200,10 @@ export interface FingerprintPersona {
   language: string;
   acceptLanguages: string[];
   timezone: string;
+  /** Re-derive the timezone from the proxy exit on every launch. */
+  timezoneFollowsIp: boolean;
+  /** Re-derive language and acceptLanguages from the proxy exit on every launch. */
+  languageFollowsIp: boolean;
   hardwareConcurrency?: number | null;
   windowWidth: number;
   windowHeight: number;

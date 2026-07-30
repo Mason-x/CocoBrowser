@@ -988,6 +988,8 @@ mod tests {
       language: "en-US".into(),
       accept_languages: vec!["en-US".into()],
       timezone: "America/New_York".into(),
+      timezone_follows_ip: true,
+      language_follows_ip: true,
       hardware_concurrency: Some(8),
       window_width: 1920,
       window_height: 1080,

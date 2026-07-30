@@ -198,7 +198,22 @@
     "disableAutoUpdates": "앱 자동 업데이트 사용 안 함",
     "disableAutoUpdatesDescription": "CocoBrowser 업데이트를 앱이 자동으로 확인하고 설치하지 않도록 합니다. 브라우저 업데이트는 영향을 받지 않습니다.",
     "keepDecryptedProfilesInRam": "복호화된 프로필을 RAM에 유지",
-    "keepDecryptedProfilesInRamDescription": "비밀번호로 보호된 프로필의 복호화된 RAM 사본을 실행 사이에 유지하여 시작 속도를 높입니다. 디스크의 사본은 그대로 암호화된 상태로 유지됩니다."
+    "keepDecryptedProfilesInRamDescription": "비밀번호로 보호된 프로필의 복호화된 RAM 사본을 실행 사이에 유지하여 시작 속도를 높입니다. 디스크의 사본은 그대로 암호화된 상태로 유지됩니다.",
+    "locale": {
+      "title": "프로필 언어",
+      "description": "프로필 언어가 프록시 출구를 따라갈 때 어떤 언어를 쓸지 정하는 방식입니다.",
+      "primaryLanguage": "항상 해당 국가의 주요 언어 사용",
+      "primaryLanguageDescription": "미국 출구는 항상 en-US가 됩니다. 사용자 수로 가중치를 준 추첨은 약 9% 확률로 es-US를 뽑습니다. 언어가 출구 IP를 따르는 프로필에만 적용됩니다."
+    },
+    "workbench": {
+      "title": "작업대 페이지",
+      "description": "실행할 때 로컬 페이지를 열어 출구 IP, 위치, 브라우저가 사이트에 보여 주는 정보를 표시합니다.",
+      "reachability": "사이트 도달 가능성 확인",
+      "reachabilityDescription": "이 프로필의 프록시를 통해 주요 사이트에 도달할 수 있는지 확인합니다. 각 확인은 프로필 내부에서 보내는 요청 하나입니다.",
+      "lookupUrl": "출구 IP 조회 URL",
+      "lookupUrlPlaceholder": "비워 두면 ipwho.is 사용",
+      "lookupUrlDescription": "응답이 해당 프로필의 출구를 나타내도록 페이지가 브라우저 내부에서 호출하므로, 엔드포인트는 CORS 헤더를 보내고 ipwho.is와 같은 필드 구조여야 합니다. ip2location.io는 CORS 헤더를 보내지 않아 사용할 수 없습니다."
+    }
   },
   "header": {
     "searchPlaceholder": "프로필 검색...",
@@ -1791,9 +1806,9 @@
     "updateChecksumsUnavailable": "업데이트 {{version}}의 체크섬 파일을 가져올 수 없어 검증하지 못했습니다. 업데이트가 설치되지 않았으며 나중에 다시 시도됩니다.",
     "updateChecksumMismatch": "다운로드한 업데이트 파일 {{file}}이(가) 체크섬 검증에 실패하여 삭제되었습니다. 다시 시도해 주세요.",
     "nameCannotBeEmpty": "이름은 비워둘 수 없습니다",
-    "cloudProxyNotSupported": "Cloud-managed proxies are not supported in local fingerprint mode. Use a self-hosted HTTP or SOCKS proxy.",
-    "proxyExitCheckFailed": "Could not verify proxy exit IP: {{reason}}",
-    "geoTimezoneMismatch": "Timezone mismatch: persona is {{personaTimezone}} but proxy exit ({{exitIp}}) is {{exitTimezone}}. Match persona to the exit before launching.",
+    "cloudProxyNotSupported": "로컬 지문 모드에서는 클라우드 관리 프록시를 지원하지 않습니다. 직접 운영하는 HTTP 또는 SOCKS 프록시를 사용하세요.",
+    "proxyExitCheckFailed": "프록시 출구 IP를 확인할 수 없습니다: {{reason}}",
+    "geoTimezoneMismatch": "시간대가 일치하지 않습니다. 프로필 시간대는 {{personaTimezone}}이지만 프록시 출구({{exitIp}})는 {{exitTimezone}}입니다. 실행하기 전에 프로필을 출구에 맞추세요.",
     "cookieExportPasswordTooShort": "내보내기 암호는 {{min}}자 이상이어야 합니다.",
     "cookieExportPasswordRequired": "암호화된 쿠키 묶음의 암호를 입력하세요.",
     "cookieExportDecryptFailed": "쿠키 묶음을 복호화할 수 없습니다. 암호와 파일을 확인하세요.",
@@ -2087,7 +2102,9 @@
     "webrtcPolicy": "WebRTC policy",
     "capabilityRevision": "Capability revision",
     "spoofingDisabled": "Disabled spoofing surfaces",
-    "spoofingDisabledHint": "Checked surfaces use the browser's native value and reduce fingerprint masking."
+    "spoofingDisabledHint": "Checked surfaces use the browser's native value and reduce fingerprint masking.",
+    "followExitIp": "출구 IP 따르기",
+    "followExitIpHint": "켜져 있는 동안에는 실행할 때마다 프록시 출구를 기준으로 값을 다시 계산합니다. 직접 지정한 값을 고정하려면 끄세요."
   },
   "audit": {
     "title": "Fingerprint audit",
@@ -2113,5 +2130,40 @@
     "yes": "yes",
     "no": "no",
     "action": "Audit…"
+  },
+  "workbench": {
+    "title": "환경 점검",
+    "subtitle": "이 브라우저가 사이트에 보여 주는 정보",
+    "exitIp": "출구 IP",
+    "location": "위치",
+    "isp": "네트워크",
+    "postcode": "우편번호",
+    "environment": "브라우저 환경",
+    "timezone": "시간대",
+    "language": "언어",
+    "userAgent": "사용자 에이전트",
+    "platform": "플랫폼",
+    "screen": "화면",
+    "cores": "CPU 코어",
+    "memory": "메모리",
+    "webgl": "WebGL",
+    "loading": "확인 중…",
+    "lookupFailed": "조회 실패",
+    "mismatch": "이 프로필과 일치하지 않음",
+    "expectedValue": "예상값",
+    "unknown": "알 수 없음",
+    "refresh": "다시 확인",
+    "reachability": "도달 가능성",
+    "reachable": "도달 가능",
+    "unreachable": "도달 불가",
+    "checking": "확인 중",
+    "exitTimezone": "출구 시간대",
+    "exitMismatch": "브라우저 시간대가 출구와 다릅니다",
+    "profile": "프로필",
+    "profileName": "이름",
+    "profileGroup": "그룹",
+    "profileNote": "메모",
+    "profileKernel": "커널",
+    "notCheckedYet": "아직 확인하지 않음 · '다시 확인'을 누르세요"
   }
 }

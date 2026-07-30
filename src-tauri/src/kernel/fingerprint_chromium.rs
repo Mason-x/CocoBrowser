@@ -88,6 +88,12 @@ impl FingerprintChromiumDriver {
       format!("--user-data-dir={}", user_data_dir.display()),
       "--no-first-run".to_string(),
       "--no-default-browser-check".to_string(),
+      // Profiles are stopped by killing their Job Object, which Chromium can only
+      // read as a crash, so it offers to restore the previous session on the next
+      // launch. That prompt is noise here — the session is restored from the
+      // profile directory either way — and dismissing it on every open is worse
+      // than not showing it.
+      "--hide-crash-restore-bubble".to_string(),
       format!("--fingerprint={}", persona.seed),
       format!("--fingerprint-platform={platform}"),
       format!("--fingerprint-brand={}", persona.brand.as_cli()),
@@ -125,6 +131,10 @@ impl FingerprintChromiumDriver {
     if let Some(proxy) = local_proxy {
       // Credentials never appear — only loopback sidecar.
       args.push(format!("--proxy-server={}", proxy.proxy_server_arg()));
+      // `<-loopback>` *removes* Chromium's implicit localhost bypass, so loopback
+      // traffic goes through the proxy too and a page can neither reach local
+      // services nor detect that localhost is exempt. It is also why the workbench
+      // page is a file:// and not a local HTTP server — see `crate::workbench`.
       args.push("--proxy-bypass-list=<-loopback>".to_string());
     }
 
@@ -345,10 +355,19 @@ impl KernelDriver for FingerprintChromiumDriver {
 
       // Double-check single instance via live guards.
       {
-        let guards = LIVE_GUARDS
+        let mut guards = LIVE_GUARDS
           .lock()
           .map_err(|_| KernelError::Message("live guards lock poisoned".into()))?;
-        if guards.contains_key(&profile_id.to_string()) {
+        // Closing the browser window never calls `stop()`, so a guard for a
+        // process that has already exited stays in the map and refuses every
+        // later launch. Ask the guard whether its process is actually alive
+        // rather than trusting the map's presence.
+        let key = profile_id.to_string();
+        if guards.get_mut(&key).is_some_and(|guard| !guard.is_alive()) {
+          log::info!("Dropping the stale process guard for profile {profile_id}");
+          guards.remove(&key);
+        }
+        if guards.contains_key(&key) {
           return Err(KernelError::Message(format!(
             "profile {profile_id} already has a live process guard"
           )));
@@ -488,6 +507,8 @@ mod tests {
       language: "en-US".into(),
       accept_languages: vec!["en-US".into(), "en".into()],
       timezone: "America/New_York".into(),
+      timezone_follows_ip: true,
+      language_follows_ip: true,
       hardware_concurrency: Some(8),
       window_width: 1920,
       window_height: 1080,
@@ -631,6 +652,20 @@ mod tests {
       &["--no-sandbox".into()],
     )
     .is_err());
+  }
+
+  #[test]
+  fn browser_internal_schemes_stay_blocked() {
+    // The workbench page is opened by the extension itself, so none of these
+    // need to be reachable from a launch URL.
+    for url in [
+      "chrome://settings/",
+      "chrome-extension://abcdefghijklmnop/workbench.html",
+      "file:///C:/secret.txt",
+      "devtools://devtools/bundled/inspector.html",
+    ] {
+      assert!(validate_launch_url(url).is_err(), "{url} must stay blocked");
+    }
   }
 
   #[test]

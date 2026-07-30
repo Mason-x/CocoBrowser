@@ -392,10 +392,12 @@ export function RailNav({ currentPage, onNavigate }: RailNavProps) {
               aria-current={active ? "page" : undefined}
               className={cn(
                 "relative flex shrink-0 cursor-pointer items-center rounded-md transition-colors duration-100",
-                expanded ? "h-7 gap-2 px-2" : "size-7 justify-center",
+                expanded
+                  ? "h-7 justify-center gap-2 px-2"
+                  : "size-7 justify-center",
                 active
-                  ? "bg-accent text-foreground"
-                  : "text-muted-foreground hover:bg-accent/50 hover:text-card-foreground",
+                  ? "bg-muted/50 text-foreground"
+                  : "text-muted-foreground hover:bg-muted/30 hover:text-card-foreground",
               )}
             >
               {active && (
@@ -437,8 +439,10 @@ export function RailNav({ currentPage, onNavigate }: RailNavProps) {
             onClick={toggleExpanded}
             aria-label={expanded ? t("rail.collapse") : t("rail.expand")}
             className={cn(
-              "flex shrink-0 cursor-pointer items-center rounded-md text-muted-foreground transition-colors duration-100 hover:bg-accent/50 hover:text-card-foreground",
-              expanded ? "h-7 gap-2 px-2" : "size-7 justify-center",
+              "flex shrink-0 cursor-pointer items-center rounded-md text-muted-foreground transition-colors duration-100 hover:bg-muted/30 hover:text-card-foreground",
+              expanded
+                ? "h-7 justify-center gap-2 px-2"
+                : "size-7 justify-center",
             )}
           >
             {expanded ? (
@@ -474,10 +478,12 @@ export function RailNav({ currentPage, onNavigate }: RailNavProps) {
             aria-expanded={moreOpen}
             className={cn(
               "flex shrink-0 cursor-pointer items-center rounded-md transition-colors duration-100",
-              expanded ? "h-7 gap-2 px-2" : "size-7 justify-center",
+              expanded
+                ? "h-7 justify-center gap-2 px-2"
+                : "size-7 justify-center",
               moreOpen
-                ? "bg-accent text-foreground"
-                : "text-muted-foreground hover:bg-accent/50 hover:text-card-foreground",
+                ? "bg-muted/50 text-foreground"
+                : "text-muted-foreground hover:bg-muted/30 hover:text-card-foreground",
             )}
           >
             <GoKebabHorizontal className="size-3.5 shrink-0" />
@@ -510,10 +516,12 @@ export function RailNav({ currentPage, onNavigate }: RailNavProps) {
             aria-current={settingsActive ? "page" : undefined}
             className={cn(
               "relative flex shrink-0 cursor-pointer items-center rounded-md transition-colors duration-100",
-              expanded ? "h-7 gap-2 px-2" : "size-7 justify-center",
+              expanded
+                ? "h-7 justify-center gap-2 px-2"
+                : "size-7 justify-center",
               settingsActive
-                ? "bg-accent text-foreground"
-                : "text-muted-foreground hover:bg-accent/50 hover:text-card-foreground",
+                ? "bg-muted/50 text-foreground"
+                : "text-muted-foreground hover:bg-muted/30 hover:text-card-foreground",
             )}
           >
             {settingsActive && (

@@ -8,6 +8,7 @@ import { showErrorToast, showSuccessToast } from "@/lib/toast-utils";
 import type { BrowserProfile, FingerprintPersona } from "@/types";
 import { LoadingButton } from "./loading-button";
 import { Button } from "./ui/button";
+import { Checkbox } from "./ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -234,11 +235,35 @@ export function FingerprintIdentityDialog({
             {(mode === "advanced" || mode === "auto") && (
               <div className="grid gap-3">
                 <div className="grid gap-1.5">
-                  <Label htmlFor="persona-lang">{t("identity.language")}</Label>
+                  <div className="flex items-center justify-between gap-2">
+                    <Label htmlFor="persona-lang">
+                      {t("identity.language")}
+                    </Label>
+                    <div className="flex items-center gap-1.5">
+                      <Checkbox
+                        id="persona-lang-follows"
+                        checked={persona.languageFollowsIp}
+                        disabled={isRunning}
+                        onCheckedChange={(v) =>
+                          update("languageFollowsIp", v === true)
+                        }
+                      />
+                      <Label
+                        htmlFor="persona-lang-follows"
+                        className="text-xs font-normal text-muted-foreground"
+                      >
+                        {t("identity.followExitIp")}
+                      </Label>
+                    </div>
+                  </div>
                   <Input
                     id="persona-lang"
                     value={persona.language}
-                    disabled={isRunning || mode === "auto"}
+                    // While following, the value is overwritten at launch, so
+                    // editing it would only look like it took effect.
+                    disabled={
+                      isRunning || mode === "auto" || persona.languageFollowsIp
+                    }
                     onChange={(e) => {
                       const language = e.target.value;
                       update("language", language);
@@ -250,14 +275,37 @@ export function FingerprintIdentityDialog({
                   />
                 </div>
                 <div className="grid gap-1.5">
-                  <Label htmlFor="persona-tz">{t("identity.timezone")}</Label>
+                  <div className="flex items-center justify-between gap-2">
+                    <Label htmlFor="persona-tz">{t("identity.timezone")}</Label>
+                    <div className="flex items-center gap-1.5">
+                      <Checkbox
+                        id="persona-tz-follows"
+                        checked={persona.timezoneFollowsIp}
+                        disabled={isRunning}
+                        onCheckedChange={(v) =>
+                          update("timezoneFollowsIp", v === true)
+                        }
+                      />
+                      <Label
+                        htmlFor="persona-tz-follows"
+                        className="text-xs font-normal text-muted-foreground"
+                      >
+                        {t("identity.followExitIp")}
+                      </Label>
+                    </div>
+                  </div>
                   <Input
                     id="persona-tz"
                     value={persona.timezone}
-                    disabled={isRunning || mode === "auto"}
+                    disabled={
+                      isRunning || mode === "auto" || persona.timezoneFollowsIp
+                    }
                     onChange={(e) => update("timezone", e.target.value)}
                   />
                 </div>
+                <p className="text-xs text-muted-foreground">
+                  {t("identity.followExitIpHint")}
+                </p>
                 {mode === "advanced" && (
                   <>
                     <div className="grid gap-1.5">
