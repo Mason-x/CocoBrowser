@@ -272,15 +272,15 @@
       "stopFollower": "{{leaderName}}のアクションを追従中",
       "desyncedTooltip": "{{url}}で同期に失敗しました",
       "paidFeature": "シンクロナイザーは有料機能です",
-      "wayfernOnly": "Wayfernプロフィールのみ同期可能です",
       "selectFollowers": "フォロワープロフィールを選択",
-      "selectFollowersDesc": "リーダープロフィールのアクションを複製するプロフィールを選択してください。停止中のWayfernプロフィールのみ選択できます。",
+      "selectFollowersDesc": "リーダーの操作を反映するプロファイルを選択します。停止中のプロファイルのみ選択できます。",
       "leader": "リーダー",
       "follower": "フォロワー",
       "startSession": "同期セッションを開始",
       "noFollowers": "少なくとも1つのフォロワープロフィールを選択してください",
       "flakyBadge": "FLAKY",
-      "flakyTooltip": "このプロフィールはリーダーと画面解像度が異なります。ページレイアウトが異なる可能性があり、クリックや操作が正しく動作しない場合があります。"
+      "flakyTooltip": "このプロフィールはリーダーと画面解像度が異なります。ページレイアウトが異なる可能性があり、クリックや操作が正しく動作しない場合があります。",
+      "localOnly": "同期できるのはローカルのブラウザプロファイルのみです"
     },
     "ephemeral": "一時的",
     "ephemeralDescription": "ブラウザはプロファイルデータをディスクではなくメモリに書き込むよう強制されます。ただし、OSはメモリ不足時にメモリの一部をディスクにスワップすることがあるため、セッションの痕跡が復元可能な状態で残る場合があります。",
@@ -340,7 +340,6 @@
     "antiDetect": {
       "title": "アンチ検出ブラウザ",
       "description": "アンチ検出機能を持つブラウザを選択",
-      "chromium": "Wayfern",
       "badge": "アンチ検出ブラウザ"
     },
     "regular": {
@@ -374,7 +373,7 @@
       "upgradeAvailable": "{{browser}} の新しいバージョン（{{version}}）が利用可能です。"
     },
     "chromiumLabel": "Chromium",
-    "chromiumSubtitle": "Wayfern搭載",
+    "chromiumSubtitle": "Fingerprint Chromium を使用",
     "platformUnavailable": "{{browser}} はまだお使いのプラットフォームで利用できません。",
     "passwordProtect": {
       "label": "このプロファイルをパスワードで保護",
@@ -729,7 +728,6 @@
     "tokenCopied": "トークンをコピーしました",
     "mcpEnableLabel": "MCP サーバーを有効にする (Model Context Protocol)",
     "mcpEnableDescription": "Claude Desktop などの AI アシスタントがブラウザを制御できます。",
-    "mcpAcceptTermsFirst": "(設定で先に Wayfern の規約に同意してください)",
     "mcpStarted": "MCP サーバーをポート {{port}} で起動しました",
     "mcpStopped": "MCP サーバーを停止しました",
     "mcpToggleFailed": "MCP サーバーの切り替えに失敗しました",
@@ -755,38 +753,6 @@
     "error": "プロファイルのインポートに失敗しました"
   },
   "config": {
-    "wayfern": {
-      "title": "Wayfern設定",
-      "fingerprint": {
-        "title": "フィンガープリント",
-        "randomize": "起動時にランダム化",
-        "randomizeDescription": "ブラウザ起動時に新しいフィンガープリントを生成します。",
-        "platformPlaceholder": "例: Win32、MacIntel、Linux x86_64",
-        "timezoneOffsetPlaceholder": "例: EST (UTC-5) の場合は 300",
-        "webglRendererPlaceholder": "例: Intel(R) HD Graphics"
-      },
-      "os": {
-        "title": "オペレーティングシステム",
-        "description": "フィンガープリント生成用にエミュレートするOS。",
-        "windows": "Windows",
-        "macos": "macOS",
-        "linux": "Linux",
-        "android": "Android",
-        "ios": "iOS"
-      },
-      "screen": {
-        "title": "画面サイズ",
-        "minWidth": "最小幅",
-        "maxWidth": "最大幅",
-        "minHeight": "最小高さ",
-        "maxHeight": "最大高さ"
-      },
-      "blocking": {
-        "title": "ブロック",
-        "webrtc": "WebRTCをブロック",
-        "webgl": "WebGLをブロック"
-      }
-    },
     "shared": {
       "browserBehavior": "ブラウザの動作",
       "allowAddonsOpenTabs": "ブラウザアドオンが新しいタブを自動的に開くことを許可"
@@ -944,7 +910,6 @@
     "serverError": "サーバーエラー。後でもう一度お試しください。",
     "unknownError": "不明なエラーが発生しました。もう一度お試しください。",
     "noProfilesForUrl": "利用可能なプロファイルがありません。URLを開く前にプロファイルを作成してください。",
-    "updateWayfernConfigFailed": "wayfern設定の更新に失敗しました: {{error}}",
     "createProfileFailed": "プロファイルの作成に失敗しました: {{error}}",
     "launchBrowserFailed": "ブラウザの起動に失敗しました: {{error}}",
     "cannotDeleteRunningProfile": "ブラウザの実行中にプロファイルを削除できません。先にブラウザを停止してください。",
@@ -952,7 +917,7 @@
     "renameProfileFailed": "プロファイルの名前変更に失敗しました: {{error}}",
     "killBrowserFailed": "ブラウザの停止に失敗しました: {{error}}",
     "deleteSelectedProfilesFailed": "選択したプロファイルの削除に失敗しました: {{error}}",
-    "cookieCopyUnsupportedBrowser": "Cookieのコピーは Wayfern プロファイルでのみ機能します",
+    "cookieCopyUnsupportedBrowser": "Cookie のコピーは Fingerprint Chromium の環境のみ対応しています",
     "updateSyncSettingsFailed": "同期設定の更新に失敗しました",
     "cloneProfileFailed": "プロファイルの複製に失敗しました: {{error}}",
     "loadSupportedBrowsersFailed": "サポートされているブラウザの読み込みに失敗しました",
@@ -967,9 +932,6 @@
     "setupVpnListenersFailed": "VPNイベントリスナーの設定に失敗しました: {{error}}",
     "themeNotFound": "Tokyo Night テーマが見つかりません",
     "setProfilePasswordFailed": "プロファイルのパスワード設定に失敗しました: {{error}}"
-  },
-  "browser": {
-    "wayfern": "Wayfern"
   },
   "fingerprint": {
     "crossOsWarning": "異なるオペレーティングシステムのフィンガープリント偽装は、すべての基盤コンポーネントを完璧に模倣することが不可能なため、信頼性が低くなります。注意してご使用ください。",
@@ -1209,7 +1171,7 @@
       "cannotWhileRunning": "パスワードを変更する前にプロファイルを停止してください。"
     },
     "fingerprint": {
-      "notSupported": "フィンガープリント編集は Wayfern プロファイルでのみ利用できます。",
+      "notSupported": "指紋の編集は Fingerprint Chromium の環境でのみ利用できます。",
       "lockedTitle": "フィンガープリントの表示と編集は Pro 機能です",
       "lockedDescription": "デバイス情報はすべてのプロファイルで保護されています。プロファイルのフィンガープリントを表示・編集するには、有効な有料プランが必要です。"
     },
@@ -1568,16 +1530,6 @@
     "creatingButton": "作成中...",
     "createButton": "作成"
   },
-  "wayfernTerms": {
-    "title": "Wayfern 利用規約",
-    "description": "CocoBrowser を使用する前に、Wayfern の利用規約を読み、同意する必要があります。",
-    "reviewLabel": "次の URL で利用規約をご確認ください:",
-    "agreeNotice": "「同意します」をクリックすると、これらの条項に拘束されることに同意します。",
-    "acceptButton": "同意します",
-    "acceptSuccess": "規約に同意しました",
-    "acceptFailed": "規約への同意に失敗しました",
-    "tryAgain": "もう一度お試しください"
-  },
   "commercialTrial": {
     "title": "商用試用期間が終了しました",
     "description": "2 週間の商用試用期間が終了しました。",
@@ -1830,11 +1782,10 @@
     "proxyNotWorking": "選択したプロキシが機能していないため、プロファイルは作成されませんでした。",
     "proxyPaymentRequired": "選択したプロキシは支払いが必要です（402）。サブスクリプションが期限切れの可能性があります。そのため、プロファイルは作成されませんでした。",
     "vpnNotWorking": "選択したVPNが機能していないため、プロファイルは作成されませんでした。",
-    "camoufoxImportDeprecated": "このタイプのプロファイルのインポートはサポートされなくなりました。代わりにWayfernを使用してください。",
+    "camoufoxImportDeprecated": "この種類のプロファイルのインポートはサポートされなくなりました。",
     "updateChecksumsUnavailable": "アップデート {{version}} のチェックサムファイルを取得できなかったため、検証できませんでした。アップデートはインストールされませんでした。後で再試行されます。",
     "updateChecksumMismatch": "ダウンロードしたアップデートファイル {{file}} はチェックサム検証に失敗したため破棄されました。もう一度お試しください。",
     "nameCannotBeEmpty": "名前を空にすることはできません",
-    "wayfernVersionNotAvailable": "Wayfernのバージョン{{requested}}はダウンロードできません。現在のバージョンは{{current}}です。",
     "cloudProxyNotSupported": "Cloud-managed proxies are not supported in local fingerprint mode. Use a self-hosted HTTP or SOCKS proxy.",
     "proxyExitCheckFailed": "Could not verify proxy exit IP: {{reason}}",
     "geoTimezoneMismatch": "Timezone mismatch: persona is {{personaTimezone}} but proxy exit ({{exitIp}}) is {{exitTimezone}}. Match persona to the exit before launching.",
@@ -1845,7 +1796,8 @@
     "importSourceInvalid": "有効な Chrome、Edge、Chromium プロファイルではありません。",
     "importFailed": "インポート失敗：{{detail}}",
     "kernelNotInstalled": "先に監査済み Fingerprint Chromium 148 をインストールしてください。",
-    "extensionPackageInvalid": "拡張機能パッケージを拒否しました：{{detail}}"
+    "extensionPackageInvalid": "拡張機能パッケージを拒否しました：{{detail}}",
+    "kernelVersionNotAvailable": "カーネル {{requested}} はダウンロードできません。現在のバージョンは {{current}} です。"
   },
   "rail": {
     "profiles": "プロファイル",
@@ -2052,21 +2004,6 @@
       "trialBadge": "2週間無料",
       "commercialDesc": "2週間の評価期間は無料です。その後は有料プランが必要で、これによりプロジェクトの維持と発展が支えられます。"
     }
-  },
-  "wayfernBlocked": {
-    "title": "ブラウザの自動化が一時停止しました",
-    "description": "通常は複数のデバイスで同時にサインインしたことが原因で、アカウントのProブラウザ機能が一時的に制限されました。他のデバイスからサインアウトし、プロファイルを再起動すると復元されます。"
-  },
-  "wayfernConfigDialog": {
-    "titleView": "フィンガープリント設定を表示 - {{name}} ({{browser}})",
-    "titleConfigure": "フィンガープリント設定 - {{name}} ({{browser}})",
-    "invalidFingerprint": "無効なフィンガープリント設定",
-    "invalidFingerprintDescription": "フィンガープリント設定に無効な JSON が含まれています。詳細設定を確認してください。",
-    "saveFailed": "設定の保存に失敗しました",
-    "unknownError": "不明なエラーが発生しました"
-  },
-  "cookieCopy": {
-    "noOtherTargets": "他に Wayfern プロファイルが選択されていません"
   },
   "kernels": {
     "title": "Kernels",

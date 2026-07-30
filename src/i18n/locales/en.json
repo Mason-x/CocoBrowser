@@ -272,15 +272,15 @@
       "stopFollower": "Following actions of {{leaderName}}",
       "desyncedTooltip": "Synchronization failed at {{url}}",
       "paidFeature": "Synchronizer is a paid feature",
-      "wayfernOnly": "Only Wayfern profiles can be synchronized",
       "selectFollowers": "Select Follower Profiles",
-      "selectFollowersDesc": "Choose profiles that will mirror the actions of the leader profile. Only stopped Wayfern profiles can be selected.",
+      "selectFollowersDesc": "Choose profiles that will mirror the actions of the leader profile. Only stopped profiles can be selected.",
       "leader": "Leader",
       "follower": "Follower",
       "startSession": "Start Sync Session",
       "noFollowers": "Select at least one follower profile",
       "flakyBadge": "FLAKY",
-      "flakyTooltip": "This profile has a different screen resolution than the leader. Page layouts may differ, causing clicks and interactions to hit the wrong elements."
+      "flakyTooltip": "This profile has a different screen resolution than the leader. Page layouts may differ, causing clicks and interactions to hit the wrong elements.",
+      "localOnly": "Only local browser profiles can be synchronized"
     },
     "ephemeral": "Ephemeral",
     "ephemeralDescription": "The browser is forced to write profile data into memory instead of disk. Note that your operating system can swap parts of memory to disk under load, so traces of the session may still be recoverable.",
@@ -340,7 +340,6 @@
     "antiDetect": {
       "title": "Anti-Detect Browser",
       "description": "Choose a browser with anti-detection capabilities",
-      "chromium": "Wayfern",
       "badge": "Anti-Detect Browser"
     },
     "regular": {
@@ -374,7 +373,7 @@
       "upgradeAvailable": "A newer version ({{version}}) of {{browser}} is available."
     },
     "chromiumLabel": "Chromium",
-    "chromiumSubtitle": "Powered by Wayfern",
+    "chromiumSubtitle": "Powered by Fingerprint Chromium",
     "platformUnavailable": "{{browser}} is not available on your platform yet.",
     "passwordProtect": {
       "label": "Password protect this profile",
@@ -729,7 +728,6 @@
     "tokenCopied": "Token copied",
     "mcpEnableLabel": "Enable MCP Server (Model Context Protocol)",
     "mcpEnableDescription": "Allow AI assistants like Claude Desktop to control browsers.",
-    "mcpAcceptTermsFirst": "(Accept Wayfern terms in Settings first)",
     "mcpStarted": "MCP server started on port {{port}}",
     "mcpStopped": "MCP server stopped",
     "mcpToggleFailed": "Failed to toggle MCP server",
@@ -755,38 +753,6 @@
     "error": "Failed to import profile"
   },
   "config": {
-    "wayfern": {
-      "title": "Wayfern Configuration",
-      "fingerprint": {
-        "title": "Fingerprint",
-        "randomize": "Randomize on Launch",
-        "randomizeDescription": "Generate a new fingerprint each time the browser is launched.",
-        "platformPlaceholder": "e.g., Win32, MacIntel, Linux x86_64",
-        "timezoneOffsetPlaceholder": "e.g., 300 for EST (UTC-5)",
-        "webglRendererPlaceholder": "e.g., Intel(R) HD Graphics"
-      },
-      "os": {
-        "title": "Operating System",
-        "description": "The operating system to emulate for fingerprint generation.",
-        "windows": "Windows",
-        "macos": "macOS",
-        "linux": "Linux",
-        "android": "Android",
-        "ios": "iOS"
-      },
-      "screen": {
-        "title": "Screen Size",
-        "minWidth": "Min Width",
-        "maxWidth": "Max Width",
-        "minHeight": "Min Height",
-        "maxHeight": "Max Height"
-      },
-      "blocking": {
-        "title": "Blocking",
-        "webrtc": "Block WebRTC",
-        "webgl": "Block WebGL"
-      }
-    },
     "shared": {
       "browserBehavior": "Browser Behavior",
       "allowAddonsOpenTabs": "Allow browser addons to open new tabs automatically"
@@ -944,7 +910,6 @@
     "serverError": "Server error. Please try again later.",
     "unknownError": "An unknown error occurred. Please try again.",
     "noProfilesForUrl": "No profiles available. Please create a profile first before opening URLs.",
-    "updateWayfernConfigFailed": "Failed to update wayfern config: {{error}}",
     "createProfileFailed": "Failed to create profile: {{error}}",
     "launchBrowserFailed": "Failed to launch browser: {{error}}",
     "cannotDeleteRunningProfile": "Cannot delete profile while browser is running. Please stop the browser first.",
@@ -952,7 +917,7 @@
     "renameProfileFailed": "Failed to rename profile: {{error}}",
     "killBrowserFailed": "Failed to kill browser: {{error}}",
     "deleteSelectedProfilesFailed": "Failed to delete selected profiles: {{error}}",
-    "cookieCopyUnsupportedBrowser": "Cookie copy only works with Wayfern profiles",
+    "cookieCopyUnsupportedBrowser": "Cookie copy is only supported for Fingerprint Chromium profiles",
     "updateSyncSettingsFailed": "Failed to update sync settings",
     "cloneProfileFailed": "Failed to clone profile: {{error}}",
     "loadSupportedBrowsersFailed": "Failed to load supported browsers",
@@ -967,9 +932,6 @@
     "setupVpnListenersFailed": "Failed to setup VPN event listeners: {{error}}",
     "themeNotFound": "Tokyo Night theme not found",
     "setProfilePasswordFailed": "Failed to set profile password: {{error}}"
-  },
-  "browser": {
-    "wayfern": "Wayfern"
   },
   "fingerprint": {
     "crossOsWarning": "Spoofing fingerprint for a different operating system is less reliable because it is impossible to perfectly mimic all underlying components. Use with caution.",
@@ -1209,7 +1171,7 @@
       "cannotWhileRunning": "Stop the profile before changing its password."
     },
     "fingerprint": {
-      "notSupported": "Fingerprint editing is only available for Wayfern profiles.",
+      "notSupported": "Fingerprint editing is only available for Fingerprint Chromium profiles.",
       "lockedTitle": "Viewing & editing the fingerprint is a Pro feature",
       "lockedDescription": "Your device information is protected in every profile. Viewing and editing a profile's fingerprint requires an active paid plan."
     },
@@ -1568,16 +1530,6 @@
     "creatingButton": "Creating...",
     "createButton": "Create"
   },
-  "wayfernTerms": {
-    "title": "Wayfern Terms and Conditions",
-    "description": "Before using CocoBrowser, you must read and agree to Wayfern's Terms and Conditions.",
-    "reviewLabel": "Please review the Terms and Conditions at:",
-    "agreeNotice": "By clicking \"I Accept\", you agree to be bound by these terms.",
-    "acceptButton": "I Accept",
-    "acceptSuccess": "Terms accepted successfully",
-    "acceptFailed": "Failed to accept terms",
-    "tryAgain": "Please try again"
-  },
   "commercialTrial": {
     "title": "Commercial Trial Expired",
     "description": "Your 2-week commercial trial period has ended.",
@@ -1830,11 +1782,10 @@
     "proxyNotWorking": "The selected proxy isn't working, so the profile wasn't created.",
     "proxyPaymentRequired": "The selected proxy requires payment (402) — its subscription may have expired — so the profile wasn't created.",
     "vpnNotWorking": "The selected VPN isn't working, so the profile wasn't created.",
-    "camoufoxImportDeprecated": "Importing this profile type is no longer supported. Please use Wayfern instead.",
+    "camoufoxImportDeprecated": "Importing this profile type is no longer supported.",
     "updateChecksumsUnavailable": "The update {{version}} could not be verified because its checksum file could not be retrieved. The update was not installed; it will be retried later.",
     "updateChecksumMismatch": "The downloaded update file {{file}} failed checksum verification and was discarded. Please try again.",
     "nameCannotBeEmpty": "Name cannot be empty",
-    "wayfernVersionNotAvailable": "Wayfern version {{requested}} is not available for download. The current version is {{current}}.",
     "cloudProxyNotSupported": "Cloud-managed proxies are not supported in local fingerprint mode. Use a self-hosted HTTP or SOCKS proxy.",
     "proxyExitCheckFailed": "Could not verify proxy exit IP: {{reason}}",
     "geoTimezoneMismatch": "Timezone mismatch: persona is {{personaTimezone}} but proxy exit ({{exitIp}}) is {{exitTimezone}}. Match persona to the exit before launching.",
@@ -1845,7 +1796,8 @@
     "importSourceInvalid": "The selected folder is not a valid Chrome, Edge, or Chromium profile.",
     "importFailed": "Profile import failed: {{detail}}",
     "kernelNotInstalled": "Install the audited Fingerprint Chromium 148 kernel before importing a profile.",
-    "extensionPackageInvalid": "The extension package was rejected: {{detail}}"
+    "extensionPackageInvalid": "The extension package was rejected: {{detail}}",
+    "kernelVersionNotAvailable": "Kernel version {{requested}} is not available for download. The current version is {{current}}."
   },
   "rail": {
     "profiles": "Profiles",
@@ -2052,21 +2004,6 @@
       "trialBadge": "2 weeks free",
       "commercialDesc": "Free for a 2-week evaluation. After that, a paid plan keeps the project maintained and thriving."
     }
-  },
-  "wayfernBlocked": {
-    "title": "Browser automation paused",
-    "description": "Your account was temporarily restricted from Pro browser features, usually from signing in on multiple devices at once. Sign out of other devices, then relaunch the profile to restore it."
-  },
-  "wayfernConfigDialog": {
-    "titleView": "View Fingerprint Settings - {{name}} ({{browser}})",
-    "titleConfigure": "Configure Fingerprint Settings - {{name}} ({{browser}})",
-    "invalidFingerprint": "Invalid fingerprint configuration",
-    "invalidFingerprintDescription": "The fingerprint configuration contains invalid JSON. Please check your advanced settings.",
-    "saveFailed": "Failed to save configuration",
-    "unknownError": "Unknown error occurred"
-  },
-  "cookieCopy": {
-    "noOtherTargets": "No other Wayfern profiles selected"
   },
   "kernels": {
     "title": "Kernels",

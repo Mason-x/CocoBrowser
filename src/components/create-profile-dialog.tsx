@@ -48,25 +48,16 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
-import { WayfernConfigForm } from "@/components/wayfern-config-form";
 import { useBrowserDownload } from "@/hooks/use-browser-download";
 import { useProxyEvents } from "@/hooks/use-proxy-events";
 import { useVpnEvents } from "@/hooks/use-vpn-events";
 import { getBrowserIcon } from "@/lib/browser-utils";
 import { cn } from "@/lib/utils";
-import type { BrowserReleaseTypes, WayfernConfig, WayfernOS } from "@/types";
-
-const getCurrentOS = (): WayfernOS => {
-  if (typeof navigator === "undefined") return "linux";
-  const platform = navigator.platform.toLowerCase();
-  if (platform.includes("win")) return "windows";
-  if (platform.includes("mac")) return "macos";
-  return "linux";
-};
+import type { BrowserReleaseTypes } from "@/types";
 
 import { RippleButton } from "./ui/ripple";
 
-type BrowserTypeString = "fingerprint-chromium" | "wayfern";
+type BrowserTypeString = "fingerprint-chromium";
 
 interface CreateProfileDialogProps {
   isOpen: boolean;
@@ -78,7 +69,6 @@ interface CreateProfileDialogProps {
     releaseType: string;
     proxyId?: string;
     vpnId?: string;
-    wayfernConfig?: WayfernConfig;
     groupId?: string;
     extensionGroupId?: string;
     ephemeral?: boolean;
@@ -122,7 +112,6 @@ export function CreateProfileDialog({
   onClose,
   onCreateProfile,
   selectedGroupId,
-  crossOsUnlocked = false,
 }: CreateProfileDialogProps) {
   const { t } = useTranslation();
   const proxyListboxIdAntiDetect = useId();
@@ -143,11 +132,6 @@ export function CreateProfileDialog({
   const [proxyPopoverOpen, setProxyPopoverOpen] = useState(false);
   const [dnsBlocklist, setDnsBlocklist] = useState<string>("");
   const [launchHook, setLaunchHook] = useState("");
-
-  // Wayfern anti-detect states
-  const [wayfernConfig, setWayfernConfig] = useState<WayfernConfig>(() => ({
-    os: getCurrentOS(), // Default to current OS
-  }));
 
   // Handle browser selection from the initial screen
   const handleBrowserSelect = (browser: BrowserTypeString) => {
@@ -259,7 +243,7 @@ export function CreateProfileDialog({
     }
   }, [t]);
 
-  const checkAndDownloadGeoIPDatabase = useCallback(async () => {
+  const _checkAndDownloadGeoIPDatabase = useCallback(async () => {
     try {
       const isAvailable = await invoke<boolean>("is_geoip_database_available");
       if (!isAvailable) {
@@ -343,17 +327,12 @@ export function CreateProfileDialog({
       if (selectedBrowser && selectedBrowser !== "fingerprint-chromium") {
         void loadReleaseTypes(selectedBrowser);
       }
-      // Wayfern needs the GeoIP database for fingerprint generation.
-      if (selectedBrowser === "wayfern") {
-        void checkAndDownloadGeoIPDatabase();
-      }
     }
   }, [
     isOpen,
     loadSupportedBrowsers,
     loadLocalKernels,
     loadReleaseTypes,
-    checkAndDownloadGeoIPDatabase,
     selectedBrowser,
   ]);
 
@@ -496,7 +475,6 @@ export function CreateProfileDialog({
           releaseType: bestKernelVersion.releaseType,
           proxyId: resolvedProxyId,
           vpnId: resolvedVpnId,
-          wayfernConfig: undefined,
           groupId:
             selectedGroupId && selectedGroupId !== "__all__"
               ? selectedGroupId
@@ -559,19 +537,12 @@ export function CreateProfileDialog({
     setReleaseTypes({});
     setIsLoadingReleaseTypes(false);
     setReleaseTypesError(null);
-    setWayfernConfig({
-      os: getCurrentOS(), // Reset to current OS
-    });
     setEphemeral(false);
     setEnablePassword(false);
     setPassword("");
     setPasswordConfirm("");
     setPasswordError(null);
     onClose();
-  };
-
-  const updateWayfernConfig = (key: keyof WayfernConfig, value: unknown) => {
-    setWayfernConfig((prev) => ({ ...prev, [key]: value }));
   };
 
   // Check if browser version is downloaded and available
@@ -1019,28 +990,14 @@ export function CreateProfileDialog({
                               </div>
                             )}
 
-                            {selectedBrowser === "fingerprint-chromium" ? (
-                              <div className="rounded-md border border-border p-3 space-y-2 text-sm">
-                                <p className="font-medium">
-                                  {t("identity.modeAuto")}
-                                </p>
-                                <p className="text-muted-foreground">
-                                  {t("createProfile.personaAutoHint")}
-                                </p>
-                              </div>
-                            ) : (
-                              <WayfernConfigForm
-                                config={wayfernConfig}
-                                onConfigChange={updateWayfernConfig}
-                                isCreating
-                                crossOsUnlocked={crossOsUnlocked}
-                                limitedMode={!crossOsUnlocked}
-                                profileVersion={
-                                  getCreatableVersion("wayfern")?.version
-                                }
-                                profileBrowser="wayfern"
-                              />
-                            )}
+                            <div className="rounded-md border border-border p-3 space-y-2 text-sm">
+                              <p className="font-medium">
+                                {t("identity.modeAuto")}
+                              </p>
+                              <p className="text-muted-foreground">
+                                {t("createProfile.personaAutoHint")}
+                              </p>
+                            </div>
                           </div>
                         ) : (
                           // Regular Browser Configuration (should not happen in the anti-detect tab).

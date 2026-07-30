@@ -272,15 +272,15 @@
       "stopFollower": "Повторяет действия {{leaderName}}",
       "desyncedTooltip": "Синхронизация не удалась на {{url}}",
       "paidFeature": "Синхронизатор — платная функция",
-      "wayfernOnly": "Синхронизировать можно только профили Wayfern",
       "selectFollowers": "Выберите профили-последователи",
-      "selectFollowersDesc": "Выберите профили, которые будут повторять действия профиля-лидера. Можно выбрать только остановленные профили Wayfern.",
+      "selectFollowersDesc": "Выберите профили, которые будут повторять действия ведущего профиля. Доступны только остановленные профили.",
       "leader": "Лидер",
       "follower": "Последователь",
       "startSession": "Начать сессию синхронизации",
       "noFollowers": "Выберите хотя бы один профиль-последователь",
       "flakyBadge": "FLAKY",
-      "flakyTooltip": "У этого профиля разрешение экрана отличается от лидера. Макет страниц может отличаться, что может привести к неправильным кликам и взаимодействиям."
+      "flakyTooltip": "У этого профиля разрешение экрана отличается от лидера. Макет страниц может отличаться, что может привести к неправильным кликам и взаимодействиям.",
+      "localOnly": "Синхронизировать можно только локальные профили браузера"
     },
     "ephemeral": "Временный",
     "ephemeralDescription": "Браузер вынужденно записывает данные профиля в память, а не на диск. Учтите, что операционная система может выгружать части памяти на диск (swap) при нехватке ОЗУ, поэтому следы сессии всё же могут оказаться восстановимыми.",
@@ -340,7 +340,6 @@
     "antiDetect": {
       "title": "Антидетект браузер",
       "description": "Выберите браузер с возможностями защиты от обнаружения",
-      "chromium": "Wayfern",
       "badge": "Антидетект браузер"
     },
     "regular": {
@@ -374,7 +373,7 @@
       "upgradeAvailable": "Доступна новая версия ({{version}}) {{browser}}."
     },
     "chromiumLabel": "Chromium",
-    "chromiumSubtitle": "На базе Wayfern",
+    "chromiumSubtitle": "На основе Fingerprint Chromium",
     "platformUnavailable": "{{browser}} пока недоступен на вашей платформе.",
     "passwordProtect": {
       "label": "Защитить этот профиль паролем",
@@ -729,7 +728,6 @@
     "tokenCopied": "Токен скопирован",
     "mcpEnableLabel": "Включить MCP сервер (Model Context Protocol)",
     "mcpEnableDescription": "Позволяет ИИ-ассистентам, таким как Claude Desktop, управлять браузерами.",
-    "mcpAcceptTermsFirst": "(Сначала примите условия Wayfern в Настройках)",
     "mcpStarted": "MCP сервер запущен на порту {{port}}",
     "mcpStopped": "MCP сервер остановлен",
     "mcpToggleFailed": "Не удалось переключить MCP сервер",
@@ -755,38 +753,6 @@
     "error": "Ошибка импорта профиля"
   },
   "config": {
-    "wayfern": {
-      "title": "Настройки Wayfern",
-      "fingerprint": {
-        "title": "Отпечаток",
-        "randomize": "Случайный при запуске",
-        "randomizeDescription": "Генерировать новый отпечаток при каждом запуске браузера.",
-        "platformPlaceholder": "напр., Win32, MacIntel, Linux x86_64",
-        "timezoneOffsetPlaceholder": "напр., 300 для EST (UTC-5)",
-        "webglRendererPlaceholder": "напр., Intel(R) HD Graphics"
-      },
-      "os": {
-        "title": "Операционная система",
-        "description": "Операционная система для эмуляции при генерации отпечатка.",
-        "windows": "Windows",
-        "macos": "macOS",
-        "linux": "Linux",
-        "android": "Android",
-        "ios": "iOS"
-      },
-      "screen": {
-        "title": "Размер экрана",
-        "minWidth": "Мин. ширина",
-        "maxWidth": "Макс. ширина",
-        "minHeight": "Мин. высота",
-        "maxHeight": "Макс. высота"
-      },
-      "blocking": {
-        "title": "Блокировка",
-        "webrtc": "Блокировать WebRTC",
-        "webgl": "Блокировать WebGL"
-      }
-    },
     "shared": {
       "browserBehavior": "Поведение браузера",
       "allowAddonsOpenTabs": "Разрешить расширениям браузера автоматически открывать новые вкладки"
@@ -944,7 +910,6 @@
     "serverError": "Ошибка сервера. Попробуйте позже.",
     "unknownError": "Произошла неизвестная ошибка. Попробуйте снова.",
     "noProfilesForUrl": "Нет доступных профилей. Сначала создайте профиль, прежде чем открывать URL.",
-    "updateWayfernConfigFailed": "Не удалось обновить настройки wayfern: {{error}}",
     "createProfileFailed": "Не удалось создать профиль: {{error}}",
     "launchBrowserFailed": "Не удалось запустить браузер: {{error}}",
     "cannotDeleteRunningProfile": "Невозможно удалить профиль, пока браузер запущен. Сначала остановите браузер.",
@@ -952,7 +917,7 @@
     "renameProfileFailed": "Не удалось переименовать профиль: {{error}}",
     "killBrowserFailed": "Не удалось остановить браузер: {{error}}",
     "deleteSelectedProfilesFailed": "Не удалось удалить выбранные профили: {{error}}",
-    "cookieCopyUnsupportedBrowser": "Копирование cookies работает только с профилями Wayfern",
+    "cookieCopyUnsupportedBrowser": "Копирование cookie поддерживается только для профилей Fingerprint Chromium",
     "updateSyncSettingsFailed": "Не удалось обновить параметры синхронизации",
     "cloneProfileFailed": "Не удалось клонировать профиль: {{error}}",
     "loadSupportedBrowsersFailed": "Не удалось загрузить поддерживаемые браузеры",
@@ -967,9 +932,6 @@
     "setupVpnListenersFailed": "Не удалось настроить слушатели событий VPN: {{error}}",
     "themeNotFound": "Тема Tokyo Night не найдена",
     "setProfilePasswordFailed": "Не удалось установить пароль профиля: {{error}}"
-  },
-  "browser": {
-    "wayfern": "Wayfern"
   },
   "fingerprint": {
     "crossOsWarning": "Подмена отпечатка для другой операционной системы менее надёжна, так как невозможно идеально имитировать все базовые компоненты. Используйте с осторожностью.",
@@ -1209,7 +1171,7 @@
       "cannotWhileRunning": "Остановите профиль перед сменой пароля."
     },
     "fingerprint": {
-      "notSupported": "Редактирование отпечатков доступно только для профилей Wayfern.",
+      "notSupported": "Редактирование отпечатка доступно только для профилей Fingerprint Chromium.",
       "lockedTitle": "Просмотр и редактирование отпечатка — функция Pro",
       "lockedDescription": "Информация о вашем устройстве защищена в каждом профиле. Для просмотра и редактирования отпечатка профиля требуется активный платный план."
     },
@@ -1568,16 +1530,6 @@
     "creatingButton": "Создание...",
     "createButton": "Создать"
   },
-  "wayfernTerms": {
-    "title": "Условия использования Wayfern",
-    "description": "Прежде чем использовать CocoBrowser, необходимо прочитать и согласиться с Условиями использования Wayfern.",
-    "reviewLabel": "Пожалуйста, ознакомьтесь с Условиями использования по адресу:",
-    "agreeNotice": "Нажимая «Я принимаю», вы соглашаетесь с этими условиями.",
-    "acceptButton": "Я принимаю",
-    "acceptSuccess": "Условия успешно приняты",
-    "acceptFailed": "Не удалось принять условия",
-    "tryAgain": "Пожалуйста, попробуйте снова"
-  },
   "commercialTrial": {
     "title": "Срок коммерческой пробной версии истёк",
     "description": "Ваш 2-недельный коммерческий пробный период закончился.",
@@ -1830,11 +1782,10 @@
     "proxyNotWorking": "Выбранный прокси не работает, поэтому профиль не создан.",
     "proxyPaymentRequired": "Выбранный прокси требует оплаты (402) — возможно, его подписка истекла — поэтому профиль не создан.",
     "vpnNotWorking": "Выбранный VPN не работает, поэтому профиль не создан.",
-    "camoufoxImportDeprecated": "Импорт профилей этого типа больше не поддерживается. Используйте Wayfern.",
+    "camoufoxImportDeprecated": "Импорт профилей этого типа больше не поддерживается.",
     "updateChecksumsUnavailable": "Не удалось проверить обновление {{version}}: файл контрольных сумм не удалось получить. Обновление не было установлено; попытка будет повторена позже.",
     "updateChecksumMismatch": "Загруженный файл обновления {{file}} не прошёл проверку контрольной суммы и был удалён. Попробуйте ещё раз.",
     "nameCannotBeEmpty": "Имя не может быть пустым",
-    "wayfernVersionNotAvailable": "Версия Wayfern {{requested}} недоступна для загрузки. Текущая версия — {{current}}.",
     "cloudProxyNotSupported": "Cloud-managed proxies are not supported in local fingerprint mode. Use a self-hosted HTTP or SOCKS proxy.",
     "proxyExitCheckFailed": "Could not verify proxy exit IP: {{reason}}",
     "geoTimezoneMismatch": "Timezone mismatch: persona is {{personaTimezone}} but proxy exit ({{exitIp}}) is {{exitTimezone}}. Match persona to the exit before launching.",
@@ -1845,7 +1796,8 @@
     "importSourceInvalid": "Папка не является профилем Chrome, Edge или Chromium.",
     "importFailed": "Ошибка импорта: {{detail}}",
     "kernelNotInstalled": "Перед импортом установите проверенное ядро Fingerprint Chromium 148.",
-    "extensionPackageInvalid": "Пакет расширения отклонён: {{detail}}"
+    "extensionPackageInvalid": "Пакет расширения отклонён: {{detail}}",
+    "kernelVersionNotAvailable": "Версия ядра {{requested}} недоступна для загрузки. Текущая версия — {{current}}."
   },
   "rail": {
     "profiles": "Профили",
@@ -2052,21 +2004,6 @@
       "trialBadge": "2 недели бесплатно",
       "commercialDesc": "Бесплатно в течение 2-недельного ознакомительного периода. После этого требуется платный план, что помогает поддерживать и развивать проект."
     }
-  },
-  "wayfernBlocked": {
-    "title": "Автоматизация браузера приостановлена",
-    "description": "Доступ вашей учётной записи к Pro-функциям браузера временно ограничен — обычно из-за входа сразу на нескольких устройствах. Выйдите из аккаунта на других устройствах и перезапустите профиль, чтобы восстановить доступ."
-  },
-  "wayfernConfigDialog": {
-    "titleView": "Просмотр настроек отпечатка - {{name}} ({{browser}})",
-    "titleConfigure": "Настроить отпечаток - {{name}} ({{browser}})",
-    "invalidFingerprint": "Неверная конфигурация отпечатка",
-    "invalidFingerprintDescription": "Конфигурация отпечатка содержит недопустимый JSON. Проверьте расширенные настройки.",
-    "saveFailed": "Не удалось сохранить конфигурацию",
-    "unknownError": "Произошла неизвестная ошибка"
-  },
-  "cookieCopy": {
-    "noOtherTargets": "Других выбранных Wayfern профилей нет"
   },
   "kernels": {
     "title": "Kernels",

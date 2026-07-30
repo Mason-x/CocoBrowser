@@ -60,7 +60,11 @@ impl Locale {
 #[derive(Debug, Clone)]
 pub struct Geolocation {
   pub locale: Locale,
+  /// Retained for callers that report coordinates; the launch path only uses
+  /// `locale` and `timezone`.
+  #[allow(dead_code)]
   pub longitude: f64,
+  #[allow(dead_code)]
   pub latitude: f64,
   pub timezone: String,
 }

@@ -576,56 +576,6 @@ impl ProxyManager {
     username
   }
 
-  /// Generate a deterministic 11-char alphanumeric session ID from a profile UUID.
-  /// This ensures the same profile always gets the same sticky IP session,
-  /// even across credential refreshes.
-  pub fn generate_sid_for_profile(profile_id: &str) -> String {
-    use std::collections::hash_map::DefaultHasher;
-    use std::hash::{Hash, Hasher};
-
-    let mut hasher = DefaultHasher::new();
-    profile_id.hash(&mut hasher);
-    let hash = hasher.finish();
-
-    // Convert to base36 (a-z0-9) and take 11 chars
-    let chars: Vec<char> = "abcdefghijklmnopqrstuvwxyz0123456789".chars().collect();
-    let mut sid = String::with_capacity(11);
-    let mut val = hash;
-    for _ in 0..11 {
-      sid.push(chars[(val % 36) as usize]);
-      val /= 36;
-    }
-    sid
-  }
-
-  /// Build the full proxy username with sid and ttl for a specific profile launch.
-  /// This is called at browser launch time, not at proxy creation time.
-  pub fn build_username_with_sid(base_geo_username: &str, profile_id: &str) -> String {
-    let sid = Self::generate_sid_for_profile(profile_id);
-    format!("{}-sid-{}-ttl-1440m", base_geo_username, sid)
-  }
-
-  /// Resolve proxy settings for a specific profile, injecting profile-specific sid
-  /// for cloud-derived proxies with geo targeting.
-  pub fn resolve_proxy_for_profile(
-    &self,
-    proxy_id: &str,
-    profile_id: &str,
-  ) -> Option<ProxySettings> {
-    let stored_proxies = self.stored_proxies.lock().unwrap();
-    let proxy = stored_proxies.get(proxy_id)?;
-    let mut settings = proxy.proxy_settings.clone();
-
-    // For cloud-derived proxies with geo targeting, inject profile-specific sid
-    if proxy.is_cloud_derived && proxy.geo_country.is_some() {
-      if let Some(ref username) = settings.username {
-        settings.username = Some(Self::build_username_with_sid(username, profile_id));
-      }
-    }
-
-    Some(settings)
-  }
-
   // Create a cloud-derived location proxy from the base cloud proxy credentials
   pub fn create_cloud_location_proxy(
     &self,
@@ -3277,38 +3227,6 @@ mod tests {
       &Some("Telekom".to_string()),
     );
     assert_eq!(u, "user-country-DE-region-bavaria-city-munich-isp-Telekom");
-  }
-
-  #[test]
-  fn test_sid_generation_determinism_and_format() {
-    let sid1 = ProxyManager::generate_sid_for_profile("my-profile-uuid");
-    let sid2 = ProxyManager::generate_sid_for_profile("my-profile-uuid");
-    assert_eq!(sid1, sid2, "Same input must produce same SID");
-    assert_eq!(sid1.len(), 11, "SID must be exactly 11 characters");
-
-    // All chars should be alphanumeric lowercase
-    assert!(
-      sid1
-        .chars()
-        .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit()),
-      "SID chars must be [a-z0-9]"
-    );
-
-    // Different profiles produce different SIDs
-    let sid3 = ProxyManager::generate_sid_for_profile("another-profile");
-    assert_ne!(sid1, sid3, "Different profiles must produce different SIDs");
-  }
-
-  #[test]
-  fn test_build_username_with_sid() {
-    let full = ProxyManager::build_username_with_sid("user-country-US", "profile-123");
-    // Should contain the geo base, then -sid-{11chars}-ttl-1440m
-    assert!(full.starts_with("user-country-US-sid-"));
-    assert!(full.ends_with("-ttl-1440m"));
-    // SID portion
-    let after_sid = full.strip_prefix("user-country-US-sid-").unwrap();
-    let sid = after_sid.strip_suffix("-ttl-1440m").unwrap();
-    assert_eq!(sid.len(), 11);
   }
 
   #[test]

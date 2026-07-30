@@ -2123,7 +2123,7 @@ export function ProfilesDataTable({
 
           // Cross-OS profiles: show OS icon when checkboxes aren't visible, show checkbox when they are
           if (isCrossOs && !meta.showCheckboxes && !isSelected) {
-            const resolvedOs = profile.host_os || profile.wayfern_config?.os;
+            const resolvedOs = profile.host_os;
             const osName = resolvedOs
               ? getOSDisplayName(resolvedOs)
               : "another OS";
@@ -2162,7 +2162,7 @@ export function ProfilesDataTable({
 
           // Cross-OS profiles with checkboxes visible: show checkbox (selectable for bulk delete)
           if (isCrossOs && (meta.showCheckboxes || isSelected)) {
-            const resolvedOs = profile.host_os || profile.wayfern_config?.os;
+            const resolvedOs = profile.host_os;
             const osName = resolvedOs
               ? getOSDisplayName(resolvedOs)
               : "another OS";
@@ -3234,11 +3234,7 @@ export function ProfilesDataTable({
                     const rowIsCrossOs = isCrossOsProfile(row.original);
                     const crossOsTitle = rowIsCrossOs
                       ? t("crossOs.viewOnly", {
-                          os: getOSDisplayName(
-                            row.original.host_os ||
-                              row.original.wayfern_config?.os ||
-                              "",
-                          ),
+                          os: getOSDisplayName(row.original.host_os || ""),
                         })
                       : undefined;
                     return (

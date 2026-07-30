@@ -144,52 +144,13 @@ impl Downloader {
   pub async fn resolve_download_url(
     &self,
     browser_type: BrowserType,
-    version: &str,
+    _version: &str,
     _download_info: &DownloadInfo,
   ) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
     match browser_type {
       BrowserType::FingerprintChromium => {
         // Audited HTTPS URL from embedded kernel manifest (already in download_info).
         Ok(_download_info.url.clone())
-      }
-      BrowserType::Wayfern => {
-        // Legacy Wayfern path — not used for new local-first installs.
-        let version_info = self
-          .api_client
-          .fetch_wayfern_version_with_caching(true)
-          .await?;
-
-        // Never substitute: downloading the current build into the requested
-        // version's directory would register a mislabeled install.
-        if version_info.version != version {
-          return Err(
-            serde_json::json!({
-              "code": "WAYFERN_VERSION_NOT_AVAILABLE",
-              "params": { "requested": version, "current": version_info.version }
-            })
-            .to_string()
-            .into(),
-          );
-        }
-
-        // Get the download URL for current platform
-        let download_url = self
-          .api_client
-          .get_wayfern_download_url(&version_info)
-          .ok_or_else(|| {
-            let (os, arch) = Self::get_platform_info();
-            format!(
-              "No compatible download found for Wayfern on {os}/{arch}. Available platforms: {}",
-              version_info
-                .downloads
-                .iter()
-                .filter_map(|(k, v)| if v.is_some() { Some(k.as_str()) } else { None })
-                .collect::<Vec<_>>()
-                .join(", ")
-            )
-          })?;
-
-        Ok(download_url)
       }
     }
   }
@@ -560,7 +521,7 @@ impl Downloader {
       if info.version != version {
         return Err(
           serde_json::json!({
-            "code": "WAYFERN_VERSION_NOT_AVAILABLE",
+            "code": "KERNEL_VERSION_NOT_AVAILABLE",
             "params": { "requested": version, "current": info.version }
           })
           .to_string()

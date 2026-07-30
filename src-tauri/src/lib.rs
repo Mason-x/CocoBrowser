@@ -48,7 +48,6 @@ pub mod socks5_local;
 pub mod sync;
 mod synchronizer;
 pub mod traffic_stats;
-mod wayfern_manager;
 // mod theme_detector; // removed: theme detection handled in webview via CSS prefers-color-scheme
 pub mod cloud_auth;
 mod cookie_manager;
@@ -70,7 +69,7 @@ use profile::manager::{
   list_browser_profiles, regenerate_profile_persona, rename_profile, update_profile_dns_blocklist,
   update_profile_launch_hook, update_profile_note, update_profile_persona, update_profile_proxy,
   update_profile_proxy_bypass_rules, update_profile_tags, update_profile_version,
-  update_profile_vpn, update_profile_window_color, update_wayfern_config,
+  update_profile_vpn, update_profile_window_color,
 };
 
 use profile::password::{
@@ -1202,61 +1201,6 @@ async fn list_active_vpn_connections() -> Result<Vec<vpn::VpnStatus>, String> {
   )
 }
 
-#[tauri::command]
-async fn generate_sample_fingerprint(
-  app_handle: tauri::AppHandle,
-  browser: String,
-  version: String,
-  config_json: String,
-) -> Result<String, String> {
-  let temp_profile = crate::profile::BrowserProfile {
-    id: uuid::Uuid::new_v4(),
-    name: "temp_fingerprint_gen".to_string(),
-    browser: browser.clone(),
-    version: version.clone(),
-    process_id: None,
-    proxy_id: None,
-    vpn_id: None,
-    launch_hook: None,
-    last_launch: None,
-    release_type: "stable".to_string(),
-    wayfern_config: None,
-    persona: None,
-    group_id: None,
-    tags: Vec::new(),
-    note: None,
-    window_color: None,
-    sync_mode: crate::profile::types::SyncMode::Disabled,
-    encryption_salt: None,
-    last_sync: None,
-    host_os: None,
-    ephemeral: false,
-    extension_group_id: None,
-    proxy_bypass_rules: Vec::new(),
-    created_by_id: None,
-    created_by_email: None,
-    dns_blocklist: None,
-    password_protected: false,
-    created_at: None,
-    updated_at: None,
-  };
-
-  if browser == "wayfern" {
-    let config: crate::wayfern_manager::WayfernConfig =
-      serde_json::from_str(&config_json).map_err(|e| format!("Failed to parse config: {e}"))?;
-    let manager = crate::wayfern_manager::WayfernManager::instance();
-    manager
-      .generate_fingerprint_config(&app_handle, &temp_profile, &config)
-      .await
-      .map(|(fingerprint, _geolocation_applied)| fingerprint)
-      .map_err(|e| format!("Failed to generate fingerprint: {e}"))
-  } else {
-    Err(format!(
-      "Unsupported browser for fingerprint generation: {browser}"
-    ))
-  }
-}
-
 /// Confirm a quit chosen from the close-confirmation dialog and exit the app.
 #[tauri::command]
 fn confirm_quit(app_handle: tauri::AppHandle) {
@@ -2212,13 +2156,11 @@ pub fn run() {
       import_proxies_json,
       parse_txt_proxies,
       import_proxies_from_parsed,
-      update_wayfern_config,
       update_profile_persona,
       regenerate_profile_persona,
       kernel::audit::run_fingerprint_audit,
       kernel::audit::run_fingerprint_stability_audit,
       kernel::audit::get_last_fingerprint_audit,
-      generate_sample_fingerprint,
       get_profile_groups,
       get_groups_with_profile_counts,
       create_profile_group,

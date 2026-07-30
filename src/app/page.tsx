@@ -41,7 +41,6 @@ import { SyncAllDialog } from "@/components/sync-all-dialog";
 import { SyncConfigDialog } from "@/components/sync-config-dialog";
 import { SyncFollowerDialog } from "@/components/sync-follower-dialog";
 import { ThankYouDialog } from "@/components/thank-you-dialog";
-import { WayfernConfigDialog } from "@/components/wayfern-config-dialog";
 import { WelcomeDialog } from "@/components/welcome-dialog";
 import { WindowResizeWarningDialog } from "@/components/window-resize-warning-dialog";
 import { useCloudAuth } from "@/hooks/use-cloud-auth";
@@ -70,9 +69,9 @@ import {
   showSyncProgressToast,
   showToast,
 } from "@/lib/toast-utils";
-import type { BrowserProfile, SyncSettings, WayfernConfig } from "@/types";
+import type { BrowserProfile, SyncSettings } from "@/types";
 
-type BrowserTypeString = "fingerprint-chromium" | "wayfern";
+type BrowserTypeString = "fingerprint-chromium";
 
 interface PendingUrl {
   id: string;
@@ -197,7 +196,6 @@ export default function Home() {
   const [syncLeaderProfile, setSyncLeaderProfile] =
     useState<BrowserProfile | null>(null);
 
-  // Local-first: no Wayfern terms / commercial trial gates.
   // Cloud auth retained only for optional self-hosted sync configuration.
   const { user: cloudUser } = useCloudAuth();
   // Local automation is not a cloud entitlement. Cross-OS spoofing stays
@@ -239,7 +237,6 @@ export default function Home() {
   const [importProfileDialogOpen, setImportProfileDialogOpen] = useState(false);
   const [proxyManagementDialogOpen, setProxyManagementDialogOpen] =
     useState(false);
-  const [wayfernConfigDialogOpen, setWayfernConfigDialogOpen] = useState(false);
   const [identityDialogOpen, setIdentityDialogOpen] = useState(false);
   const [currentProfileForIdentity, setCurrentProfileForIdentity] =
     useState<BrowserProfile | null>(null);
@@ -284,8 +281,6 @@ export default function Home() {
   const [selectedProfiles, setSelectedProfiles] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [pendingUrls, setPendingUrls] = useState<PendingUrl[]>([]);
-  const [currentProfileForWayfernConfig, setCurrentProfileForWayfernConfig] =
-    useState<BrowserProfile | null>(null);
   const [cloneProfile, setCloneProfile] = useState<BrowserProfile | null>(null);
   const [passwordDialogProfile, setPasswordDialogProfile] =
     useState<BrowserProfile | null>(null);
@@ -675,14 +670,9 @@ export default function Home() {
     }
   }, [handleUrlOpen, t]);
 
-  const handleConfigureWayfern = useCallback((profile: BrowserProfile) => {
-    if (profile.browser === "fingerprint-chromium") {
-      setCurrentProfileForIdentity(profile);
-      setIdentityDialogOpen(true);
-      return;
-    }
-    setCurrentProfileForWayfernConfig(profile);
-    setWayfernConfigDialogOpen(true);
+  const handleConfigureIdentity = useCallback((profile: BrowserProfile) => {
+    setCurrentProfileForIdentity(profile);
+    setIdentityDialogOpen(true);
   }, []);
 
   const handleOpenAudit = useCallback((profile: BrowserProfile) => {
@@ -704,26 +694,6 @@ export default function Home() {
     };
   }, [profiles, handleOpenAudit]);
 
-  const handleSaveWayfernConfig = useCallback(
-    async (profile: BrowserProfile, config: WayfernConfig) => {
-      try {
-        await invoke("update_wayfern_config", {
-          profileId: profile.id,
-          config,
-        });
-        // No need to manually reload - useProfileEvents will handle the update
-        setWayfernConfigDialogOpen(false);
-      } catch (err: unknown) {
-        console.error("Failed to update wayfern config:", err);
-        showErrorToast(
-          t("errors.updateWayfernConfigFailed", { error: JSON.stringify(err) }),
-        );
-        throw err;
-      }
-    },
-    [t],
-  );
-
   const handleCreateProfile = useCallback(
     async (profileData: {
       name: string;
@@ -732,7 +702,6 @@ export default function Home() {
       releaseType: string;
       proxyId?: string;
       vpnId?: string;
-      wayfernConfig?: WayfernConfig;
       groupId?: string;
       extensionGroupId?: string;
       ephemeral?: boolean;
@@ -750,7 +719,6 @@ export default function Home() {
             releaseType: profileData.releaseType,
             proxyId: profileData.proxyId,
             vpnId: profileData.vpnId,
-            wayfernConfig: profileData.wayfernConfig,
             groupId:
               profileData.groupId ??
               (selectedGroupId && selectedGroupId !== "__all__"
@@ -824,8 +792,11 @@ export default function Home() {
         }
       }
 
-      // Show one-time warning about window resizing for fingerprinted browsers
-      if (profile.browser === "wayfern") {
+      // Show one-time warning about window resizing for fingerprinted browsers.
+      // Resizing changes the reported viewport and breaks Persona consistency,
+      // so this matters for the current kernel too — it previously only fired
+      // for the legacy engine.
+      if (profile.browser === "fingerprint-chromium") {
         try {
           const dismissed = await invoke<boolean>(
             "get_window_resize_warning_dismissed",
@@ -1298,7 +1269,6 @@ export default function Home() {
     let unlistenStarted: (() => void) | undefined;
     let unlistenProgress: (() => void) | undefined;
     let unlistenCompleted: (() => void) | undefined;
-    let unlistenWayfernBlocked: (() => void) | undefined;
 
     void (async () => {
       unlistenRequired = await listen(
@@ -1361,16 +1331,6 @@ export default function Home() {
         });
       });
 
-      unlistenWayfernBlocked = await listen("wayfern-paid-blocked", () => {
-        showToast({
-          id: "wayfern-paid-blocked",
-          type: "error",
-          title: t("wayfernBlocked.title"),
-          description: t("wayfernBlocked.description"),
-          duration: 15000,
-        });
-      });
-
       // If the effect was torn down mid-setup, the cleanup below already ran
       // before these handles existed — unlisten them now so nothing leaks.
       if (disposed) {
@@ -1378,7 +1338,6 @@ export default function Home() {
         unlistenStarted?.();
         unlistenProgress?.();
         unlistenCompleted?.();
-        unlistenWayfernBlocked?.();
       }
     })();
 
@@ -1388,7 +1347,6 @@ export default function Home() {
       unlistenStarted?.();
       unlistenProgress?.();
       unlistenCompleted?.();
-      unlistenWayfernBlocked?.();
     };
   }, [t]);
 
@@ -1483,7 +1441,7 @@ export default function Home() {
                 onRemovePassword={handleRemovePassword}
                 onDeleteProfile={handleDeleteProfile}
                 onRenameProfile={handleRenameProfile}
-                onConfigureWayfern={handleConfigureWayfern}
+                onConfigureWayfern={handleConfigureIdentity}
                 onCopyCookiesToProfile={handleCopyCookiesToProfile}
                 onOpenCookieManagement={handleOpenCookieManagement}
                 runningProfiles={runningProfiles}
@@ -1721,21 +1679,6 @@ export default function Home() {
             );
           }
         }}
-      />
-
-      <WayfernConfigDialog
-        isOpen={wayfernConfigDialogOpen}
-        onClose={() => {
-          setWayfernConfigDialogOpen(false);
-        }}
-        profile={currentProfileForWayfernConfig}
-        onSave={handleSaveWayfernConfig}
-        isRunning={
-          currentProfileForWayfernConfig
-            ? runningProfiles.has(currentProfileForWayfernConfig.id)
-            : false
-        }
-        crossOsUnlocked={crossOsUnlocked}
       />
 
       <FingerprintIdentityDialog

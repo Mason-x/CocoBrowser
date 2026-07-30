@@ -765,7 +765,7 @@ fn manager_error_response(err: impl std::fmt::Display) -> (StatusCode, String) {
         StatusCode::INTERNAL_SERVER_ERROR
       } else {
         // Validation-style codes (NAME_CANNOT_BE_EMPTY, GROUP_ALREADY_EXISTS,
-        // WAYFERN_VERSION_NOT_AVAILABLE, ...).
+        // KERNEL_VERSION_NOT_AVAILABLE, ...).
         StatusCode::BAD_REQUEST
       };
       return (status, msg);
@@ -996,9 +996,6 @@ async fn create_profile(
     }
   };
 
-  // Legacy Wayfern config is intentionally ignored for local profiles.
-  let wayfern_config = None;
-
   crate::kernel::geo_consistency::reject_cloud_proxy_id(request.proxy_id.as_deref())
     .map_err(|error| (StatusCode::BAD_REQUEST, error))?;
 
@@ -1022,7 +1019,6 @@ async fn create_profile(
       request.release_type.as_deref().unwrap_or("stable"),
       request.proxy_id.clone(),
       request.vpn_id.clone(),
-      wayfern_config,
       request.group_id.clone(),
       false,
       None,

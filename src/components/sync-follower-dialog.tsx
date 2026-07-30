@@ -21,27 +21,18 @@ import {
 } from "@/components/ui/tooltip";
 import { isCrossOsProfile } from "@/lib/browser-utils";
 import { showErrorToast } from "@/lib/toast-utils";
-import type {
-  BrowserProfile,
-  SyncSessionInfo,
-  WayfernFingerprintConfig,
-} from "@/types";
+import type { BrowserProfile, SyncSessionInfo } from "@/types";
 import { RippleButton } from "./ui/ripple";
 
 function getScreenSize(
   profile: BrowserProfile,
 ): { w: number; h: number } | null {
-  const fp = profile.wayfern_config?.fingerprint;
-  if (!fp) return null;
-  try {
-    const parsed: WayfernFingerprintConfig = JSON.parse(fp);
-    const w = parsed.screenWidth ?? parsed.windowInnerWidth;
-    const h = parsed.screenHeight ?? parsed.windowInnerHeight;
-    if (w && h) return { w, h };
-  } catch {
-    // ignore
-  }
-  return null;
+  // Window size lives on the Persona; the legacy engine's fingerprint JSON
+  // blob this used to parse was removed along with that engine.
+  const persona = profile.persona;
+  if (!persona) return null;
+  const { windowWidth: w, windowHeight: h } = persona;
+  return w && h ? { w, h } : null;
 }
 
 interface SyncFollowerDialogProps {
@@ -141,7 +132,7 @@ export function SyncFollowerDialog({
                 <div className="space-y-1 p-2">
                   {eligibleProfiles.length === 0 ? (
                     <p className="py-4 text-center text-sm text-muted-foreground">
-                      {t("profiles.synchronizer.wayfernOnly")}
+                      {t("profiles.synchronizer.localOnly")}
                     </p>
                   ) : (
                     eligibleProfiles.map((profile) => {

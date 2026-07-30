@@ -687,7 +687,6 @@ mod tests {
       process_id: None,
       last_launch: None,
       release_type: "stable".into(),
-      wayfern_config: None,
       persona: Some(sample_persona()),
       group_id: None,
       tags: vec![],

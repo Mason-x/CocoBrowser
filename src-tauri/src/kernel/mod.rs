@@ -18,7 +18,6 @@ pub mod process_guard;
 pub mod registry;
 pub mod session;
 pub mod update_check;
-pub mod wayfern_legacy;
 
 pub use audit::{AuditResult, AuditStatus, StabilityReport};
 pub use capabilities::{CapabilityMode, KernelCapabilities};
@@ -31,4 +30,3 @@ pub use persona::FingerprintPersona;
 pub use registry::KernelRegistry;
 pub use session::{SessionManager, SessionState};
 pub use update_check::KernelUpdateStatus;
-pub use wayfern_legacy::WayfernLegacyDriver;

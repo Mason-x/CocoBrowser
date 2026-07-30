@@ -1,5 +1,4 @@
 use crate::kernel::persona::FingerprintPersona;
-use crate::wayfern_manager::WayfernConfig;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
@@ -39,8 +38,6 @@ pub struct BrowserProfile {
   pub last_launch: Option<u64>,
   #[serde(default = "default_release_type")]
   pub release_type: String,
-  #[serde(default)]
-  pub wayfern_config: Option<WayfernConfig>, // Wayfern configuration (legacy)
   /// Local fingerprint-chromium / future-kernel identity (stable seed + locale).
   #[serde(default)]
   pub persona: Option<FingerprintPersona>,
@@ -113,10 +110,7 @@ impl BrowserProfile {
   /// then falls back to the fingerprint config's `os` field (for profiles
   /// created before `host_os` was introduced or synced without it).
   pub fn resolved_os(&self) -> Option<&str> {
-    self
-      .host_os
-      .as_deref()
-      .or_else(|| self.wayfern_config.as_ref().and_then(|c| c.os.as_deref()))
+    self.host_os.as_deref()
   }
 
   /// Returns true when the profile was created on a different OS than the current host.

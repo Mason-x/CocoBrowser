@@ -27,7 +27,7 @@ export type BackendErrorCode =
   | "GROUP_NOT_FOUND"
   | "GROUP_ALREADY_EXISTS"
   | "NAME_CANNOT_BE_EMPTY"
-  | "WAYFERN_VERSION_NOT_AVAILABLE"
+  | "KERNEL_VERSION_NOT_AVAILABLE"
   | "VPN_NOT_FOUND"
   | "EXTENSION_NOT_FOUND"
   | "EXTENSION_GROUP_NOT_FOUND"
@@ -141,8 +141,8 @@ export function translateBackendError(t: TFunction, err: unknown): string {
       return t("backendErrors.groupAlreadyExists");
     case "NAME_CANNOT_BE_EMPTY":
       return t("backendErrors.nameCannotBeEmpty");
-    case "WAYFERN_VERSION_NOT_AVAILABLE":
-      return t("backendErrors.wayfernVersionNotAvailable", {
+    case "KERNEL_VERSION_NOT_AVAILABLE":
+      return t("backendErrors.kernelVersionNotAvailable", {
         requested: parsed.params?.requested ?? "",
         current: parsed.params?.current ?? "",
       });

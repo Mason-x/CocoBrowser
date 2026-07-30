@@ -454,23 +454,6 @@ impl AutoUpdater {
     Ok(pending_versions)
   }
 
-  /// Get pending update for a specific browser version if it exists
-  pub fn get_pending_update(
-    &self,
-    browser: &str,
-    current_version: &str,
-  ) -> Result<Option<UpdateNotification>, Box<dyn std::error::Error + Send + Sync>> {
-    let state = self.load_auto_update_state()?;
-
-    for update in &state.pending_updates {
-      if update.browser == browser && update.current_version == current_version {
-        return Ok(Some(update.clone()));
-      }
-    }
-
-    Ok(None)
-  }
-
   /// Get the latest installed version for a browser from the downloaded browsers registry
   pub fn get_latest_installed_version(&self, browser: &str) -> Option<String> {
     let registry = crate::downloaded_browsers_registry::DownloadedBrowsersRegistry::instance();
@@ -653,7 +636,6 @@ mod tests {
       launch_hook: None,
       last_launch: None,
       release_type: "stable".to_string(),
-      wayfern_config: None,
       persona: None,
       group_id: None,
       tags: Vec::new(),
@@ -719,9 +701,9 @@ mod tests {
   }
 
   #[test]
-  fn test_check_profile_update_picks_newer_wayfern_version() {
+  fn test_check_profile_update_picks_newer_kernel_version() {
     let updater = AutoUpdater::instance();
-    let profile = create_test_profile("test", "wayfern", "138.0.7204.49");
+    let profile = create_test_profile("test", "fingerprint-chromium", "138.0.7204.49");
     let versions = vec![
       create_test_version_info("138.0.7204.50"),
       create_test_version_info("138.0.7204.48"),
@@ -735,7 +717,7 @@ mod tests {
   #[test]
   fn test_check_profile_update_no_update_available() {
     let updater = AutoUpdater::instance();
-    let profile = create_test_profile("test", "wayfern", "138.0.7204.50");
+    let profile = create_test_profile("test", "fingerprint-chromium", "138.0.7204.50");
     let versions = vec![
       create_test_version_info("138.0.7204.49"),
       create_test_version_info("138.0.7204.50"),
@@ -750,8 +732,8 @@ mod tests {
     let updater = AutoUpdater::instance();
     let notifications = vec![
       UpdateNotification {
-        id: "wayfern_138.0.7204.49_to_138.0.7204.50_profile1".to_string(),
-        browser: "wayfern".to_string(),
+        id: "fingerprint-chromium_138.0.7204.49_to_138.0.7204.50_profile1".to_string(),
+        browser: "fingerprint-chromium".to_string(),
         current_version: "138.0.7204.49".to_string(),
         new_version: "138.0.7204.50".to_string(),
         affected_profiles: vec!["profile1".to_string()],
@@ -759,7 +741,7 @@ mod tests {
       },
       UpdateNotification {
         id: "wayfern_138.0.7204.49_to_138.0.7204.50_profile2".to_string(),
-        browser: "wayfern".to_string(),
+        browser: "fingerprint-chromium".to_string(),
         current_version: "138.0.7204.49".to_string(),
         new_version: "138.0.7204.50".to_string(),
         affected_profiles: vec!["profile2".to_string()],

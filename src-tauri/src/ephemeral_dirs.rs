@@ -264,7 +264,6 @@ mod tests {
       process_id: None,
       last_launch: None,
       release_type: "stable".to_string(),
-      wayfern_config: None,
       persona: None,
       group_id: None,
       tags: Vec::new(),

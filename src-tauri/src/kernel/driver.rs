@@ -4,7 +4,6 @@ use super::capabilities::KernelCapabilities;
 use super::launch_plan::{AutomationMode, BrowserProcess, LaunchPlan, LocalProxyEndpoint};
 use super::persona::FingerprintPersona;
 use crate::profile::BrowserProfile;
-use crate::wayfern_manager::WayfernConfig;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
@@ -60,12 +59,10 @@ pub struct KernelLaunchRequest {
   pub remote_debugging_port: Option<u16>,
   pub headless: bool,
   pub extension_paths: Vec<String>,
-  /// Temporary until Wayfern is removed (Phase 5).
-  pub wayfern_config: Option<WayfernConfig>,
   /// Stable fingerprint identity for fingerprint-chromium (and future kernels).
   pub persona: Option<FingerprintPersona>,
-  /// Pre-formatted local proxy URL for kernels that still take a single string
-  /// (legacy Wayfern path). Prefer `local_proxy` for new kernels.
+  /// Pre-formatted local proxy URL for kernels that take a single string.
+  /// Prefer `local_proxy` for new kernels.
   pub proxy_url: Option<String>,
   pub ephemeral: bool,
 }

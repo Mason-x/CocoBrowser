@@ -272,15 +272,15 @@
       "stopFollower": "Seguindo as ações de {{leaderName}}",
       "desyncedTooltip": "A sincronização falhou em {{url}}",
       "paidFeature": "O sincronizador é um recurso pago",
-      "wayfernOnly": "Apenas perfis Wayfern podem ser sincronizados",
       "selectFollowers": "Selecionar perfis seguidores",
-      "selectFollowersDesc": "Escolha os perfis que replicarão as ações do perfil líder. Apenas perfis Wayfern parados podem ser selecionados.",
+      "selectFollowersDesc": "Escolha os perfis que espelharão as ações do perfil líder. Somente perfis parados podem ser selecionados.",
       "leader": "Líder",
       "follower": "Seguidor",
       "startSession": "Iniciar sessão de sincronização",
       "noFollowers": "Selecione pelo menos um perfil seguidor",
       "flakyBadge": "FLAKY",
-      "flakyTooltip": "Este perfil tem uma resolução de tela diferente do líder. O layout das páginas pode variar, fazendo com que cliques e interações atinjam elementos errados."
+      "flakyTooltip": "Este perfil tem uma resolução de tela diferente do líder. O layout das páginas pode variar, fazendo com que cliques e interações atinjam elementos errados.",
+      "localOnly": "Somente perfis de navegador locais podem ser sincronizados"
     },
     "ephemeral": "Efêmero",
     "ephemeralDescription": "O navegador é forçado a gravar os dados do perfil na memória em vez do disco. Lembre-se de que o sistema operacional pode passar partes da memória para o disco (swap) sob carga, então rastros da sessão ainda podem ser recuperáveis.",
@@ -340,7 +340,6 @@
     "antiDetect": {
       "title": "Navegador Anti-Detecção",
       "description": "Escolha um navegador com capacidades anti-detecção",
-      "chromium": "Wayfern",
       "badge": "Navegador Anti-Detecção"
     },
     "regular": {
@@ -374,7 +373,7 @@
       "upgradeAvailable": "Uma versão mais recente ({{version}}) do {{browser}} está disponível."
     },
     "chromiumLabel": "Chromium",
-    "chromiumSubtitle": "Desenvolvido com Wayfern",
+    "chromiumSubtitle": "Baseado no Fingerprint Chromium",
     "platformUnavailable": "{{browser}} ainda não está disponível para sua plataforma.",
     "passwordProtect": {
       "label": "Proteger este perfil com senha",
@@ -729,7 +728,6 @@
     "tokenCopied": "Token copiado",
     "mcpEnableLabel": "Ativar servidor MCP (Model Context Protocol)",
     "mcpEnableDescription": "Permite que assistentes de IA como o Claude Desktop controlem navegadores.",
-    "mcpAcceptTermsFirst": "(Aceite primeiro os termos da Wayfern nas Configurações)",
     "mcpStarted": "Servidor MCP iniciado na porta {{port}}",
     "mcpStopped": "Servidor MCP parado",
     "mcpToggleFailed": "Falha ao alternar o servidor MCP",
@@ -755,38 +753,6 @@
     "error": "Falha ao importar perfil"
   },
   "config": {
-    "wayfern": {
-      "title": "Configuração do Wayfern",
-      "fingerprint": {
-        "title": "Impressão Digital",
-        "randomize": "Aleatorizar ao Iniciar",
-        "randomizeDescription": "Gera uma nova impressão digital cada vez que o navegador é iniciado.",
-        "platformPlaceholder": "ex., Win32, MacIntel, Linux x86_64",
-        "timezoneOffsetPlaceholder": "ex., 300 para EST (UTC-5)",
-        "webglRendererPlaceholder": "ex., Intel(R) HD Graphics"
-      },
-      "os": {
-        "title": "Sistema Operacional",
-        "description": "O sistema operacional a emular para geração de impressão digital.",
-        "windows": "Windows",
-        "macos": "macOS",
-        "linux": "Linux",
-        "android": "Android",
-        "ios": "iOS"
-      },
-      "screen": {
-        "title": "Tamanho da Tela",
-        "minWidth": "Largura Mín",
-        "maxWidth": "Largura Máx",
-        "minHeight": "Altura Mín",
-        "maxHeight": "Altura Máx"
-      },
-      "blocking": {
-        "title": "Bloqueio",
-        "webrtc": "Bloquear WebRTC",
-        "webgl": "Bloquear WebGL"
-      }
-    },
     "shared": {
       "browserBehavior": "Comportamento do navegador",
       "allowAddonsOpenTabs": "Permitir que extensões abram novas abas automaticamente"
@@ -944,7 +910,6 @@
     "serverError": "Erro do servidor. Por favor, tente novamente mais tarde.",
     "unknownError": "Ocorreu um erro desconhecido. Por favor, tente novamente.",
     "noProfilesForUrl": "Sem perfis disponíveis. Crie um perfil primeiro antes de abrir URLs.",
-    "updateWayfernConfigFailed": "Falha ao atualizar a configuração do wayfern: {{error}}",
     "createProfileFailed": "Falha ao criar o perfil: {{error}}",
     "launchBrowserFailed": "Falha ao iniciar o navegador: {{error}}",
     "cannotDeleteRunningProfile": "Não é possível excluir o perfil enquanto o navegador estiver em execução. Pare o navegador primeiro.",
@@ -952,7 +917,7 @@
     "renameProfileFailed": "Falha ao renomear o perfil: {{error}}",
     "killBrowserFailed": "Falha ao encerrar o navegador: {{error}}",
     "deleteSelectedProfilesFailed": "Falha ao excluir os perfis selecionados: {{error}}",
-    "cookieCopyUnsupportedBrowser": "A cópia de cookies só funciona com perfis Wayfern",
+    "cookieCopyUnsupportedBrowser": "A cópia de cookies só é suportada em perfis Fingerprint Chromium",
     "updateSyncSettingsFailed": "Falha ao atualizar as configurações de sincronização",
     "cloneProfileFailed": "Falha ao clonar o perfil: {{error}}",
     "loadSupportedBrowsersFailed": "Falha ao carregar os navegadores suportados",
@@ -967,9 +932,6 @@
     "setupVpnListenersFailed": "Falha ao configurar os listeners de eventos de VPN: {{error}}",
     "themeNotFound": "Tema Tokyo Night não encontrado",
     "setProfilePasswordFailed": "Falha ao definir a senha do perfil: {{error}}"
-  },
-  "browser": {
-    "wayfern": "Wayfern"
   },
   "fingerprint": {
     "crossOsWarning": "A falsificação de impressão digital para um sistema operacional diferente é menos confiável porque é impossível imitar perfeitamente todos os componentes subjacentes. Use com cautela.",
@@ -1209,7 +1171,7 @@
       "cannotWhileRunning": "Pare o perfil antes de alterar a senha."
     },
     "fingerprint": {
-      "notSupported": "A edição de impressão digital só está disponível para perfis Wayfern.",
+      "notSupported": "A edição de impressão digital só está disponível em perfis Fingerprint Chromium.",
       "lockedTitle": "Visualizar e editar a impressão digital é um recurso Pro",
       "lockedDescription": "As informações do seu dispositivo estão protegidas em todos os perfis. Visualizar e editar a impressão digital de um perfil requer um plano pago ativo."
     },
@@ -1568,16 +1530,6 @@
     "creatingButton": "Criando...",
     "createButton": "Criar"
   },
-  "wayfernTerms": {
-    "title": "Termos e condições da Wayfern",
-    "description": "Antes de usar o CocoBrowser, você deve ler e concordar com os Termos e Condições da Wayfern.",
-    "reviewLabel": "Por favor, revise os Termos e Condições em:",
-    "agreeNotice": "Ao clicar em \"Aceito\", você concorda em ficar vinculado a esses termos.",
-    "acceptButton": "Aceito",
-    "acceptSuccess": "Termos aceitos com sucesso",
-    "acceptFailed": "Falha ao aceitar os termos",
-    "tryAgain": "Tente novamente"
-  },
   "commercialTrial": {
     "title": "Período de teste comercial expirado",
     "description": "Seu período de teste comercial de 2 semanas terminou.",
@@ -1830,11 +1782,10 @@
     "proxyNotWorking": "O proxy selecionado não está funcionando, então o perfil não foi criado.",
     "proxyPaymentRequired": "O proxy selecionado exige pagamento (402) — sua assinatura pode ter expirado — então o perfil não foi criado.",
     "vpnNotWorking": "A VPN selecionada não está funcionando, então o perfil não foi criado.",
-    "camoufoxImportDeprecated": "A importação deste tipo de perfil não é mais suportada. Use o Wayfern em vez disso.",
+    "camoufoxImportDeprecated": "A importação desse tipo de perfil não é mais suportada.",
     "updateChecksumsUnavailable": "Não foi possível verificar a atualização {{version}} porque o arquivo de somas de verificação não pôde ser obtido. A atualização não foi instalada; será tentada novamente mais tarde.",
     "updateChecksumMismatch": "O arquivo de atualização baixado {{file}} falhou na verificação de soma de verificação e foi descartado. Tente novamente.",
     "nameCannotBeEmpty": "O nome não pode estar vazio",
-    "wayfernVersionNotAvailable": "A versão {{requested}} do Wayfern não está disponível para download. A versão atual é {{current}}.",
     "cloudProxyNotSupported": "Cloud-managed proxies are not supported in local fingerprint mode. Use a self-hosted HTTP or SOCKS proxy.",
     "proxyExitCheckFailed": "Could not verify proxy exit IP: {{reason}}",
     "geoTimezoneMismatch": "Timezone mismatch: persona is {{personaTimezone}} but proxy exit ({{exitIp}}) is {{exitTimezone}}. Match persona to the exit before launching.",
@@ -1845,7 +1796,8 @@
     "importSourceInvalid": "A pasta não é um perfil válido do Chrome, Edge ou Chromium.",
     "importFailed": "Falha na importação: {{detail}}",
     "kernelNotInstalled": "Instale o kernel auditado Fingerprint Chromium 148 antes de importar.",
-    "extensionPackageInvalid": "Pacote de extensão rejeitado: {{detail}}"
+    "extensionPackageInvalid": "Pacote de extensão rejeitado: {{detail}}",
+    "kernelVersionNotAvailable": "A versão de kernel {{requested}} não está disponível para download. A versão atual é {{current}}."
   },
   "rail": {
     "profiles": "Perfis",
@@ -2052,21 +2004,6 @@
       "trialBadge": "2 semanas grátis",
       "commercialDesc": "Gratuito durante uma avaliação de 2 semanas. Depois, um plano pago mantém o projeto ativo e próspero."
     }
-  },
-  "wayfernBlocked": {
-    "title": "Automação do navegador pausada",
-    "description": "Sua conta foi temporariamente restringida dos recursos Pro do navegador, geralmente por entrar em vários dispositivos ao mesmo tempo. Saia dos outros dispositivos e reinicie o perfil para restaurá-la."
-  },
-  "wayfernConfigDialog": {
-    "titleView": "Ver configurações de impressão digital - {{name}} ({{browser}})",
-    "titleConfigure": "Configurar impressão digital - {{name}} ({{browser}})",
-    "invalidFingerprint": "Configuração de impressão digital inválida",
-    "invalidFingerprintDescription": "A configuração de impressão digital contém JSON inválido. Verifique suas configurações avançadas.",
-    "saveFailed": "Falha ao salvar configuração",
-    "unknownError": "Ocorreu um erro desconhecido"
-  },
-  "cookieCopy": {
-    "noOtherTargets": "Nenhum outro perfil Wayfern selecionado"
   },
   "kernels": {
     "title": "Kernels",

@@ -272,15 +272,15 @@
       "stopFollower": "Đang đi theo hành động của {{leaderName}}",
       "desyncedTooltip": "Đồng bộ thất bại tại {{url}}",
       "paidFeature": "Trình đồng bộ là tính năng trả phí",
-      "wayfernOnly": "Chỉ hồ sơ Wayfern mới có thể đồng bộ",
       "selectFollowers": "Chọn hồ sơ đi theo",
-      "selectFollowersDesc": "Chọn các hồ sơ sẽ phản chiếu hành động của hồ sơ dẫn đầu. Chỉ hồ sơ Wayfern đã dừng mới có thể chọn.",
+      "selectFollowersDesc": "Chọn các hồ sơ sẽ phản chiếu hành động của hồ sơ dẫn dắt. Chỉ có thể chọn hồ sơ đã dừng.",
       "leader": "Dẫn đầu",
       "follower": "Đi theo",
       "startSession": "Bắt đầu phiên đồng bộ",
       "noFollowers": "Chọn ít nhất một hồ sơ đi theo",
       "flakyBadge": "KHÔNG ỔN ĐỊNH",
-      "flakyTooltip": "Hồ sơ này có độ phân giải màn hình khác với hồ sơ dẫn đầu. Bố cục trang có thể khác, khiến nhấp chuột và tương tác có thể sai lệch."
+      "flakyTooltip": "Hồ sơ này có độ phân giải màn hình khác với hồ sơ dẫn đầu. Bố cục trang có thể khác, khiến nhấp chuột và tương tác có thể sai lệch.",
+      "localOnly": "Chỉ có thể đồng bộ các hồ sơ trình duyệt cục bộ"
     },
     "ephemeral": "Tạm thời",
     "ephemeralDescription": "Trình duyệt buộc ghi dữ liệu hồ sơ vào bộ nhớ thay vì ổ đĩa. Lưu ý rằng hệ điều hành có thể chuyển một phần bộ nhớ sang ổ đĩa khi tải nặng, nên dấu vết của phiên vẫn có thể bị khôi phục.",
@@ -340,7 +340,6 @@
     "antiDetect": {
       "title": "Trình duyệt chống phát hiện",
       "description": "Chọn trình duyệt có khả năng chống phát hiện",
-      "chromium": "Wayfern",
       "badge": "Trình duyệt chống phát hiện"
     },
     "regular": {
@@ -374,7 +373,7 @@
       "upgradeAvailable": "Đã có phiên bản mới hơn ({{version}}) của {{browser}}."
     },
     "chromiumLabel": "Chromium",
-    "chromiumSubtitle": "Dựa trên Wayfern",
+    "chromiumSubtitle": "Dựa trên Fingerprint Chromium",
     "platformUnavailable": "{{browser}} chưa khả dụng trên nền tảng của bạn.",
     "passwordProtect": {
       "label": "Bảo vệ hồ sơ bằng mật khẩu",
@@ -729,7 +728,6 @@
     "tokenCopied": "Đã sao chép token",
     "mcpEnableLabel": "Bật máy chủ MCP (Model Context Protocol)",
     "mcpEnableDescription": "Cho phép trợ lý AI như Claude Desktop điều khiển trình duyệt.",
-    "mcpAcceptTermsFirst": "(Chấp nhận điều khoản Wayfern trong Cài đặt trước)",
     "mcpStarted": "Máy chủ MCP đã khởi động trên cổng {{port}}",
     "mcpStopped": "Máy chủ MCP đã dừng",
     "mcpToggleFailed": "Bật/tắt máy chủ MCP thất bại",
@@ -755,38 +753,6 @@
     "error": "Nhập profile thất bại"
   },
   "config": {
-    "wayfern": {
-      "title": "Cấu hình Wayfern",
-      "fingerprint": {
-        "title": "Vân tay",
-        "randomize": "Tạo ngẫu nhiên khi khởi chạy",
-        "randomizeDescription": "Tạo vân tay mới mỗi khi khởi chạy trình duyệt.",
-        "platformPlaceholder": "ví dụ: Win32, MacIntel, Linux x86_64",
-        "timezoneOffsetPlaceholder": "ví dụ: 300 cho EST (UTC-5)",
-        "webglRendererPlaceholder": "ví dụ: Intel(R) HD Graphics"
-      },
-      "os": {
-        "title": "Hệ điều hành",
-        "description": "Hệ điều hành mô phỏng để tạo vân tay.",
-        "windows": "Windows",
-        "macos": "macOS",
-        "linux": "Linux",
-        "android": "Android",
-        "ios": "iOS"
-      },
-      "screen": {
-        "title": "Kích thước màn hình",
-        "minWidth": "Chiều rộng tối thiểu",
-        "maxWidth": "Chiều rộng tối đa",
-        "minHeight": "Chiều cao tối thiểu",
-        "maxHeight": "Chiều cao tối đa"
-      },
-      "blocking": {
-        "title": "Chặn",
-        "webrtc": "Chặn WebRTC",
-        "webgl": "Chặn WebGL"
-      }
-    },
     "shared": {
       "browserBehavior": "Hành vi trình duyệt",
       "allowAddonsOpenTabs": "Cho phép tiện ích trình duyệt tự động mở tab mới"
@@ -944,7 +910,6 @@
     "serverError": "Lỗi máy chủ. Vui lòng thử lại sau.",
     "unknownError": "Đã xảy ra lỗi không xác định. Vui lòng thử lại.",
     "noProfilesForUrl": "Không có profile nào. Vui lòng tạo profile trước khi mở URL.",
-    "updateWayfernConfigFailed": "Cập nhật cấu hình wayfern thất bại: {{error}}",
     "createProfileFailed": "Tạo profile thất bại: {{error}}",
     "launchBrowserFailed": "Khởi chạy trình duyệt thất bại: {{error}}",
     "cannotDeleteRunningProfile": "Không thể xóa profile khi trình duyệt đang chạy. Vui lòng dừng trình duyệt trước.",
@@ -952,7 +917,7 @@
     "renameProfileFailed": "Đổi tên profile thất bại: {{error}}",
     "killBrowserFailed": "Dừng trình duyệt thất bại: {{error}}",
     "deleteSelectedProfilesFailed": "Xóa các profile đã chọn thất bại: {{error}}",
-    "cookieCopyUnsupportedBrowser": "Sao chép cookie chỉ hoạt động với profile Wayfern",
+    "cookieCopyUnsupportedBrowser": "Chỉ hỗ trợ sao chép cookie cho hồ sơ Fingerprint Chromium",
     "updateSyncSettingsFailed": "Cập nhật cài đặt đồng bộ thất bại",
     "cloneProfileFailed": "Nhân bản profile thất bại: {{error}}",
     "loadSupportedBrowsersFailed": "Tải danh sách trình duyệt hỗ trợ thất bại",
@@ -967,9 +932,6 @@
     "setupVpnListenersFailed": "Thiết lập trình lắng nghe sự kiện VPN thất bại: {{error}}",
     "themeNotFound": "Không tìm thấy chủ đề Tokyo Night",
     "setProfilePasswordFailed": "Đặt mật khẩu profile thất bại: {{error}}"
-  },
-  "browser": {
-    "wayfern": "Wayfern"
   },
   "fingerprint": {
     "crossOsWarning": "Giả mạo vân tay cho hệ điều hành khác kém tin cậy hơn vì không thể mô phỏng hoàn hảo tất cả thành phần nền tảng. Hãy sử dụng thận trọng.",
@@ -1209,7 +1171,7 @@
       "cannotWhileRunning": "Dừng profile trước khi thay đổi mật khẩu."
     },
     "fingerprint": {
-      "notSupported": "Chỉnh sửa vân tay chỉ khả dụng cho profile Wayfern.",
+      "notSupported": "Chỉ có thể chỉnh sửa dấu vết trên hồ sơ Fingerprint Chromium.",
       "lockedTitle": "Xem và chỉnh sửa vân tay là tính năng Pro",
       "lockedDescription": "Thông tin thiết bị của bạn được bảo vệ trong mọi profile. Việc xem và chỉnh sửa vân tay của profile yêu cầu gói trả phí đang hoạt động."
     },
@@ -1568,16 +1530,6 @@
     "creatingButton": "Đang tạo...",
     "createButton": "Tạo"
   },
-  "wayfernTerms": {
-    "title": "Điều khoản và điều kiện Wayfern",
-    "description": "Trước khi sử dụng CocoBrowser, bạn phải đọc và đồng ý với Điều khoản và Điều kiện của Wayfern.",
-    "reviewLabel": "Vui lòng xem lại Điều khoản và Điều kiện tại:",
-    "agreeNotice": "Bằng cách nhấn \"Tôi chấp nhận\", bạn đồng ý bị ràng buộc bởi các điều khoản này.",
-    "acceptButton": "Tôi chấp nhận",
-    "acceptSuccess": "Chấp nhận điều khoản thành công",
-    "acceptFailed": "Chấp nhận điều khoản thất bại",
-    "tryAgain": "Vui lòng thử lại"
-  },
   "commercialTrial": {
     "title": "Thời gian dùng thử thương mại đã hết",
     "description": "Thời gian dùng thử thương mại 2 tuần của bạn đã kết thúc.",
@@ -1830,11 +1782,10 @@
     "proxyNotWorking": "Proxy đã chọn không hoạt động, nên profile chưa được tạo.",
     "proxyPaymentRequired": "Proxy đã chọn yêu cầu thanh toán (402) — gói đăng ký của nó có thể đã hết hạn — nên profile chưa được tạo.",
     "vpnNotWorking": "VPN đã chọn không hoạt động, nên profile chưa được tạo.",
-    "camoufoxImportDeprecated": "Việc nhập loại hồ sơ này không còn được hỗ trợ. Vui lòng sử dụng Wayfern thay thế.",
+    "camoufoxImportDeprecated": "Không còn hỗ trợ nhập loại hồ sơ này.",
     "updateChecksumsUnavailable": "Không thể xác minh bản cập nhật {{version}} vì không thể tải tệp checksum. Bản cập nhật chưa được cài đặt; sẽ thử lại sau.",
     "updateChecksumMismatch": "Tệp cập nhật đã tải xuống {{file}} không vượt qua kiểm tra checksum và đã bị loại bỏ. Vui lòng thử lại.",
     "nameCannotBeEmpty": "Tên không được để trống",
-    "wayfernVersionNotAvailable": "Phiên bản Wayfern {{requested}} không có sẵn để tải xuống. Phiên bản hiện tại là {{current}}.",
     "cloudProxyNotSupported": "Cloud-managed proxies are not supported in local fingerprint mode. Use a self-hosted HTTP or SOCKS proxy.",
     "proxyExitCheckFailed": "Could not verify proxy exit IP: {{reason}}",
     "geoTimezoneMismatch": "Timezone mismatch: persona is {{personaTimezone}} but proxy exit ({{exitIp}}) is {{exitTimezone}}. Match persona to the exit before launching.",
@@ -1845,7 +1796,8 @@
     "importSourceInvalid": "Thư mục không phải hồ sơ Chrome, Edge hoặc Chromium hợp lệ.",
     "importFailed": "Nhập hồ sơ thất bại: {{detail}}",
     "kernelNotInstalled": "Hãy cài kernel Fingerprint Chromium 148 đã kiểm định trước.",
-    "extensionPackageInvalid": "Gói tiện ích bị từ chối: {{detail}}"
+    "extensionPackageInvalid": "Gói tiện ích bị từ chối: {{detail}}",
+    "kernelVersionNotAvailable": "Không thể tải phiên bản nhân {{requested}}. Phiên bản hiện tại là {{current}}."
   },
   "rail": {
     "profiles": "Profile",
@@ -2052,21 +2004,6 @@
       "trialBadge": "2 tuần miễn phí",
       "commercialDesc": "Miễn phí dùng thử 2 tuần. Sau đó, gói trả phí giúp dự án được duy trì và phát triển."
     }
-  },
-  "wayfernBlocked": {
-    "title": "Tự động hóa trình duyệt đã tạm dừng",
-    "description": "Tài khoản của bạn tạm thời bị hạn chế các tính năng Pro của trình duyệt, thường do đăng nhập trên nhiều thiết bị cùng lúc. Hãy đăng xuất khỏi các thiết bị khác rồi khởi chạy lại profile để khôi phục."
-  },
-  "wayfernConfigDialog": {
-    "titleView": "Xem cài đặt vân tay - {{name}} ({{browser}})",
-    "titleConfigure": "Cấu hình cài đặt vân tay - {{name}} ({{browser}})",
-    "invalidFingerprint": "Cấu hình vân tay không hợp lệ",
-    "invalidFingerprintDescription": "Cấu hình vân tay chứa JSON không hợp lệ. Vui lòng kiểm tra cài đặt nâng cao.",
-    "saveFailed": "Lưu cấu hình thất bại",
-    "unknownError": "Đã xảy ra lỗi không xác định"
-  },
-  "cookieCopy": {
-    "noOtherTargets": "Chưa chọn profile Wayfern nào khác"
   },
   "kernels": {
     "title": "Kernels",

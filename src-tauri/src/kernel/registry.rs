@@ -2,7 +2,6 @@
 
 use super::driver::KernelDriver;
 use super::fingerprint_chromium::FingerprintChromiumDriver;
-use super::wayfern_legacy::WayfernLegacyDriver;
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -13,9 +12,6 @@ pub struct KernelRegistry {
 impl KernelRegistry {
   pub fn new() -> Self {
     let mut drivers: HashMap<&'static str, Arc<dyn KernelDriver>> = HashMap::new();
-    let wayfern: Arc<dyn KernelDriver> = Arc::new(WayfernLegacyDriver::new());
-    drivers.insert("wayfern", Arc::clone(&wayfern));
-    // Alias kept for future profile.browser renames during migration.
     drivers.insert(
       "fingerprint-chromium",
       Arc::new(FingerprintChromiumDriver::new()),
@@ -59,13 +55,14 @@ mod tests {
   use super::*;
 
   #[test]
-  fn resolves_wayfern_and_fchromium() {
+  fn resolves_only_the_supported_kernel() {
     let reg = KernelRegistry::new();
-    assert_eq!(reg.require("wayfern").unwrap().id(), "wayfern");
     assert_eq!(
       reg.require("fingerprint-chromium").unwrap().id(),
       "fingerprint-chromium"
     );
     assert!(reg.require("unknown").is_err());
+    // The legacy engine was removed; its id must no longer resolve.
+    assert!(reg.require("wayfern").is_err());
   }
 }

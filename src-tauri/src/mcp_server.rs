@@ -2187,7 +2187,6 @@ impl McpServer {
         "stable",
         proxy_id,
         None,
-        None,
         group_id,
         false,
         None,

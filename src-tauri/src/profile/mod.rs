@@ -1,3 +1,4 @@
+pub mod color;
 pub mod encryption;
 pub mod manager;
 pub mod password;

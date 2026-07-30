@@ -272,15 +272,15 @@
       "stopFollower": "正在跟随 {{leaderName}} 的操作",
       "desyncedTooltip": "在 {{url}} 同步失败",
       "paidFeature": "同步器是付费功能",
-      "wayfernOnly": "只有 Wayfern 环境可以同步",
       "selectFollowers": "选择跟随者环境",
-      "selectFollowersDesc": "选择将复制领导者环境操作的环境。只能选择已停止的 Wayfern 环境。",
+      "selectFollowersDesc": "选择将跟随主环境操作的环境。只能选择已停止的环境。",
       "leader": "领导者",
       "follower": "跟随者",
       "startSession": "开始同步会话",
       "noFollowers": "请至少选择一个跟随者环境",
       "flakyBadge": "FLAKY",
-      "flakyTooltip": "此环境的屏幕分辨率与领导者不同。页面布局可能不同，导致点击和交互可能命中错误的元素。"
+      "flakyTooltip": "此环境的屏幕分辨率与领导者不同。页面布局可能不同，导致点击和交互可能命中错误的元素。",
+      "localOnly": "只能同步本地浏览器环境"
     },
     "ephemeral": "临时",
     "ephemeralDescription": "浏览器被强制将环境数据写入内存而不是磁盘。请注意,在系统负载较高时,操作系统可能会将部分内存换出到磁盘(swap),因此会话的某些痕迹仍可能被恢复。",
@@ -340,7 +340,6 @@
     "antiDetect": {
       "title": "防检测浏览器",
       "description": "选择具有防检测功能的浏览器",
-      "chromium": "Wayfern",
       "badge": "防检测浏览器"
     },
     "regular": {
@@ -374,7 +373,7 @@
       "upgradeAvailable": "{{browser}} 有新版本（{{version}}）可用。"
     },
     "chromiumLabel": "Chromium",
-    "chromiumSubtitle": "由 Wayfern 驱动",
+    "chromiumSubtitle": "基于 Fingerprint Chromium",
     "platformUnavailable": "{{browser}} 在您的平台上尚不可用。",
     "passwordProtect": {
       "label": "为此环境设置密码保护",
@@ -729,7 +728,6 @@
     "tokenCopied": "令牌已复制",
     "mcpEnableLabel": "启用 MCP 服务器 (Model Context Protocol)",
     "mcpEnableDescription": "允许 Claude Desktop 等 AI 助手控制浏览器。",
-    "mcpAcceptTermsFirst": "(请先在设置中接受 Wayfern 条款)",
     "mcpStarted": "MCP 服务器已在端口 {{port}} 上启动",
     "mcpStopped": "MCP 服务器已停止",
     "mcpToggleFailed": "切换 MCP 服务器失败",
@@ -755,38 +753,6 @@
     "error": "导入环境失败"
   },
   "config": {
-    "wayfern": {
-      "title": "Wayfern 配置",
-      "fingerprint": {
-        "title": "指纹",
-        "randomize": "启动时随机化",
-        "randomizeDescription": "每次启动浏览器时生成新的指纹。",
-        "platformPlaceholder": "例如: Win32、MacIntel、Linux x86_64",
-        "timezoneOffsetPlaceholder": "例如: EST (UTC-5) 为 300",
-        "webglRendererPlaceholder": "例如: Intel(R) HD Graphics"
-      },
-      "os": {
-        "title": "操作系统",
-        "description": "用于生成指纹的模拟操作系统。",
-        "windows": "Windows",
-        "macos": "macOS",
-        "linux": "Linux",
-        "android": "Android",
-        "ios": "iOS"
-      },
-      "screen": {
-        "title": "屏幕尺寸",
-        "minWidth": "最小宽度",
-        "maxWidth": "最大宽度",
-        "minHeight": "最小高度",
-        "maxHeight": "最大高度"
-      },
-      "blocking": {
-        "title": "阻止",
-        "webrtc": "阻止 WebRTC",
-        "webgl": "阻止 WebGL"
-      }
-    },
     "shared": {
       "browserBehavior": "浏览器行为",
       "allowAddonsOpenTabs": "允许浏览器附加组件自动打开新标签页"
@@ -944,7 +910,6 @@
     "serverError": "服务器错误。请稍后重试。",
     "unknownError": "发生未知错误。请重试。",
     "noProfilesForUrl": "没有可用的环境。请先创建环境再打开 URL。",
-    "updateWayfernConfigFailed": "更新 wayfern 配置失败: {{error}}",
     "createProfileFailed": "创建环境失败: {{error}}",
     "launchBrowserFailed": "启动浏览器失败: {{error}}",
     "cannotDeleteRunningProfile": "浏览器运行时无法删除环境。请先停止浏览器。",
@@ -952,7 +917,7 @@
     "renameProfileFailed": "重命名环境失败: {{error}}",
     "killBrowserFailed": "终止浏览器失败: {{error}}",
     "deleteSelectedProfilesFailed": "删除所选环境失败: {{error}}",
-    "cookieCopyUnsupportedBrowser": "Cookie 复制仅适用于 Wayfern 环境",
+    "cookieCopyUnsupportedBrowser": "仅支持复制 Fingerprint Chromium 环境的 Cookie",
     "updateSyncSettingsFailed": "更新同步设置失败",
     "cloneProfileFailed": "克隆环境失败: {{error}}",
     "loadSupportedBrowsersFailed": "加载受支持的浏览器失败",
@@ -967,9 +932,6 @@
     "setupVpnListenersFailed": "设置 VPN 事件监听器失败: {{error}}",
     "themeNotFound": "未找到 Tokyo Night 主题",
     "setProfilePasswordFailed": "设置环境密码失败: {{error}}"
-  },
-  "browser": {
-    "wayfern": "Wayfern"
   },
   "fingerprint": {
     "crossOsWarning": "伪装不同操作系统的指纹不太可靠，因为不可能完美模拟所有底层组件。请谨慎使用。",
@@ -1209,7 +1171,7 @@
       "cannotWhileRunning": "更改密码前请先停止此环境。"
     },
     "fingerprint": {
-      "notSupported": "指纹编辑仅适用于 Wayfern 环境。",
+      "notSupported": "仅 Fingerprint Chromium 环境支持编辑指纹。",
       "lockedTitle": "查看和编辑指纹是 Pro 功能",
       "lockedDescription": "每个环境中都会保护你的设备信息。查看和编辑环境的指纹需要有效的付费方案。"
     },
@@ -1568,16 +1530,6 @@
     "creatingButton": "正在创建...",
     "createButton": "创建"
   },
-  "wayfernTerms": {
-    "title": "Wayfern 条款和条件",
-    "description": "在使用 CocoBrowser 之前,你必须阅读并同意 Wayfern 的条款和条件。",
-    "reviewLabel": "请查看以下条款和条件:",
-    "agreeNotice": "点击「我接受」即表示你同意受这些条款约束。",
-    "acceptButton": "我接受",
-    "acceptSuccess": "已成功接受条款",
-    "acceptFailed": "接受条款失败",
-    "tryAgain": "请重试"
-  },
   "commercialTrial": {
     "title": "商业试用期已过期",
     "description": "你的 2 周商业试用期已结束。",
@@ -1830,11 +1782,10 @@
     "proxyNotWorking": "所选代理无法使用，因此未创建环境。",
     "proxyPaymentRequired": "所选代理需要付费（402），其订阅可能已过期，因此未创建环境。",
     "vpnNotWorking": "所选 VPN 无法使用，因此未创建环境。",
-    "camoufoxImportDeprecated": "不再支持导入此类型的环境。请改用 Wayfern。",
+    "camoufoxImportDeprecated": "不再支持导入该类型的环境。",
     "updateChecksumsUnavailable": "无法验证更新 {{version}}：无法获取其校验和文件。更新未安装，稍后将重试。",
     "updateChecksumMismatch": "下载的更新文件 {{file}} 未通过校验和验证，已被丢弃。请重试。",
     "nameCannotBeEmpty": "名称不能为空",
-    "wayfernVersionNotAvailable": "Wayfern 版本 {{requested}} 无法下载。当前版本为 {{current}}。",
     "cloudProxyNotSupported": "Cloud-managed proxies are not supported in local fingerprint mode. Use a self-hosted HTTP or SOCKS proxy.",
     "proxyExitCheckFailed": "Could not verify proxy exit IP: {{reason}}",
     "geoTimezoneMismatch": "Timezone mismatch: persona is {{personaTimezone}} but proxy exit ({{exitIp}}) is {{exitTimezone}}. Match persona to the exit before launching.",
@@ -1845,7 +1796,8 @@
     "importSourceInvalid": "所选文件夹不是有效的 Chrome、Edge 或 Chromium 配置目录。",
     "importFailed": "配置导入失败：{{detail}}",
     "kernelNotInstalled": "导入配置前，请先安装已审计的 Fingerprint Chromium 148 内核。",
-    "extensionPackageInvalid": "扩展包已被拒绝：{{detail}}"
+    "extensionPackageInvalid": "扩展包已被拒绝：{{detail}}",
+    "kernelVersionNotAvailable": "内核版本 {{requested}} 无法下载，当前版本为 {{current}}。"
   },
   "rail": {
     "profiles": "环境",
@@ -2052,21 +2004,6 @@
       "trialBadge": "2 周免费",
       "commercialDesc": "在 2 周评估期内免费。之后需要付费方案，这有助于本项目的持续维护与发展。"
     }
-  },
-  "wayfernBlocked": {
-    "title": "浏览器自动化已暂停",
-    "description": "您的账户暂时被限制使用 Pro 浏览器功能，通常是因为同时在多台设备上登录。请退出其他设备的登录，然后重新启动环境即可恢复。"
-  },
-  "wayfernConfigDialog": {
-    "titleView": "查看指纹设置 - {{name}} ({{browser}})",
-    "titleConfigure": "配置指纹设置 - {{name}} ({{browser}})",
-    "invalidFingerprint": "无效的指纹配置",
-    "invalidFingerprintDescription": "指纹配置包含无效的 JSON。请检查高级设置。",
-    "saveFailed": "保存配置失败",
-    "unknownError": "发生未知错误"
-  },
-  "cookieCopy": {
-    "noOtherTargets": "未选择其他 Wayfern 环境"
   },
   "kernels": {
     "title": "内核",

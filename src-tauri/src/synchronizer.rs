@@ -919,19 +919,14 @@ impl SynchronizerManager {
     let profile_path = profile.get_profile_data_path(&profiles_dir);
     let profile_path_str = profile_path.to_string_lossy();
 
-    for attempt in 0..15 {
-      if attempt > 0 {
-        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-      }
-      let port = crate::wayfern_manager::WayfernManager::instance()
-        .get_cdp_port(&profile_path_str)
-        .await;
-      if let Some(p) = port {
-        return Ok(p);
-      }
-    }
+    // The CDP port used to be discovered through the legacy engine's instance
+    // registry, which this fork removed. Sessions launched on the current kernel
+    // keep their debugging port inside the session manager and never publish it,
+    // so browse-together has no port to attach to. Fail loudly instead of
+    // spinning for 15 seconds and reporting a misleading timeout.
+    let _ = &profile_path_str;
     Err(format!(
-      "No CDP port available for profile '{}'. Browser may not be running.",
+      "Browse-together is unavailable on this kernel (profile '{}').",
       profile.name
     ))
   }
