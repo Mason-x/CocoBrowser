@@ -521,8 +521,22 @@ impl SynchronizerManager {
     // Install the capture script into a named isolated world and expose a
     // binding it can call. `Runtime.addBinding` is scoped to the same world, so
     // the page's own JavaScript can neither see the function nor enumerate the
-    // listeners. `runImmediately` covers the already-loaded document in addition
-    // to future navigations.
+    // listeners.
+    //
+    // This covers documents created *after* setup. Verified against the audited
+    // kernel (148.0.7778.215): once the leader navigates, every event type is
+    // reported with the expected payload, the main world cannot see the binding,
+    // and capture-phase registration beats a page calling stopPropagation.
+    //
+    // `runImmediately` is passed but is NOT honoured by that kernel, so a document
+    // already loaded when the session starts is not instrumented. In practice the
+    // browser opens on about:blank and the user has to navigate before there is
+    // anything to mirror, so the gap is not reachable in a normal session.
+    // Seeding the live document was attempted via Page.createIsolatedWorld: the
+    // world is created and the binding attaches, but that world does not observe
+    // the same DOM (`document.getElementById` returns null for elements the main
+    // world sees), so its listeners never fire. Left out rather than shipped
+    // untested — see KNOWN_LIMITATIONS.md.
     let setup_commands: Vec<(&str, serde_json::Value)> = vec![
       ("Page.enable", serde_json::json!({})),
       ("Runtime.enable", serde_json::json!({})),
