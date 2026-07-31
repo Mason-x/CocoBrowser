@@ -98,10 +98,10 @@ use sync::{
   cancel_profile_sync, check_has_e2e_password, delete_e2e_password, enable_sync_for_all_entities,
   force_release_profile_lock, get_device_identity, get_profile_locks, get_unsynced_entity_counts,
   is_group_in_use_by_synced_profile, is_proxy_in_use_by_synced_profile,
-  is_vpn_in_use_by_synced_profile, request_profile_sync, rollover_encryption_for_all_entities,
-  set_e2e_password, set_extension_group_sync_enabled, set_extension_sync_enabled,
-  set_group_sync_enabled, set_profile_sync_mode, set_proxy_sync_enabled, set_vpn_sync_enabled,
-  verify_e2e_password,
+  is_vpn_in_use_by_synced_profile, pull_synced_profiles, request_profile_sync,
+  rollover_encryption_for_all_entities, set_e2e_password, set_extension_group_sync_enabled,
+  set_extension_sync_enabled, set_group_sync_enabled, set_profile_sync_mode,
+  set_proxy_sync_enabled, set_vpn_sync_enabled, sync_all_profiles_now, verify_e2e_password,
 };
 
 use tag_manager::get_all_tags;
@@ -2168,6 +2168,8 @@ pub fn run() {
       set_extension_group_sync_enabled,
       get_unsynced_entity_counts,
       enable_sync_for_all_entities,
+      pull_synced_profiles,
+      sync_all_profiles_now,
       set_e2e_password,
       check_has_e2e_password,
       verify_e2e_password,

@@ -329,7 +329,17 @@ export class SyncService implements OnModuleInit {
       Metadata: metadata,
     });
 
-    const url = await getSignedUrl(this.s3Client, command, { expiresIn });
+    const url = await getSignedUrl(this.s3Client, command, {
+      expiresIn,
+      // Keep `x-amz-meta-*` signed as request headers. Left to itself the
+      // presigner hoists them into the query string, where they never reach
+      // X-Amz-SignedHeaders — and then the header the client is told to send
+      // is, by definition, unsigned. AWS tolerates that; MinIO returns 400
+      // "There were headers present in the request which were not signed".
+      unhoistableHeaders: new Set(
+        Object.keys(metadata ?? {}).map((k) => `x-amz-meta-${k}`),
+      ),
+    });
 
     // Report profile usage after upload presign if key is under profiles/
     if (ctx.mode === "cloud" && dto.key.startsWith("profiles/")) {

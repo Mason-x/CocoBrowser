@@ -232,7 +232,23 @@
     "newProfile": "新建",
     "cocoLogo": "CocoBrowser 标识",
     "scrollGroupsLeft": "向左滚动分组",
-    "scrollGroupsRight": "向右滚动分组"
+    "scrollGroupsRight": "向右滚动分组",
+    "status": {
+      "kernel": "内核",
+      "kernelUpdate": "有新版本 {{version}}",
+      "kernelCurrent": "已安装 {{version}}，已是最新",
+      "kernelNotInstalled": "尚未安装内核",
+      "geoip": "GeoIP 数据库",
+      "geoipCurrent": "已是最新",
+      "geoipStale": "有可用更新",
+      "geoipMissing": "尚未下载",
+      "geoipDownloading": "下载中…",
+      "sync": "同步",
+      "syncIdle": "点击同步所有环境",
+      "syncBusy": "同步中…",
+      "syncNotConfigured": "尚未配置同步服务器",
+      "syncAllStarted": "已排队 {{queued}} 个环境，从服务器拉取 {{pulled}} 个"
+    }
   },
   "profiles": {
     "title": "环境",
@@ -251,6 +267,10 @@
       "proxy": "代理 / VPN",
       "lastLaunch": "最后启动",
       "empty": "未找到环境。",
+      "pullFoundNothing": "服务器上没有新的环境",
+      "pullSucceeded": "已从服务器拉取 {{count}} 个环境",
+      "pullFromServer": "从服务器拉取",
+      "emptyWithSync": "同步服务器上的环境会自动拉取到本地。如果一直没出现，可以手动拉取。",
       "notSelected": "未选择",
       "ext": "扩展",
       "dns": "DNS",

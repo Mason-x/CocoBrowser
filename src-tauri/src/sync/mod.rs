@@ -18,10 +18,11 @@ pub use engine::{
   enable_proxy_sync_if_needed, enable_sync_for_all_entities, enable_vpn_sync_if_needed,
   get_unsynced_entity_counts, is_group_in_use_by_synced_profile, is_group_used_by_synced_profile,
   is_proxy_in_use_by_synced_profile, is_proxy_used_by_synced_profile, is_sync_configured,
-  is_vpn_in_use_by_synced_profile, is_vpn_used_by_synced_profile, request_profile_sync,
-  rollover_encryption_for_all_entities, set_extension_group_sync_enabled,
+  is_vpn_in_use_by_synced_profile, is_vpn_used_by_synced_profile, pull_synced_profiles,
+  request_profile_sync, rollover_encryption_for_all_entities, set_extension_group_sync_enabled,
   set_extension_sync_enabled, set_group_sync_enabled, set_profile_sync_mode,
-  set_proxy_sync_enabled, set_vpn_sync_enabled, sync_profile, trigger_sync_for_profile, SyncEngine,
+  set_proxy_sync_enabled, set_vpn_sync_enabled, sync_all_profiles_now, sync_profile,
+  trigger_sync_for_profile, SyncEngine,
 };
 pub use launch_gate::{
   force_release_profile_lock, get_device_identity, get_profile_locks, prepare_launch,
@@ -69,6 +70,11 @@ pub async fn restart_sync_service(app_handle: tauri::AppHandle) -> Result<(), St
   if let Some(scheduler) = get_global_scheduler() {
     scheduler.stop();
   }
+
+  // Tells the UI its cached "is sync configured?" answer is stale. Emitted
+  // before the rebuild so a device that just got its server settings can react
+  // without waiting for the first sync to finish.
+  let _ = crate::events::emit_empty("sync-settings-changed");
 
   let app_handle_sync = app_handle.clone();
   tauri::async_runtime::spawn(async move {

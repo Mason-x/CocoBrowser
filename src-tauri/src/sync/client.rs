@@ -1,5 +1,26 @@
 use super::types::*;
 use reqwest::Client;
+use std::collections::HashSet;
+
+/// Header names the presigned URL actually signed, read from its
+/// `X-Amz-SignedHeaders` query parameter (lowercased, `;`-separated).
+///
+/// `None` when the URL has no such parameter or does not parse — callers then
+/// keep their previous behaviour rather than silently dropping headers.
+fn signed_headers(presigned_url: &str) -> Option<HashSet<String>> {
+  let url = reqwest::Url::parse(presigned_url).ok()?;
+  let value = url
+    .query_pairs()
+    .find(|(k, _)| k.eq_ignore_ascii_case("X-Amz-SignedHeaders"))
+    .map(|(_, v)| v.into_owned())?;
+  Some(
+    value
+      .split(';')
+      .map(|h| h.trim().to_ascii_lowercase())
+      .filter(|h| !h.is_empty())
+      .collect(),
+  )
+}
 
 #[derive(Clone)]
 pub struct SyncClient {
@@ -229,8 +250,18 @@ impl SyncClient {
     }
 
     if let Some(meta) = metadata {
+      // Send only the metadata the presign signed as a *header*. An older
+      // server (or any presigner left on its defaults) hoists `x-amz-meta-*`
+      // into the query string instead, and MinIO then rejects the PUT outright
+      // for carrying an x-amz-* header outside X-Amz-SignedHeaders. The hoisted
+      // query parameter still conveys the value, so skipping the header loses
+      // nothing here.
+      let signed = signed_headers(presigned_url);
       for (k, v) in meta {
-        req = req.header(format!("x-amz-meta-{k}"), v);
+        let header = format!("x-amz-meta-{k}");
+        if signed.as_ref().is_none_or(|s| s.contains(&header)) {
+          req = req.header(header, v);
+        }
       }
     }
 
@@ -384,5 +415,38 @@ impl SyncClient {
       .json()
       .await
       .map_err(|e| SyncError::SerializationError(e.to_string()))
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::signed_headers;
+
+  const BASE: &str = "https://s3.example.com:8888/bucket/proxies/x.json\
+?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Expires=3600";
+
+  #[test]
+  fn reads_signed_header_list() {
+    let url = format!("{BASE}&X-Amz-SignedHeaders=host%3Bx-amz-meta-updated-at");
+    let signed = signed_headers(&url).expect("parses");
+    assert!(signed.contains("host"));
+    assert!(signed.contains("x-amz-meta-updated-at"));
+  }
+
+  #[test]
+  fn hoisted_metadata_is_not_reported_as_signed() {
+    // What a presigner on its defaults produces: the metadata rides in the
+    // query string and `host` is the only signed header. Sending the matching
+    // x-amz-meta-* header here is what MinIO rejects with a 400.
+    let url = format!("{BASE}&x-amz-meta-updated-at=1785389945&X-Amz-SignedHeaders=host");
+    let signed = signed_headers(&url).expect("parses");
+    assert!(signed.contains("host"));
+    assert!(!signed.contains("x-amz-meta-updated-at"));
+  }
+
+  #[test]
+  fn missing_or_unparsable_url_yields_none() {
+    assert!(signed_headers(BASE).is_none(), "no SignedHeaders param");
+    assert!(signed_headers("not a url").is_none());
   }
 }

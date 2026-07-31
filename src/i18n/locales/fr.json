@@ -232,7 +232,23 @@
     "newProfile": "Nouveau",
     "cocoLogo": "Logo de CocoBrowser",
     "scrollGroupsLeft": "Faire défiler les groupes vers la gauche",
-    "scrollGroupsRight": "Faire défiler les groupes vers la droite"
+    "scrollGroupsRight": "Faire défiler les groupes vers la droite",
+    "status": {
+      "kernel": "Noyau",
+      "kernelUpdate": "La version {{version}} est disponible",
+      "kernelCurrent": "Version {{version}} installée, à jour",
+      "kernelNotInstalled": "Aucun noyau installé pour l'instant",
+      "geoip": "Base de données GeoIP",
+      "geoipCurrent": "À jour",
+      "geoipStale": "Une mise à jour est disponible",
+      "geoipMissing": "Pas encore téléchargée",
+      "geoipDownloading": "Téléchargement…",
+      "sync": "Synchronisation",
+      "syncIdle": "Cliquez pour synchroniser tous les profils",
+      "syncBusy": "Synchronisation…",
+      "syncNotConfigured": "Aucun serveur de synchronisation configuré",
+      "syncAllStarted": "{{queued}} profil(s) en file d'attente, {{pulled}} récupéré(s) du serveur"
+    }
   },
   "profiles": {
     "title": "Profils",
@@ -251,6 +267,10 @@
       "proxy": "Proxy / VPN",
       "lastLaunch": "Dernier lancement",
       "empty": "Aucun profil trouvé.",
+      "pullFoundNothing": "Aucun nouveau profil sur le serveur",
+      "pullSucceeded": "{{count}} profil(s) récupéré(s) du serveur",
+      "pullFromServer": "Récupérer du serveur",
+      "emptyWithSync": "Les profils de votre serveur de synchronisation sont récupérés automatiquement. Si rien n'apparaît, récupérez-les maintenant.",
       "notSelected": "Non sélectionné",
       "ext": "EXT",
       "dns": "DNS",

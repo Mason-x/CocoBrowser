@@ -2706,6 +2706,33 @@ impl SyncEngine {
             );
             continue;
           }
+
+          // Live-data guard: a real remote deletion removes the whole prefix,
+          // manifest included, so a tombstone sitting next to a live manifest is
+          // a contradiction — most often a disable/re-enable whose tombstone
+          // clear never landed (that clear is best-effort, and this session's
+          // server was unreachable for minutes at a time). Resolve it towards
+          // keeping data: deleting is unrecoverable, keeping is not. The stale
+          // tombstone is cleared so the contradiction does not recur.
+          let manifest_key = format!("profiles/{}/manifest.json", pid);
+          let manifest_exists = matches!(
+            self.client.stat(&manifest_key).await,
+            Ok(stat) if stat.exists
+          );
+          if manifest_exists {
+            log::warn!(
+              "Profile {} has a remote tombstone but its remote manifest still exists — keeping local copy and clearing the stale tombstone",
+              pid
+            );
+            if has_personal_tombstone {
+              let key = format!("tombstones/profiles/{}.json", pid);
+              if let Err(e) = self.client.delete(&key, None).await {
+                log::warn!("Failed to clear stale tombstone {}: {}", key, e);
+              }
+            }
+            continue;
+          }
+
           log::info!(
             "Profile {} has remote tombstone, deleting locally (deleted on another device)",
             pid
@@ -3269,10 +3296,26 @@ pub async fn set_profile_sync_mode(
     if let Ok(engine) = SyncEngine::create_from_settings(&app_handle).await {
       let key_prefix = SyncEngine::get_team_key_prefix(&profile).await;
       let personal_tombstone = format!("tombstones/profiles/{}.json", profile_id);
-      let _ = engine.client.delete(&personal_tombstone, None).await;
+      // Logged, not swallowed: a clear that never lands leaves a tombstone
+      // pointing at data the user just re-enabled, and the reconcile pass then
+      // has to catch it by the live-manifest guard instead. Silence here made
+      // that failure invisible.
+      if let Err(e) = engine.client.delete(&personal_tombstone, None).await {
+        log::warn!(
+          "Failed to clear tombstone for re-enabled profile {}: {} — the reconcile pass will fall back to the live-manifest guard",
+          profile_id,
+          e
+        );
+      }
       if !key_prefix.is_empty() {
         let team_tombstone = format!("{}tombstones/profiles/{}.json", key_prefix, profile_id);
-        let _ = engine.client.delete(&team_tombstone, None).await;
+        if let Err(e) = engine.client.delete(&team_tombstone, None).await {
+          log::warn!(
+            "Failed to clear team tombstone for profile {}: {}",
+            profile_id,
+            e
+          );
+        }
       }
     }
   }
@@ -3918,6 +3961,53 @@ pub async fn set_extension_group_sync_enabled(
 /// browser session isn't disrupted mid-keystroke.
 ///
 /// Progress is emitted via `e2e-rollover-progress` events with `{ stage, done, total }`.
+/// What a manual "sync everything" run did, so the UI can say something concrete
+/// instead of a bare spinner.
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SyncAllResult {
+  /// Profiles queued for upload (sync-enabled and not currently running).
+  pub queued: usize,
+  /// Profiles that existed only on the server and were downloaded.
+  pub pulled: usize,
+}
+
+/// Pull down every profile that exists on the server but not on this device.
+///
+/// The same reconcile runs on launch and whenever the sync server is
+/// reconfigured, which is how a fresh install gets its profiles. Exposing it as
+/// a command gives that a manual trigger: without one, a first pull that fails
+/// on a flaky network can only be retried by restarting the app.
+#[tauri::command]
+pub async fn pull_synced_profiles(app_handle: tauri::AppHandle) -> Result<usize, String> {
+  let engine = SyncEngine::create_from_settings(&app_handle).await?;
+  let downloaded = engine
+    .check_for_missing_synced_profiles(&app_handle)
+    .await
+    .map_err(|e| e.to_string())?;
+  if let Err(e) = engine.check_for_missing_synced_entities(&app_handle).await {
+    // Proxies/groups/extensions are metadata-sized and independent of the
+    // profiles just pulled; a failure here should not discard that work.
+    log::warn!("Failed to pull missing sync entities: {e}");
+  }
+  Ok(downloaded.len())
+}
+
+/// Push every sync-enabled profile and pull anything missing, in that order.
+///
+/// Upload first: it is the direction that can lose work if the app is closed,
+/// and a download can only add profiles that are already safe on the server.
+#[tauri::command]
+pub async fn sync_all_profiles_now(app_handle: tauri::AppHandle) -> Result<SyncAllResult, String> {
+  let scheduler = super::get_global_scheduler()
+    .ok_or_else(|| serde_json::json!({ "code": "SYNC_NOT_CONFIGURED" }).to_string())?;
+
+  let queued = scheduler.sync_all_enabled_profiles(&app_handle).await;
+  let pulled = pull_synced_profiles(app_handle).await?;
+
+  Ok(SyncAllResult { queued, pulled })
+}
+
 #[tauri::command]
 pub async fn rollover_encryption_for_all_entities(
   app_handle: tauri::AppHandle,

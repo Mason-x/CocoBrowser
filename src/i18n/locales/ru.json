@@ -232,7 +232,23 @@
     "newProfile": "Новый",
     "cocoLogo": "Логотип CocoBrowser",
     "scrollGroupsLeft": "Прокрутить группы влево",
-    "scrollGroupsRight": "Прокрутить группы вправо"
+    "scrollGroupsRight": "Прокрутить группы вправо",
+    "status": {
+      "kernel": "Ядро",
+      "kernelUpdate": "Доступна версия {{version}}",
+      "kernelCurrent": "Установлена версия {{version}}, обновлений нет",
+      "kernelNotInstalled": "Ядро ещё не установлено",
+      "geoip": "База GeoIP",
+      "geoipCurrent": "Обновлений нет",
+      "geoipStale": "Доступно обновление",
+      "geoipMissing": "Ещё не загружена",
+      "geoipDownloading": "Загрузка…",
+      "sync": "Синхронизация",
+      "syncIdle": "Нажмите, чтобы синхронизировать все профили",
+      "syncBusy": "Синхронизация…",
+      "syncNotConfigured": "Сервер синхронизации не настроен",
+      "syncAllStarted": "В очереди: {{queued}}, загружено с сервера: {{pulled}}"
+    }
   },
   "profiles": {
     "title": "Профили",
@@ -251,6 +267,10 @@
       "proxy": "Прокси / VPN",
       "lastLaunch": "Последний запуск",
       "empty": "Профили не найдены.",
+      "pullFoundNothing": "На сервере нет новых профилей",
+      "pullSucceeded": "С сервера загружено профилей: {{count}}",
+      "pullFromServer": "Загрузить с сервера",
+      "emptyWithSync": "Профили с сервера синхронизации загружаются автоматически. Если ничего не появилось, загрузите их сейчас.",
       "notSelected": "Не выбрано",
       "ext": "РАСШ",
       "dns": "DNS",

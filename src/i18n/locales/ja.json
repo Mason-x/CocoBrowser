@@ -232,7 +232,23 @@
     "newProfile": "新規",
     "cocoLogo": "CocoBrowser ロゴ",
     "scrollGroupsLeft": "グループを左へスクロール",
-    "scrollGroupsRight": "グループを右へスクロール"
+    "scrollGroupsRight": "グループを右へスクロール",
+    "status": {
+      "kernel": "カーネル",
+      "kernelUpdate": "バージョン {{version}} が利用できます",
+      "kernelCurrent": "バージョン {{version}} をインストール済み、最新です",
+      "kernelNotInstalled": "カーネルは未インストールです",
+      "geoip": "GeoIP データベース",
+      "geoipCurrent": "最新です",
+      "geoipStale": "更新があります",
+      "geoipMissing": "未ダウンロードです",
+      "geoipDownloading": "ダウンロード中…",
+      "sync": "同期",
+      "syncIdle": "クリックしてすべてのプロファイルを同期",
+      "syncBusy": "同期中…",
+      "syncNotConfigured": "同期サーバーが未設定です",
+      "syncAllStarted": "{{queued}} 件をキューに追加、{{pulled}} 件をサーバーから取得しました"
+    }
   },
   "profiles": {
     "title": "プロファイル",
@@ -251,6 +267,10 @@
       "proxy": "プロキシ / VPN",
       "lastLaunch": "最終起動",
       "empty": "プロファイルが見つかりません。",
+      "pullFoundNothing": "サーバーに新しいプロファイルはありません",
+      "pullSucceeded": "サーバーから {{count}} 件のプロファイルを取得しました",
+      "pullFromServer": "サーバーから取得",
+      "emptyWithSync": "同期サーバー上のプロファイルは自動的に取得されます。何も表示されない場合は、今すぐ取得してください。",
       "notSelected": "未選択",
       "ext": "拡張",
       "dns": "DNS",

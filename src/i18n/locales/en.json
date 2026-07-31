@@ -232,7 +232,23 @@
     "newProfile": "New",
     "cocoLogo": "CocoBrowser logo",
     "scrollGroupsLeft": "Scroll groups left",
-    "scrollGroupsRight": "Scroll groups right"
+    "scrollGroupsRight": "Scroll groups right",
+    "status": {
+      "kernel": "Kernel",
+      "kernelUpdate": "Version {{version}} is available",
+      "kernelCurrent": "Version {{version}} installed, up to date",
+      "kernelNotInstalled": "No kernel installed yet",
+      "geoip": "GeoIP database",
+      "geoipCurrent": "Up to date",
+      "geoipStale": "An update is available",
+      "geoipMissing": "Not downloaded yet",
+      "geoipDownloading": "Downloading…",
+      "sync": "Sync",
+      "syncIdle": "Click to sync every profile",
+      "syncBusy": "Syncing…",
+      "syncNotConfigured": "No sync server configured",
+      "syncAllStarted": "{{queued}} profile(s) queued, {{pulled}} pulled from the server"
+    }
   },
   "profiles": {
     "title": "Profiles",
@@ -251,6 +267,10 @@
       "proxy": "Proxy / VPN",
       "lastLaunch": "Last Launch",
       "empty": "No profiles found.",
+      "pullFoundNothing": "No new profiles on the server",
+      "pullSucceeded": "Pulled {{count}} profile(s) from the server",
+      "pullFromServer": "Pull from server",
+      "emptyWithSync": "Profiles on your sync server are pulled down automatically. If nothing appears, pull them now.",
       "notSelected": "Not Selected",
       "ext": "EXT",
       "dns": "DNS",

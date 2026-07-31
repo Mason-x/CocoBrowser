@@ -232,7 +232,23 @@
     "newProfile": "새로 만들기",
     "cocoLogo": "CocoBrowser 로고",
     "scrollGroupsLeft": "그룹 왼쪽으로 스크롤",
-    "scrollGroupsRight": "그룹 오른쪽으로 스크롤"
+    "scrollGroupsRight": "그룹 오른쪽으로 스크롤",
+    "status": {
+      "kernel": "커널",
+      "kernelUpdate": "버전 {{version}} 사용 가능",
+      "kernelCurrent": "버전 {{version}} 설치됨, 최신 상태",
+      "kernelNotInstalled": "아직 설치된 커널이 없습니다",
+      "geoip": "GeoIP 데이터베이스",
+      "geoipCurrent": "최신 상태",
+      "geoipStale": "업데이트가 있습니다",
+      "geoipMissing": "아직 다운로드하지 않았습니다",
+      "geoipDownloading": "다운로드 중…",
+      "sync": "동기화",
+      "syncIdle": "클릭하면 모든 프로필을 동기화합니다",
+      "syncBusy": "동기화 중…",
+      "syncNotConfigured": "동기화 서버가 설정되지 않았습니다",
+      "syncAllStarted": "{{queued}}개 대기열에 추가, 서버에서 {{pulled}}개 가져옴"
+    }
   },
   "profiles": {
     "title": "프로필",
@@ -251,6 +267,10 @@
       "proxy": "프록시 / VPN",
       "lastLaunch": "마지막 실행",
       "empty": "프로필을 찾을 수 없습니다.",
+      "pullFoundNothing": "서버에 새 프로필이 없습니다",
+      "pullSucceeded": "서버에서 프로필 {{count}}개를 가져왔습니다",
+      "pullFromServer": "서버에서 가져오기",
+      "emptyWithSync": "동기화 서버의 프로필은 자동으로 내려받습니다. 아무것도 보이지 않으면 지금 가져오세요.",
       "notSelected": "선택 안 됨",
       "ext": "확장",
       "dns": "DNS",

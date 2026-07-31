@@ -1480,6 +1480,11 @@ export default function Home() {
         selectedGroupId={selectedGroupId}
         onGroupSelect={handleSelectGroup}
         pageTitle={subPageTitle}
+        onKernelsOpen={() => {
+          setKernelsManagementDialogOpen(true);
+        }}
+        currentPage={currentPage}
+        onNavigate={handleRailNavigate}
       />
       <div className="flex min-h-0 flex-1">
         <RailNav currentPage={currentPage} onNavigate={handleRailNavigate} />

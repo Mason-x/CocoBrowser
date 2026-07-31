@@ -28,6 +28,7 @@ import {
   LuLock,
   LuPlay,
   LuPuzzle,
+  LuRefreshCw,
   LuSquare,
   LuTrash2,
   LuTriangleAlert,
@@ -106,6 +107,7 @@ import type {
   ProxyCheckResult,
   StoredProxy,
   SyncSessionInfo,
+  SyncSettings,
   TrafficSnapshot,
   VpnConfig,
 } from "@/types";
@@ -257,6 +259,84 @@ interface SyncStatusDot {
   tooltip: string;
   animate: boolean;
   encrypted: boolean;
+}
+
+/**
+ * Empty profile list. On a fresh device with sync already configured this is the
+ * only screen the user sees, and nothing on it used to say that their profiles
+ * are on the way — the pull runs at launch and after the server is configured,
+ * silently. So say it, and offer the manual trigger: a first pull that fails on
+ * a flaky network otherwise needs an app restart to retry.
+ */
+function ProfilesEmptyState() {
+  const { t } = useTranslation();
+  const [syncConfigured, setSyncConfigured] = React.useState(false);
+  const [pulling, setPulling] = React.useState(false);
+
+  React.useEffect(() => {
+    void (async () => {
+      try {
+        // A URL without a token cannot reach the server, so both are required
+        // before offering a pull — same test page.tsx uses.
+        const settings = await invoke<SyncSettings>("get_sync_settings");
+        setSyncConfigured(
+          Boolean(settings.sync_server_url && settings.sync_token),
+        );
+      } catch (error) {
+        console.error("Failed to read sync configuration:", error);
+      }
+    })();
+  }, []);
+
+  const handlePull = React.useCallback(() => {
+    setPulling(true);
+    void (async () => {
+      try {
+        const pulled = await invoke<number>("pull_synced_profiles");
+        if (pulled > 0) {
+          showSuccessToast(
+            t("profiles.table.pullSucceeded", { count: pulled }),
+          );
+        } else {
+          showSuccessToast(t("profiles.table.pullFoundNothing"));
+        }
+      } catch (error) {
+        showErrorToast(translateBackendError(t, error));
+      } finally {
+        setPulling(false);
+      }
+    })();
+  }, [t]);
+
+  if (!syncConfigured) {
+    return (
+      <span className="text-sm text-muted-foreground">
+        {t("profiles.table.empty")}
+      </span>
+    );
+  }
+
+  return (
+    <div className="flex flex-col items-center gap-3">
+      <span className="text-sm text-muted-foreground">
+        {t("profiles.table.emptyWithSync")}
+      </span>
+      <Button
+        variant="outline"
+        size="sm"
+        disabled={pulling}
+        onClick={handlePull}
+        className="h-7 gap-1.5 text-xs"
+      >
+        {pulling ? (
+          <div className="size-3 animate-spin rounded-full border border-current border-t-transparent" />
+        ) : (
+          <LuRefreshCw className="size-3.5" />
+        )}
+        {t("profiles.table.pullFromServer")}
+      </Button>
+    </div>
+  );
 }
 
 function getProfileSyncStatusDot(
@@ -1265,6 +1345,16 @@ export function ProfilesDataTable({
 
   // Sync external selectedProfiles with table's row selection state
   const [rowSelection, setRowSelection] = React.useState<RowSelectionState>({});
+  // Mirror of `rowSelection` that is readable outside the render phase. The
+  // selection handler has to diff against the previous value before telling the
+  // parent; doing that from inside a setState updater runs it *during* render,
+  // which is what made React warn about updating `Home` while rendering this
+  // component.
+  const rowSelectionRef = React.useRef<RowSelectionState>(rowSelection);
+  const applyRowSelection = React.useCallback((next: RowSelectionState) => {
+    rowSelectionRef.current = next;
+    setRowSelection(next);
+  }, []);
   const prevSelectedProfilesRef = React.useRef<string[]>(selectedProfiles);
 
   // Update row selection when external selectedProfiles changes
@@ -1280,7 +1370,7 @@ export function ProfilesDataTable({
       for (const profileId of selectedProfiles) {
         newSelection[profileId] = true;
       }
-      setRowSelection(newSelection);
+      applyRowSelection(newSelection);
       prevSelectedProfilesRef.current = selectedProfiles;
       // When the parent clears the selection (e.g. after a bulk action like
       // delete / move-to-group), collapse the checkbox column back to icons.
@@ -1290,37 +1380,36 @@ export function ProfilesDataTable({
         setShowCheckboxes(false);
       }
     }
-  }, [selectedProfiles]);
+  }, [selectedProfiles, applyRowSelection]);
 
   // Update external selectedProfiles when table selection changes
   const handleRowSelectionChange = React.useCallback(
     (updater: React.SetStateAction<RowSelectionState>) => {
-      setRowSelection((prevSelection) => {
-        const newSelection =
-          typeof updater === "function" ? updater(prevSelection) : updater;
+      const prevSelection = rowSelectionRef.current;
+      const newSelection =
+        typeof updater === "function" ? updater(prevSelection) : updater;
 
-        const selectedIds = Object.keys(newSelection).filter(
-          (id) => newSelection[id],
-        );
+      applyRowSelection(newSelection);
 
-        // Only update external state if selection actually changed.
-        // A Set gives O(1) membership; Array.includes() inside .every() would
-        // be O(n*m) over large selections.
-        const prevIdSet = new Set(
-          Object.keys(prevSelection).filter((id) => prevSelection[id]),
-        );
+      const selectedIds = Object.keys(newSelection).filter(
+        (id) => newSelection[id],
+      );
 
-        if (
-          selectedIds.length !== prevIdSet.size ||
-          !selectedIds.every((id) => prevIdSet.has(id))
-        ) {
-          onSelectedProfilesChange(selectedIds);
-        }
+      // Only update external state if selection actually changed.
+      // A Set gives O(1) membership; Array.includes() inside .every() would
+      // be O(n*m) over large selections.
+      const prevIdSet = new Set(
+        Object.keys(prevSelection).filter((id) => prevSelection[id]),
+      );
 
-        return newSelection;
-      });
+      if (
+        selectedIds.length !== prevIdSet.size ||
+        !selectedIds.every((id) => prevIdSet.has(id))
+      ) {
+        onSelectedProfilesChange(selectedIds);
+      }
     },
-    [onSelectedProfilesChange],
+    [applyRowSelection, onSelectedProfilesChange],
   );
   const [profileToRename, setProfileToRename] =
     React.useState<BrowserProfile | null>(null);
@@ -3272,9 +3361,9 @@ export function ProfilesDataTable({
                 <TableRow>
                   <TableCell
                     colSpan={table.getVisibleLeafColumns().length}
-                    className="h-24 text-center"
+                    className="h-40 text-center"
                   >
-                    {t("profiles.table.empty")}
+                    <ProfilesEmptyState />
                   </TableCell>
                 </TableRow>
               ) : (

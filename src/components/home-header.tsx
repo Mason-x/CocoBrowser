@@ -1,16 +1,82 @@
 "use client";
 
+import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { GoPlus } from "react-icons/go";
-import { LuChevronLeft, LuChevronRight, LuSearch, LuX } from "react-icons/lu";
+import {
+  LuChevronLeft,
+  LuChevronRight,
+  LuCpu,
+  LuGlobe,
+  LuRefreshCw,
+  LuSearch,
+  LuX,
+} from "react-icons/lu";
+import { useHeaderStatus } from "@/hooks/use-header-status";
+import { translateBackendError } from "@/lib/backend-errors";
 import { getCurrentOS } from "@/lib/browser-utils";
+import { showErrorToast, showSuccessToast } from "@/lib/toast-utils";
 import { cn } from "@/lib/utils";
 import type { GroupWithCount } from "@/types";
+import { CocoLogoButton } from "./coco-logo-button";
+import type { AppPage } from "./rail-nav";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
+
+interface SyncAllResult {
+  queued: number;
+  pulled: number;
+}
+
+/// One header status control: an icon that reads its state through colour, with
+/// the detail in a tooltip. Always mounted — a control that appears only when
+/// something is wrong moves the ones next to it, and the user then has nowhere
+/// to click when they simply want to check.
+const HeaderStatusIcon = ({
+  icon: Icon,
+  label,
+  detail,
+  onClick,
+  attention = false,
+  busy = false,
+  disabled = false,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  detail: string;
+  onClick: () => void;
+  attention?: boolean;
+  busy?: boolean;
+  disabled?: boolean;
+}) => (
+  <Tooltip>
+    <TooltipTrigger asChild>
+      <button
+        type="button"
+        aria-label={label}
+        disabled={disabled}
+        onClick={onClick}
+        className={cn(
+          "grid size-7 shrink-0 place-items-center rounded-md transition-colors duration-100",
+          disabled
+            ? "cursor-not-allowed text-muted-foreground/50"
+            : "cursor-pointer hover:bg-accent/50",
+          attention ? "text-warning" : "text-muted-foreground",
+          !disabled && !attention && "hover:text-foreground",
+        )}
+      >
+        <Icon className={cn("size-3.5", busy && "animate-spin")} />
+      </button>
+    </TooltipTrigger>
+    <TooltipContent>
+      <span className="font-medium">{label}</span>
+      <span className="block text-muted-foreground">{detail}</span>
+    </TooltipContent>
+  </Tooltip>
+);
 
 const HOLD_MS = 150;
 const DRAG_THRESHOLD_PX = 3;
@@ -39,6 +105,9 @@ interface Props {
   selectedGroupId: string | null;
   onGroupSelect: (groupId: string) => void;
   pageTitle?: string;
+  onKernelsOpen: () => void;
+  currentPage: AppPage;
+  onNavigate: (page: AppPage) => void;
 }
 
 const HomeHeader = ({
@@ -50,9 +119,34 @@ const HomeHeader = ({
   selectedGroupId,
   onGroupSelect,
   pageTitle,
+  onKernelsOpen,
+  currentPage,
+  onNavigate,
 }: Props) => {
   const { t } = useTranslation();
+  const status = useHeaderStatus();
+  const [syncingAll, setSyncingAll] = useState(false);
   const [platform, setPlatform] = useState<string>("macos");
+
+  const onSyncAll = useCallback(() => {
+    if (syncingAll) return;
+    setSyncingAll(true);
+    void (async () => {
+      try {
+        const result = await invoke<SyncAllResult>("sync_all_profiles_now");
+        showSuccessToast(
+          t("header.status.syncAllStarted", {
+            queued: result.queued,
+            pulled: result.pulled,
+          }),
+        );
+      } catch (error) {
+        showErrorToast(translateBackendError(t, error));
+      } finally {
+        setSyncingAll(false);
+      }
+    })();
+  }, [syncingAll, t]);
 
   useEffect(() => {
     setPlatform(getCurrentOS());
@@ -201,6 +295,8 @@ const HomeHeader = ({
         </div>
       )}
 
+      <CocoLogoButton currentPage={currentPage} onNavigate={onNavigate} />
+
       {pageTitle ? (
         <span className="ml-2 text-xs font-semibold text-card-foreground">
           {pageTitle}
@@ -208,7 +304,11 @@ const HomeHeader = ({
       ) : null}
 
       {showProfileToolbar && (
-        <div className="relative flex min-w-0 flex-1 items-center">
+        // Sized to its content (not flex-1) so search and "New" sit directly
+        // after the group strip; the spacer further down is what holds the
+        // status cluster against the right edge. min-w-0 still lets the strip
+        // shrink and scroll when groups outgrow the window.
+        <div className="relative flex min-w-0 shrink items-center">
           {groupsFadeLeft && (
             <button
               type="button"
@@ -306,7 +406,7 @@ const HomeHeader = ({
       {!showProfileToolbar && <div className="flex-1" />}
 
       {showProfileToolbar && (
-        <div className="relative shrink-0">
+        <div className="relative ml-2 shrink-0">
           <Input
             type="text"
             placeholder={t("header.searchPlaceholder")}
@@ -351,6 +451,62 @@ const HomeHeader = ({
           </TooltipTrigger>
           <TooltipContent>{t("header.createProfile")}</TooltipContent>
         </Tooltip>
+      )}
+
+      {/* Pushes the status cluster to the right edge, where search and "New"
+          used to sit. Groups + search + New stay left-aligned as one unit. */}
+      {showProfileToolbar && <div className="min-w-2 flex-1" />}
+
+      {showProfileToolbar && (
+        <div className="flex shrink-0 items-center gap-0.5">
+          <HeaderStatusIcon
+            icon={LuCpu}
+            attention={status.kernelUpdate !== null}
+            onClick={onKernelsOpen}
+            label={t("header.status.kernel")}
+            detail={
+              status.kernelUpdate
+                ? t("header.status.kernelUpdate", {
+                    version: status.kernelUpdate,
+                  })
+                : status.kernelInstalled
+                  ? t("header.status.kernelCurrent", {
+                      version: status.kernelInstalled,
+                    })
+                  : t("header.status.kernelNotInstalled")
+            }
+          />
+          <HeaderStatusIcon
+            icon={LuGlobe}
+            attention={status.geoipStale}
+            busy={status.geoipDownloading}
+            onClick={onKernelsOpen}
+            label={t("header.status.geoip")}
+            detail={
+              status.geoipDownloading
+                ? t("header.status.geoipDownloading")
+                : status.geoipMissing
+                  ? t("header.status.geoipMissing")
+                  : status.geoipStale
+                    ? t("header.status.geoipStale")
+                    : t("header.status.geoipCurrent")
+            }
+          />
+          <HeaderStatusIcon
+            icon={LuRefreshCw}
+            busy={status.syncBusy || syncingAll}
+            disabled={!status.syncConfigured}
+            onClick={onSyncAll}
+            label={t("header.status.sync")}
+            detail={
+              !status.syncConfigured
+                ? t("header.status.syncNotConfigured")
+                : status.syncBusy || syncingAll
+                  ? t("header.status.syncBusy")
+                  : t("header.status.syncIdle")
+            }
+          />
+        </div>
       )}
     </div>
   );

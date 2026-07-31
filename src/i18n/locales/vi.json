@@ -232,7 +232,23 @@
     "newProfile": "Mới",
     "cocoLogo": "Logo CocoBrowser",
     "scrollGroupsLeft": "Cuộn nhóm sang trái",
-    "scrollGroupsRight": "Cuộn nhóm sang phải"
+    "scrollGroupsRight": "Cuộn nhóm sang phải",
+    "status": {
+      "kernel": "Nhân trình duyệt",
+      "kernelUpdate": "Đã có phiên bản {{version}}",
+      "kernelCurrent": "Đã cài phiên bản {{version}}, là bản mới nhất",
+      "kernelNotInstalled": "Chưa cài nhân trình duyệt nào",
+      "geoip": "Cơ sở dữ liệu GeoIP",
+      "geoipCurrent": "Đã là bản mới nhất",
+      "geoipStale": "Đã có bản cập nhật",
+      "geoipMissing": "Chưa tải xuống",
+      "geoipDownloading": "Đang tải xuống…",
+      "sync": "Đồng bộ",
+      "syncIdle": "Nhấn để đồng bộ toàn bộ hồ sơ",
+      "syncBusy": "Đang đồng bộ…",
+      "syncNotConfigured": "Chưa cấu hình máy chủ đồng bộ",
+      "syncAllStarted": "Đã xếp hàng {{queued}} hồ sơ, tải về {{pulled}} từ máy chủ"
+    }
   },
   "profiles": {
     "title": "Hồ sơ",
@@ -251,6 +267,10 @@
       "proxy": "Proxy / VPN",
       "lastLaunch": "Lần chạy cuối",
       "empty": "Không tìm thấy hồ sơ.",
+      "pullFoundNothing": "Máy chủ không có hồ sơ mới",
+      "pullSucceeded": "Đã tải {{count}} hồ sơ từ máy chủ",
+      "pullFromServer": "Tải từ máy chủ",
+      "emptyWithSync": "Hồ sơ trên máy chủ đồng bộ sẽ được tải về tự động. Nếu không thấy gì, hãy tải về ngay.",
       "notSelected": "Chưa chọn",
       "ext": "TIỆN ÍCH",
       "dns": "DNS",

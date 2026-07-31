@@ -452,30 +452,49 @@ pub fn evaluate_audit(
       }
     }
 
-    for (code, label, value) in [
-      ("CANVAS_NOT_COLLECTED", "canvas", obs.canvas_hash.as_ref()),
-      ("AUDIO_NOT_COLLECTED", "audio", obs.audio_hash.as_ref()),
+    // Canvas and audio are always available in a headed session, so their
+    // absence means the collection itself broke. WEBGL_debug_renderer_info is
+    // different: a machine with no GPU, a software rasteriser, or the extension
+    // filtered out legitimately has none, and failing a healthy launch over that
+    // trains people to ignore the audit.
+    for (code, label, severity, value) in [
+      (
+        "CANVAS_NOT_COLLECTED",
+        "canvas",
+        AuditStatus::Fail,
+        obs.canvas_hash.as_ref(),
+      ),
+      (
+        "AUDIO_NOT_COLLECTED",
+        "audio",
+        AuditStatus::Fail,
+        obs.audio_hash.as_ref(),
+      ),
       (
         "WEBGL_VENDOR_NOT_COLLECTED",
         "WebGL vendor",
+        AuditStatus::Warning,
         obs.webgl_vendor.as_ref(),
       ),
       (
         "WEBGL_RENDERER_NOT_COLLECTED",
         "WebGL renderer",
+        AuditStatus::Warning,
         obs.webgl_renderer.as_ref(),
       ),
     ] {
       if value.is_none() {
         consistency.push(finding(
           code,
-          AuditStatus::Fail,
+          severity,
           format!("Live audit did not collect {label}"),
           None,
           None,
         ));
       }
     }
+
+    consistency.extend(screen_geometry_findings(persona, obs));
 
     if obs.device_memory.is_none() {
       consistency.push(finding(
@@ -561,6 +580,119 @@ fn exposed_webrtc_host_address(candidate: &str) -> Option<String> {
     .parse::<std::net::IpAddr>()
     .ok()
     .map(|_| address.to_string())
+}
+
+/// The display the browser reports, in a form two profiles can be compared on.
+///
+/// `None` when the audit could not read a screen at all.
+fn host_screen_key(obs: &ObservedFingerprint) -> Option<String> {
+  let width = obs.screen_width?;
+  let height = obs.screen_height?;
+  let ratio = obs.device_pixel_ratio.unwrap_or(1.0);
+  Some(format!("{width}x{height}@{ratio}"))
+}
+
+/// Checks on the display, which the kernel does not spoof.
+///
+/// `--window-size` sizes the window; there is no resolution switch, so `screen.*`
+/// and `devicePixelRatio` come straight off the host. That makes two things worth
+/// reporting: a geometry that cannot physically exist, and the fact that the
+/// value is host-derived at all.
+fn screen_geometry_findings(
+  persona: &FingerprintPersona,
+  obs: &ObservedFingerprint,
+) -> Vec<AuditFinding> {
+  let mut findings = Vec::new();
+
+  let (Some(screen_width), Some(screen_height)) = (obs.screen_width, obs.screen_height) else {
+    findings.push(finding(
+      "SCREEN_NOT_COLLECTED",
+      AuditStatus::Warning,
+      "Live audit did not collect the screen dimensions",
+      None,
+      None,
+    ));
+    return findings;
+  };
+
+  // A window wider or taller than the display it sits on is impossible on real
+  // hardware, so a site that checks the pair learns the window size is dictated
+  // by something other than the machine.
+  if let (Some(outer_width), Some(outer_height)) = (obs.outer_width, obs.outer_height) {
+    if outer_width > screen_width || outer_height > screen_height {
+      findings.push(finding(
+        "SCREEN_SMALLER_THAN_WINDOW",
+        AuditStatus::Fail,
+        "The reported window is larger than the reported screen, which no real display can produce",
+        Some(format!("window <= {screen_width}x{screen_height}")),
+        Some(format!("{outer_width}x{outer_height}")),
+      ));
+    }
+  }
+
+  if persona.window_width > screen_width || persona.window_height > screen_height {
+    findings.push(finding(
+      "PERSONA_WINDOW_EXCEEDS_SCREEN",
+      AuditStatus::Warning,
+      "The persona window does not fit the host display, so the browser will not open at the configured size",
+      Some(format!(
+        "{}x{}",
+        persona.window_width, persona.window_height
+      )),
+      Some(format!("{screen_width}x{screen_height}")),
+    ));
+  }
+
+  findings
+}
+
+/// Values that come off the host rather than the persona, compared across every
+/// other profile on this machine that has a saved audit.
+///
+/// Fingerprint noise separates profiles; a shared host value re-links them, and
+/// it takes only one such value to do it. This is the check that turns the audit
+/// from "this profile does not drift" into "this profile is not tied to the
+/// others", which drift alone never showed.
+pub fn shared_host_findings(
+  observed: &ObservedFingerprint,
+  peers: &[ObservedFingerprint],
+) -> Vec<AuditFinding> {
+  let Some(key) = host_screen_key(observed) else {
+    return Vec::new();
+  };
+  let shared = peers
+    .iter()
+    .filter(|peer| host_screen_key(peer).as_deref() == Some(key.as_str()))
+    .count();
+  if shared == 0 {
+    return Vec::new();
+  }
+  vec![finding(
+    "SHARED_HOST_SCREEN",
+    AuditStatus::Warning,
+    format!(
+      "{shared} other audited profile(s) report this same screen and pixel ratio, which links them to this one"
+    ),
+    Some("a display value unique to this profile".into()),
+    Some(key),
+  )]
+}
+
+/// Saved observations for every other profile, for the shared-host comparison.
+///
+/// Best effort: a profile that has never been audited simply does not
+/// participate, and an unreadable profile list means no comparison rather than a
+/// failed audit.
+fn peer_observations(exclude: &str) -> Vec<ObservedFingerprint> {
+  let Ok(profiles) = ProfileManager::instance().list_profiles() else {
+    return Vec::new();
+  };
+  profiles
+    .into_iter()
+    .map(|profile| profile.id.to_string())
+    .filter(|id| id != exclude)
+    .filter_map(|id| load_audit_result(&id).and_then(|result| result.observed))
+    .collect()
 }
 
 fn worst_status(iter: impl Iterator<Item = AuditStatus>) -> AuditStatus {
@@ -895,7 +1027,28 @@ pub async fn run_profile_audit(profile_id: String, live: bool) -> Result<AuditRe
     (None, "static_only")
   };
 
-  let result = evaluate_audit(&profile, &persona, observed, mode);
+  let mut result = evaluate_audit(&profile, &persona, observed, mode);
+
+  // Compared here rather than inside `evaluate_audit` because it is the only
+  // check that needs the other profiles on disk, and keeping the evaluator pure
+  // keeps it testable without a profile store.
+  let peers = peer_observations(&profile_id);
+  let shared = result
+    .observed
+    .as_ref()
+    .map(|obs| shared_host_findings(obs, &peers))
+    .unwrap_or_default();
+  if !shared.is_empty() {
+    result.consistency_errors.extend(shared);
+    result.status = worst_status(
+      result
+        .consistency_errors
+        .iter()
+        .chain(result.leak_findings.iter())
+        .map(|f| f.severity),
+    );
+  }
+
   save_audit_result(&result)?;
   Ok(result)
 }
@@ -1115,6 +1268,108 @@ mod tests {
     assert_eq!(
       exposed_webrtc_host_address("candidate:1 1 UDP 2122 e7f.local 54321 typ host generation 0"),
       None
+    );
+  }
+
+  #[test]
+  fn a_missing_webgl_extension_no_longer_fails_a_healthy_launch() {
+    // WEBGL_debug_renderer_info is absent on machines with no GPU and under a
+    // software rasteriser. Failing those launches taught people to ignore the
+    // audit; canvas and audio staying Fail is the point of the distinction.
+    let obs = ObservedFingerprint {
+      timezone: Some("America/New_York".into()),
+      webdriver: Some(false),
+      user_agent: Some("Chrome/148".into()),
+      canvas_hash: Some("canvas".into()),
+      audio_hash: Some("audio".into()),
+      screen_width: Some(1920),
+      screen_height: Some(1080),
+      ..Default::default()
+    };
+    let r = evaluate_audit(&sample_profile(), &sample_persona(), Some(obs), "test");
+    assert!(r
+      .consistency_errors
+      .iter()
+      .any(|f| f.code == "WEBGL_VENDOR_NOT_COLLECTED" && f.severity == AuditStatus::Warning));
+    assert_ne!(r.status, AuditStatus::Fail);
+  }
+
+  #[test]
+  fn a_window_bigger_than_its_screen_fails() {
+    let obs = ObservedFingerprint {
+      timezone: Some("America/New_York".into()),
+      webdriver: Some(false),
+      user_agent: Some("Chrome/148".into()),
+      canvas_hash: Some("c".into()),
+      audio_hash: Some("a".into()),
+      screen_width: Some(1366),
+      screen_height: Some(768),
+      outer_width: Some(1920),
+      outer_height: Some(1080),
+      ..Default::default()
+    };
+    let r = evaluate_audit(&sample_profile(), &sample_persona(), Some(obs), "test");
+    assert!(r
+      .consistency_errors
+      .iter()
+      .any(|f| f.code == "SCREEN_SMALLER_THAN_WINDOW"));
+    assert_eq!(r.status, AuditStatus::Fail);
+  }
+
+  #[test]
+  fn an_uncollected_screen_is_reported_rather_than_assumed_fine() {
+    let r = evaluate_audit(
+      &sample_profile(),
+      &sample_persona(),
+      Some(ObservedFingerprint {
+        webdriver: Some(false),
+        user_agent: Some("Chrome/148".into()),
+        timezone: Some("America/New_York".into()),
+        ..Default::default()
+      }),
+      "test",
+    );
+    assert!(r
+      .consistency_errors
+      .iter()
+      .any(|f| f.code == "SCREEN_NOT_COLLECTED"));
+  }
+
+  fn screen(width: u32, height: u32, ratio: f64) -> ObservedFingerprint {
+    ObservedFingerprint {
+      screen_width: Some(width),
+      screen_height: Some(height),
+      device_pixel_ratio: Some(ratio),
+      ..Default::default()
+    }
+  }
+
+  #[test]
+  fn a_screen_another_profile_also_reports_links_the_two() {
+    let findings = shared_host_findings(
+      &screen(2560, 1440, 1.0),
+      &[screen(1920, 1080, 1.0), screen(2560, 1440, 1.0)],
+    );
+    assert_eq!(findings.len(), 1);
+    assert_eq!(findings[0].code, "SHARED_HOST_SCREEN");
+    assert_eq!(findings[0].severity, AuditStatus::Warning);
+    assert_eq!(findings[0].observed.as_deref(), Some("2560x1440@1"));
+  }
+
+  #[test]
+  fn a_pixel_ratio_that_differs_is_a_different_display() {
+    assert!(
+      shared_host_findings(&screen(2560, 1440, 2.0), &[screen(2560, 1440, 1.0)]).is_empty(),
+      "same pixels at a different ratio is not the same reported display"
+    );
+  }
+
+  #[test]
+  fn a_profile_with_no_audited_peers_is_not_flagged() {
+    assert!(shared_host_findings(&screen(1920, 1080, 1.0), &[]).is_empty());
+    // An observation with no screen at all has nothing to compare.
+    assert!(
+      shared_host_findings(&ObservedFingerprint::default(), &[screen(1920, 1080, 1.0)]).is_empty()
     );
   }
 

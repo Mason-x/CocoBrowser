@@ -59,33 +59,9 @@ impl KernelCapabilities {
       client_rects: CapabilityMode::SeedDriven,
       gpu: CapabilityMode::SeedDriven,
       custom_gpu_metadata: CapabilityMode::Unsupported,
-      geolocation: CapabilityMode::Configurable,
+      geolocation: CapabilityMode::Unsupported,
       cross_os: CapabilityMode::Unsupported,
       headless: CapabilityMode::Unsupported,
-    }
-  }
-
-  /// Wayfern legacy matrix (pre-migration). CDP fingerprint APIs are experimental
-  /// from this driver's point of view; cross-OS remains gated externally today.
-  pub fn wayfern_legacy(version: &str) -> Self {
-    Self {
-      kernel_id: "wayfern".to_string(),
-      min_version: version.to_string(),
-      max_version: None,
-      seed: CapabilityMode::Experimental,
-      identity: CapabilityMode::Configurable,
-      locale: CapabilityMode::Configurable,
-      timezone: CapabilityMode::Configurable,
-      hardware_concurrency: CapabilityMode::Configurable,
-      canvas: CapabilityMode::Configurable,
-      audio: CapabilityMode::Configurable,
-      fonts: CapabilityMode::Configurable,
-      client_rects: CapabilityMode::Configurable,
-      gpu: CapabilityMode::Configurable,
-      custom_gpu_metadata: CapabilityMode::Configurable,
-      geolocation: CapabilityMode::Configurable,
-      cross_os: CapabilityMode::Experimental,
-      headless: CapabilityMode::Experimental,
     }
   }
 
@@ -106,7 +82,9 @@ impl KernelCapabilities {
       client_rects: CapabilityMode::SeedDriven,
       gpu: CapabilityMode::SeedDriven,
       custom_gpu_metadata: CapabilityMode::Unsupported,
-      geolocation: CapabilityMode::Configurable,
+      // The kernel takes no geolocation switch and we inject no
+      // Emulation.setGeolocationOverride, so coordinates are not ours to set.
+      geolocation: CapabilityMode::Unsupported,
       cross_os: CapabilityMode::Unsupported,
       // Upstream only normalizes the UA in headless; other headless signals
       // remain detectable, so expose it solely behind an explicit opt-in.
@@ -125,6 +103,7 @@ mod tests {
     assert_eq!(caps.cross_os, CapabilityMode::Unsupported);
     assert_eq!(caps.headless, CapabilityMode::Unsupported);
     assert_eq!(caps.custom_gpu_metadata, CapabilityMode::Unsupported);
+    assert_eq!(caps.geolocation, CapabilityMode::Unsupported);
   }
 
   #[test]
@@ -133,6 +112,7 @@ mod tests {
     assert_eq!(caps.canvas, CapabilityMode::SeedDriven);
     assert_eq!(caps.seed, CapabilityMode::Configurable);
     assert_eq!(caps.custom_gpu_metadata, CapabilityMode::Unsupported);
+    assert_eq!(caps.geolocation, CapabilityMode::Unsupported);
     assert_eq!(caps.headless, CapabilityMode::Experimental);
   }
 }

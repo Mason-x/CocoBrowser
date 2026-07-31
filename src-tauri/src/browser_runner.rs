@@ -321,11 +321,15 @@ impl BrowserRunner {
         crate::ephemeral_dirs::get_effective_profile_path(&updated_profile, &profiles_dir);
 
       let mut extension_paths = Vec::new();
-      // Overrides the new tab page, so the browser opens on the workbench with an
-      // empty address bar. Only when the caller asked for no particular URL —
-      // an automation client that wants a page should get that page.
+      // Its worker navigates the startup tab to the workbench once the extension
+      // is registered. Only when the caller asked for no particular URL — an
+      // automation client that wants a page should get that page.
       if url.is_none() {
         if let Some(dir) = crate::workbench::extension_if_enabled(&profile_id_str) {
+          // Written now, not when the frontend built the page: the geo gate above
+          // is what rewrites a persona that follows its exit, so the values baked
+          // into the page predate the only step that can change them.
+          crate::workbench::write_expected_values(&dir, &persona);
           extension_paths.push(dir);
         }
       }
@@ -333,7 +337,10 @@ impl BrowserRunner {
         let mgr = crate::extension_manager::EXTENSION_MANAGER.lock().unwrap();
         if let Ok(paths) = mgr.install_extensions_for_profile(&updated_profile, &profile_data_path)
         {
-          extension_paths = paths;
+          // Appended, never assigned: assigning dropped the workbench extension
+          // queued above, so any profile with an extension group silently lost
+          // its environment check page.
+          extension_paths.extend(paths);
         }
       }
 

@@ -232,7 +232,23 @@
     "newProfile": "Novo",
     "cocoLogo": "Logotipo do CocoBrowser",
     "scrollGroupsLeft": "Rolar grupos para a esquerda",
-    "scrollGroupsRight": "Rolar grupos para a direita"
+    "scrollGroupsRight": "Rolar grupos para a direita",
+    "status": {
+      "kernel": "Núcleo",
+      "kernelUpdate": "A versão {{version}} está disponível",
+      "kernelCurrent": "Versão {{version}} instalada, atualizada",
+      "kernelNotInstalled": "Nenhum núcleo instalado ainda",
+      "geoip": "Base de dados GeoIP",
+      "geoipCurrent": "Atualizada",
+      "geoipStale": "Há uma atualização disponível",
+      "geoipMissing": "Ainda não foi baixada",
+      "geoipDownloading": "Baixando…",
+      "sync": "Sincronização",
+      "syncIdle": "Clique para sincronizar todos os perfis",
+      "syncBusy": "Sincronizando…",
+      "syncNotConfigured": "Nenhum servidor de sincronização configurado",
+      "syncAllStarted": "{{queued}} perfil(is) na fila, {{pulled}} baixado(s) do servidor"
+    }
   },
   "profiles": {
     "title": "Perfis",
@@ -251,6 +267,10 @@
       "proxy": "Proxy / VPN",
       "lastLaunch": "Último Início",
       "empty": "Nenhum perfil encontrado.",
+      "pullFoundNothing": "Nenhum perfil novo no servidor",
+      "pullSucceeded": "{{count}} perfil(is) baixado(s) do servidor",
+      "pullFromServer": "Baixar do servidor",
+      "emptyWithSync": "Os perfis do seu servidor de sincronização são baixados automaticamente. Se nada aparecer, baixe agora.",
       "notSelected": "Não selecionado",
       "ext": "EXT",
       "dns": "DNS",

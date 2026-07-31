@@ -78,13 +78,17 @@ export function buildWorkbenchPage(
     },
     lookupUrl,
     targets: options.reachability === false ? [] : REACHABILITY_TARGETS,
+    // Fallback only. These are the persona as it stands before the launch runs,
+    // and the geo gate rewrites the timezone and language of a persona that
+    // follows its exit — so the launch overwrites this with `expected.json`, and
+    // the page prefers that. Comparison is unconditional either way: a field
+    // that follows the exit still has one correct value once the gate has picked
+    // it, and "did `--timezone` actually take effect" is the question this page
+    // exists to answer. Gating the comparison on the follow flags turned it off
+    // for the timezone in every default profile.
     expected: {
       timezone: persona?.timezone ?? "",
       language: persona?.language ?? "",
-      // Only compare fields the persona actually pins. A field that follows the
-      // exit is rewritten at launch, so flagging it would always be noise.
-      compareTimezone: persona ? !persona.timezoneFollowsIp : false,
-      compareLanguage: persona ? !persona.languageFollowsIp : false,
     },
     labels: {
       title: t("workbench.title"),
@@ -259,24 +263,55 @@ export function buildWorkbenchPage(
   set("l-cores", L.cores); set("l-mem", L.memory);
   set("l-webgl", L.webgl); set("l-ua", L.userAgent);
 
-  /** Show a value and, when it contradicts a pinned persona field, say so. */
-  function setChecked(id, observed, expected, compare) {
+  /**
+   * Replace a field's value and drop everything the last render put on it.
+   * Setting textContent alone left the "bad" class and any note elements in
+   * place, so re-checking stacked a second copy of every mismatch onto the first
+   * and a field that had recovered stayed red.
+   */
+  function reset(id) {
     const dd = document.getElementById(id);
+    dd.classList.remove("bad");
+    dd.textContent = "";
+    return dd;
+  }
+
+  function annotate(dd, text, extraClass) {
+    dd.classList.add("bad");
+    const note = document.createElement("span");
+    note.className = extraClass ? "note " + extraClass : "note";
+    note.textContent = text;
+    dd.appendChild(note);
+  }
+
+  /** Show a value and, when it contradicts the persona, say so. */
+  function setChecked(id, observed, expected) {
+    const dd = reset(id);
     dd.textContent = observed || L.unknown;
-    if (compare && expected && observed && observed !== expected) {
-      dd.classList.add("bad");
-      const note = document.createElement("span");
-      note.className = "note";
-      note.textContent = L.mismatch + " — " + L.expectedValue + ": " + expected;
-      dd.appendChild(note);
+    if (expected && observed && observed !== expected) {
+      annotate(dd, L.mismatch + " — " + L.expectedValue + ": " + expected);
     }
+  }
+
+  /**
+   * What the launch settled on, written by the backend after the geo gate. The
+   * values compiled into this page predate that step, so they are the fallback
+   * rather than the answer.
+   */
+  async function loadExpected() {
+    try {
+      const res = await fetch("expected.json", { cache: "no-store" });
+      const j = await res.json();
+      if (j && typeof j.timezone === "string" && j.timezone) D.expected.timezone = j.timezone;
+      if (j && typeof j.language === "string" && j.language) D.expected.language = j.language;
+    } catch (_) {}
   }
 
   function readEnvironment() {
     let tz = "";
     try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || ""; } catch (_) {}
-    setChecked("tz", tz, D.expected.timezone, D.expected.compareTimezone);
-    setChecked("lang", navigator.language || "", D.expected.language, D.expected.compareLanguage);
+    setChecked("tz", tz, D.expected.timezone);
+    setChecked("lang", navigator.language || "", D.expected.language);
 
     set("plat", navigator.platform || L.unknown);
     set("screen", screen.width + " x " + screen.height + " @" + (window.devicePixelRatio || 1) + "x");
@@ -308,16 +343,16 @@ export function buildWorkbenchPage(
       .filter(Boolean).join(" · ") || L.unknown);
     const exitTz = (j.timezone && j.timezone.id) || "";
     set("proxy", exitTz || L.unknown);
+    // This runs after readEnvironment has already rendered the timezone, so it
+    // has to clear its own previous note rather than rely on that reset — a
+    // cached result rendered by restore() arrives without one.
+    const dd = document.getElementById("tz");
+    for (const stale of Array.from(dd.querySelectorAll(".exit-note"))) stale.remove();
     if (exitTz) {
       let browserTz = "";
       try { browserTz = Intl.DateTimeFormat().resolvedOptions().timeZone || ""; } catch (_) {}
-      const dd = document.getElementById("tz");
       if (browserTz && browserTz !== exitTz) {
-        dd.classList.add("bad");
-        const note = document.createElement("span");
-        note.className = "note";
-        note.textContent = L.exitMismatch + " — " + exitTz;
-        dd.appendChild(note);
+        annotate(dd, L.exitMismatch + " — " + exitTz, "exit-note");
       }
     }
   }
@@ -421,24 +456,30 @@ export function buildWorkbenchPage(
   }
 
   document.getElementById("refresh").addEventListener("click", () => {
-    readEnvironment();
-    void readExit();
-    void readReachability();
+    void (async () => {
+      await loadExpected();
+      readEnvironment();
+      void readExit();
+      void readReachability();
+    })();
   });
 
-  readEnvironment();
-  // Probe once per launch. Every other new tab would otherwise repeat one IP
-  // lookup and five platform requests, which is traffic the user never asked for
-  // and a pattern worth avoiding.
-  let seen = null;
-  try { seen = localStorage.getItem(LAUNCH_KEY); } catch (_) {}
-  if (seen !== D.launchId) {
-    try { localStorage.setItem(LAUNCH_KEY, D.launchId); } catch (_) {}
-    void readExit();
-    void readReachability();
-  } else {
-    restore();
-  }
+  void (async () => {
+    await loadExpected();
+    readEnvironment();
+    // Probe once per launch. Every other new tab would otherwise repeat one IP
+    // lookup and five platform requests, which is traffic the user never asked
+    // for and a pattern worth avoiding.
+    let seen = null;
+    try { seen = localStorage.getItem(LAUNCH_KEY); } catch (_) {}
+    if (seen !== D.launchId) {
+      try { localStorage.setItem(LAUNCH_KEY, D.launchId); } catch (_) {}
+      void readExit();
+      void readReachability();
+    } else {
+      restore();
+    }
+  })();
 })();
 `;
 

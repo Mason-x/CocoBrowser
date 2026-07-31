@@ -236,7 +236,9 @@ impl SyncScheduler {
     }
   }
 
-  pub async fn sync_all_enabled_profiles(&self, _app_handle: &tauri::AppHandle) {
+  /// Queue every sync-enabled profile, returning how many were queued so a
+  /// manually triggered run can report what it actually did.
+  pub async fn sync_all_enabled_profiles(&self, _app_handle: &tauri::AppHandle) -> usize {
     log::info!("Starting initial sync for all enabled profiles...");
 
     let profiles = {
@@ -245,7 +247,7 @@ impl SyncScheduler {
         Ok(p) => p,
         Err(e) => {
           log::error!("Failed to list profiles for initial sync: {e}");
-          return;
+          return 0;
         }
       }
     };
@@ -257,7 +259,7 @@ impl SyncScheduler {
 
     if sync_enabled_profiles.is_empty() {
       log::debug!("No sync-enabled profiles found");
-      return;
+      return 0;
     }
 
     log::info!(
@@ -265,6 +267,7 @@ impl SyncScheduler {
       sync_enabled_profiles.len()
     );
 
+    let mut queued = 0usize;
     for profile in sync_enabled_profiles {
       let profile_id = profile.id.to_string();
       let is_running = profile.process_id.is_some();
@@ -298,7 +301,10 @@ impl SyncScheduler {
 
       // Queue for sync — running profiles will be deferred by the scheduler
       self.queue_profile_sync_immediate(profile_id).await;
+      queued += 1;
     }
+
+    queued
   }
 
   pub async fn start(
@@ -385,10 +391,16 @@ impl SyncScheduler {
 
     // Sync all profiles in parallel
     let mut sync_set = tokio::task::JoinSet::new();
+    // Task id -> profile, so a panicking task can still be cleaned up after: it
+    // dies without clearing its in-flight entry, releasing its launch lock, or
+    // emitting a terminal status, and each of those leaves the profile stuck.
+    let mut panicked_task_owner: std::collections::HashMap<tokio::task::Id, String> =
+      std::collections::HashMap::new();
     for profile_id in to_sync {
       let app = app_handle.clone();
       let in_flight = self.in_flight_profiles.clone();
-      sync_set.spawn(async move {
+      let owner = profile_id.clone();
+      let handle = sync_set.spawn(async move {
         log::info!("Executing queued sync for profile {}", profile_id);
         let _ = events::emit(
           "profile-sync-status",
@@ -462,14 +474,37 @@ impl SyncScheduler {
           }
         }
       });
+      panicked_task_owner.insert(handle.id(), owner);
     }
 
     // Wait for all parallel syncs to finish (only if we actually spawned any)
     if !sync_set.is_empty() {
       while let Some(result) = sync_set.join_next().await {
-        if let Err(e) = result {
+        let Err(e) = result else { continue };
+        let Some(profile_id) = panicked_task_owner.get(&e.id()).cloned() else {
           log::error!("Profile sync task panicked: {e}");
+          continue;
+        };
+        log::error!("Profile {profile_id} sync task panicked: {e}");
+
+        // Redo everything the task itself would have done on its way out.
+        // Skipping this is not merely cosmetic: the stale in-flight entry keeps
+        // the profile from ever syncing again this session, the launch lock
+        // sits until its TTL, and the UI leaves the launch button disabled on a
+        // "syncing" status that will never resolve.
+        {
+          let mut inf = self.in_flight_profiles.lock().await;
+          inf.remove(&profile_id);
         }
+        super::launch_gate::release_launch_lock(app_handle, &profile_id).await;
+        let _ = events::emit(
+          "profile-sync-status",
+          serde_json::json!({
+            "profile_id": profile_id,
+            "status": "error",
+            "error": "sync task panicked"
+          }),
+        );
       }
     }
   }
@@ -724,7 +759,7 @@ impl SyncScheduler {
     }
   }
 
-  async fn process_pending_tombstones(&self, _app_handle: &tauri::AppHandle) {
+  async fn process_pending_tombstones(&self, app_handle: &tauri::AppHandle) {
     let tombstones: Vec<(String, String)> = {
       let mut pending = self.pending_tombstones.lock().await;
       std::mem::take(&mut *pending)
@@ -734,7 +769,55 @@ impl SyncScheduler {
       return;
     }
 
+    // The change stream says a key changed, never how. Deleting a tombstone
+    // therefore arrives looking exactly like writing one — and re-enabling sync
+    // on a profile deletes its tombstone, so the act of undoing a deletion was
+    // itself being read as a deletion, wiping the profile locally seconds after
+    // the user re-enabled it. Confirm the object is actually there first.
+    let engine = match SyncEngine::create_from_settings(app_handle).await {
+      Ok(engine) => engine,
+      Err(e) => {
+        log::warn!("Cannot verify tombstones without a sync engine ({e}); keeping local data");
+        return;
+      }
+    };
+
     for (entity_type, entity_id) in tombstones {
+      let remote_dir = match entity_type.as_str() {
+        "profile" => "profiles",
+        "proxy" => "proxies",
+        "group" => "groups",
+        "vpn" => "vpns",
+        "extension" => "extensions",
+        "extension_group" => "extension_groups",
+        other => {
+          log::warn!("Unknown tombstone entity type {other}, ignoring");
+          continue;
+        }
+      };
+      let tombstone_key = format!("tombstones/{remote_dir}/{entity_id}.json");
+      match engine.client().stat(&tombstone_key).await {
+        Ok(stat) if stat.exists => {}
+        Ok(_) => {
+          log::info!(
+            "Tombstone for {} {} no longer exists — the notification was its removal, keeping local copy",
+            entity_type,
+            entity_id
+          );
+          continue;
+        }
+        Err(e) => {
+          // Unverifiable means unsafe: deleting is irreversible, waiting is not.
+          log::warn!(
+            "Could not verify tombstone for {} {} ({}); keeping local copy",
+            entity_type,
+            entity_id,
+            e
+          );
+          continue;
+        }
+      }
+
       log::info!("Processing tombstone for {} {}", entity_type, entity_id);
       match entity_type.as_str() {
         "profile" => {
