@@ -51,13 +51,17 @@ import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { useBrowserDownload } from "@/hooks/use-browser-download";
 import { useProxyEvents } from "@/hooks/use-proxy-events";
 import { useVpnEvents } from "@/hooks/use-vpn-events";
+import { translateBackendError } from "@/lib/backend-errors";
 import { getBrowserIcon } from "@/lib/browser-utils";
 import { cn } from "@/lib/utils";
 import type { BrowserReleaseTypes } from "@/types";
 
 import { RippleButton } from "./ui/ripple";
 
-type BrowserTypeString = "fingerprint-chromium";
+type BrowserTypeString = "cloakbrowser-150" | "cloakbrowser-146";
+
+const isLocalKernel = (browser?: string) =>
+  browser === "cloakbrowser-150" || browser === "cloakbrowser-146";
 
 interface CreateProfileDialogProps {
   isOpen: boolean;
@@ -82,15 +86,8 @@ interface CreateProfileDialogProps {
 
 interface BrowserOption {
   value: BrowserTypeString;
-  label: string;
+  labelKey: string;
 }
-
-const browserOptions: BrowserOption[] = [
-  {
-    value: "fingerprint-chromium",
-    label: "Fingerprint Chromium",
-  },
-];
 
 interface KernelAsset {
   id: string;
@@ -107,6 +104,15 @@ interface InstalledKernel {
   executable: string;
 }
 
+interface CloakLatestRelease {
+  id: string;
+  version: string;
+}
+
+interface CloakLicenseStatus {
+  configured: boolean;
+}
+
 export function CreateProfileDialog({
   isOpen,
   onClose,
@@ -121,13 +127,12 @@ export function CreateProfileDialog({
   // opens directly on its configuration step.
   const [currentStep, setCurrentStep] = useState<
     "browser-selection" | "browser-config"
-  >("browser-config");
+  >("browser-selection");
   const [activeTab, setActiveTab] = useState("anti-detect");
 
-  // Browser selection states. Defaults to Wayfern �?the only creatable browser.
-  const [selectedBrowser, setSelectedBrowser] = useState<BrowserTypeString>(
-    "fingerprint-chromium",
-  );
+  // The latest CloakBrowser mode is the default for newly created profiles.
+  const [selectedBrowser, setSelectedBrowser] =
+    useState<BrowserTypeString>("cloakbrowser-150");
   const [selectedProxyId, setSelectedProxyId] = useState<string>();
   const [proxyPopoverOpen, setProxyPopoverOpen] = useState(false);
   const [dnsBlocklist, setDnsBlocklist] = useState<string>("");
@@ -141,7 +146,7 @@ export function CreateProfileDialog({
 
   // Reset the form fields without leaving the kernel configuration step.
   const resetForm = () => {
-    setSelectedBrowser("fingerprint-chromium");
+    setSelectedBrowser("cloakbrowser-150");
     setProfileName("");
     setSelectedProxyId(undefined);
     setLaunchHook("");
@@ -158,6 +163,7 @@ export function CreateProfileDialog({
   const [showProxyForm, setShowProxyForm] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [kernelInstalling, setKernelInstalling] = useState(false);
+  const [cloakLicenseConfigured, setCloakLicenseConfigured] = useState(false);
   const [installedKernels, setInstalledKernels] = useState<InstalledKernel[]>(
     [],
   );
@@ -212,36 +218,53 @@ export function CreateProfileDialog({
     }
   }, []);
 
-  const loadLocalKernels = useCallback(async () => {
-    setIsLoadingReleaseTypes(true);
-    setReleaseTypesError(null);
-    try {
-      const [manifest, installed] = await Promise.all([
-        invoke<KernelManifest>("list_kernel_manifest"),
-        invoke<InstalledKernel[]>("list_installed_kernels"),
-      ]);
-      setKernelManifest(manifest);
-      setInstalledKernels(installed);
-      const latest = manifest.kernels
-        .filter((asset) => asset.id === "fingerprint-chromium")
-        .sort((a, b) =>
-          b.version.localeCompare(a.version, undefined, { numeric: true }),
-        )[0];
-      setReleaseTypes(latest ? { stable: latest.version } : {});
-      setReleaseTypesError(
-        latest
-          ? null
-          : t("createProfile.platformUnavailable", {
-              browser: "Fingerprint Chromium",
-            }),
-      );
-    } catch (error) {
-      console.error("Failed to load local kernels:", error);
-      setReleaseTypesError(t("kernels.loadFailed"));
-    } finally {
-      setIsLoadingReleaseTypes(false);
-    }
-  }, [t]);
+  const loadLocalKernels = useCallback(
+    async (browser = selectedBrowser) => {
+      setIsLoadingReleaseTypes(true);
+      setReleaseTypesError(null);
+      try {
+        const [manifest, installed, licenseStatus] = await Promise.all([
+          invoke<KernelManifest>("list_kernel_manifest"),
+          invoke<InstalledKernel[]>("list_installed_kernels"),
+          browser === "cloakbrowser-150"
+            ? invoke<CloakLicenseStatus>("get_cloak_license_status", {
+                refresh: false,
+              })
+            : Promise.resolve(null),
+        ]);
+        setKernelManifest(manifest);
+        setInstalledKernels(installed);
+        if (browser === "cloakbrowser-150") {
+          setCloakLicenseConfigured(Boolean(licenseStatus?.configured));
+        }
+        const latestVersion =
+          browser === "cloakbrowser-150"
+            ? (await invoke<CloakLatestRelease>("get_cloak_latest_release"))
+                .version
+            : manifest.kernels
+                .filter((asset) => asset.id === browser)
+                .sort((a, b) =>
+                  b.version.localeCompare(a.version, undefined, {
+                    numeric: true,
+                  }),
+                )[0]?.version;
+        setReleaseTypes(latestVersion ? { stable: latestVersion } : {});
+        setReleaseTypesError(
+          latestVersion
+            ? null
+            : t("createProfile.platformUnavailable", {
+                browser: t(`createProfile.kernelNames.${browser}`),
+              }),
+        );
+      } catch (error) {
+        console.error("Failed to load local kernels:", error);
+        setReleaseTypesError(translateBackendError(t, error));
+      } finally {
+        setIsLoadingReleaseTypes(false);
+      }
+    },
+    [selectedBrowser, t],
+  );
 
   const _checkAndDownloadGeoIPDatabase = useCallback(async () => {
     try {
@@ -323,8 +346,9 @@ export function CreateProfileDialog({
   useEffect(() => {
     if (isOpen) {
       void loadSupportedBrowsers();
-      void loadLocalKernels();
-      if (selectedBrowser && selectedBrowser !== "fingerprint-chromium") {
+      if (isLocalKernel(selectedBrowser)) {
+        void loadLocalKernels(selectedBrowser);
+      } else if (selectedBrowser) {
         void loadReleaseTypes(selectedBrowser);
       }
     }
@@ -338,14 +362,16 @@ export function CreateProfileDialog({
 
   // Load release types when browser selection changes
   useEffect(() => {
-    if (selectedBrowser && selectedBrowser !== "fingerprint-chromium") {
+    if (selectedBrowser && !isLocalKernel(selectedBrowser)) {
       // Cancel any previous loading
       loadingBrowserRef.current = null;
       // Clear previous release types immediately to prevent showing stale data
       setReleaseTypes({});
       void loadReleaseTypes(selectedBrowser);
+    } else if (isLocalKernel(selectedBrowser)) {
+      void loadLocalKernels(selectedBrowser);
     }
-  }, [selectedBrowser, loadReleaseTypes]);
+  }, [selectedBrowser, loadReleaseTypes, loadLocalKernels]);
 
   // Helper function to get the best available version respecting rules
   const getBestAvailableVersion = useCallback(
@@ -362,9 +388,9 @@ export function CreateProfileDialog({
 
   const getCreatableVersion = useCallback(
     (browserType?: string) => {
-      if (browserType === "fingerprint-chromium") {
+      if (isLocalKernel(browserType)) {
         const installed = installedKernels
-          .filter((kernel) => kernel.id === "fingerprint-chromium")
+          .filter((kernel) => kernel.id === browserType)
           .sort((a, b) =>
             b.version.localeCompare(a.version, undefined, { numeric: true }),
           )[0];
@@ -395,7 +421,21 @@ export function CreateProfileDialog({
   );
 
   const handleDownload = async (browserStr: string) => {
-    if (browserStr === "fingerprint-chromium") {
+    if (isLocalKernel(browserStr)) {
+      if (browserStr === "cloakbrowser-150") {
+        setKernelInstalling(true);
+        setReleaseTypesError(null);
+        try {
+          await invoke("install_cloak_latest");
+          await loadLocalKernels(browserStr as BrowserTypeString);
+        } catch (error) {
+          console.error("Failed to install CloakBrowser latest:", error);
+          setReleaseTypesError(translateBackendError(t, error));
+        } finally {
+          setKernelInstalling(false);
+        }
+        return;
+      }
       const asset = kernelManifest?.kernels
         .filter((kernel) => kernel.id === browserStr)
         .sort((a, b) =>
@@ -409,10 +449,10 @@ export function CreateProfileDialog({
           id: asset.id,
           version: asset.version,
         });
-        await loadLocalKernels();
+        await loadLocalKernels(browserStr as BrowserTypeString);
       } catch (error) {
-        console.error("Failed to install fingerprint kernel:", error);
-        setReleaseTypesError(t("kernels.installFailed"));
+        console.error("Failed to install CloakBrowser legacy:", error);
+        setReleaseTypesError(translateBackendError(t, error));
       } finally {
         setKernelInstalling(false);
       }
@@ -462,15 +502,15 @@ export function CreateProfileDialog({
         : undefined;
     try {
       if (activeTab === "anti-detect") {
-        const bestKernelVersion = getCreatableVersion("fingerprint-chromium");
+        const bestKernelVersion = getCreatableVersion(selectedBrowser);
         if (!bestKernelVersion) {
-          console.error("No fingerprint-chromium kernel is installed");
+          console.error("No selected local kernel is installed");
           return;
         }
 
         await onCreateProfile({
           name: profileName.trim(),
-          browserStr: "fingerprint-chromium" as BrowserTypeString,
+          browserStr: selectedBrowser,
           version: bestKernelVersion.version,
           releaseType: bestKernelVersion.releaseType,
           proxyId: resolvedProxyId,
@@ -527,11 +567,11 @@ export function CreateProfileDialog({
     // Cancel any ongoing loading
     loadingBrowserRef.current = null;
 
-    // Reset all states. Stay on the kernel configuration step.
+    // Reset all states so the next open starts with kernel selection.
     setProfileName("");
-    setCurrentStep("browser-config");
+    setCurrentStep("browser-selection");
     setActiveTab("anti-detect");
-    setSelectedBrowser("fingerprint-chromium");
+    setSelectedBrowser("cloakbrowser-150");
     setSelectedProxyId(undefined);
     setLaunchHook("");
     setReleaseTypes({});
@@ -548,7 +588,7 @@ export function CreateProfileDialog({
   // Check if browser version is downloaded and available
   const isBrowserVersionAvailable = useCallback(
     (browserStr: string) => {
-      if (browserStr === "fingerprint-chromium") {
+      if (isLocalKernel(browserStr)) {
         const bestVersion = getBestAvailableVersion(browserStr);
         return Boolean(
           bestVersion &&
@@ -568,7 +608,7 @@ export function CreateProfileDialog({
   // Check if browser is currently downloading
   const isBrowserCurrentlyDownloading = useCallback(
     (browserStr: string) => {
-      if (browserStr === "fingerprint-chromium") return kernelInstalling;
+      if (isLocalKernel(browserStr)) return kernelInstalling;
       return isBrowserDownloading(browserStr);
     },
     [isBrowserDownloading, kernelInstalling],
@@ -577,6 +617,8 @@ export function CreateProfileDialog({
   const isCreateDisabled = useMemo(() => {
     if (!profileName.trim()) return true;
     if (!selectedBrowser) return true;
+    if (selectedBrowser === "cloakbrowser-150" && !cloakLicenseConfigured)
+      return true;
     if (isBrowserCurrentlyDownloading(selectedBrowser)) return true;
     if (!getCreatableVersion(selectedBrowser)) return true;
 
@@ -584,9 +626,21 @@ export function CreateProfileDialog({
   }, [
     profileName,
     selectedBrowser,
+    cloakLicenseConfigured,
     isBrowserCurrentlyDownloading,
     getCreatableVersion,
   ]);
+
+  const browserOptions: BrowserOption[] = [
+    {
+      value: "cloakbrowser-150",
+      labelKey: "createProfile.kernelNames.cloakbrowser-150",
+    },
+    {
+      value: "cloakbrowser-146",
+      labelKey: "createProfile.kernelNames.cloakbrowser-146",
+    },
+  ];
 
   // Filter supported browsers for regular browsers
   const regularBrowsers = browserOptions.filter((browser) =>
@@ -601,7 +655,7 @@ export function CreateProfileDialog({
             {currentStep === "browser-selection"
               ? t("createProfile.title")
               : t("createProfile.configureTitle", {
-                  browser: t("createProfile.chromiumLabel"),
+                  browser: t(`createProfile.kernelNames.${selectedBrowser}`),
                 })}
           </DialogTitle>
         </DialogHeader>
@@ -621,52 +675,37 @@ export function CreateProfileDialog({
                     <TabsContent value="anti-detect" className="mt-0 space-y-6">
                       {/* Anti-Detect Browser Selection */}
                       <div className="space-y-3 pt-8">
-                        {/* Local fingerprint Chromium kernel */}
-                        <Button
-                          onClick={() => {
-                            handleBrowserSelect("fingerprint-chromium");
-                          }}
-                          disabled={
-                            !getCreatableVersion("fingerprint-chromium")
-                          }
-                          className="flex h-16 w-full items-center justify-start gap-3 border-2 p-4 transition-colors hover:border-primary/50"
-                          variant="outline"
-                        >
-                          <div className="flex size-8 items-center justify-center">
-                            {isBrowserCurrentlyDownloading(
-                              "fingerprint-chromium",
-                            ) ? (
-                              <LuLoaderCircle className="size-6 animate-spin" />
-                            ) : (
-                              (() => {
-                                const IconComponent = getBrowserIcon(
-                                  "fingerprint-chromium",
-                                );
-                                return IconComponent ? (
+                        {regularBrowsers.map((browser) => {
+                          const IconComponent = getBrowserIcon(browser.value);
+                          return (
+                            <Button
+                              key={browser.value}
+                              onClick={() => handleBrowserSelect(browser.value)}
+                              className="flex h-16 w-full items-center justify-start gap-3 border-2 p-4 transition-colors hover:border-primary/50"
+                              variant="outline"
+                            >
+                              <div className="flex size-8 items-center justify-center">
+                                {isBrowserCurrentlyDownloading(
+                                  browser.value,
+                                ) ? (
+                                  <LuLoaderCircle className="size-6 animate-spin" />
+                                ) : (
                                   <IconComponent className="size-6" />
-                                ) : null;
-                              })()
-                            )}
-                          </div>
-                          <div className="text-left">
-                            <div className="font-medium">
-                              {t("createProfile.chromiumLabel")}
-                            </div>
-                            <div className="text-sm text-muted-foreground">
-                              {isBrowserCurrentlyDownloading(
-                                "fingerprint-chromium",
-                              )
-                                ? t("createProfile.downloadingSubtitle")
-                                : t("createProfile.chromiumSubtitle")}
-                            </div>
-                          </div>
-                        </Button>
-
-                        {!getCreatableVersion("fingerprint-chromium") && (
-                          <p className="pt-2 text-center text-sm text-muted-foreground">
-                            {t("createProfile.browsersDownloading")}
-                          </p>
-                        )}
+                                )}
+                              </div>
+                              <div className="text-left">
+                                <div className="font-medium">
+                                  {t(browser.labelKey)}
+                                </div>
+                                <div className="text-sm text-muted-foreground">
+                                  {browser.value === "cloakbrowser-150"
+                                    ? t("createProfile.cloakLatestSubtitle")
+                                    : t("createProfile.cloakLegacySubtitle")}
+                                </div>
+                              </div>
+                            </Button>
+                          );
+                        })}
                       </div>
                     </TabsContent>
 
@@ -701,7 +740,7 @@ export function CreateProfileDialog({
                                 </div>
                                 <div className="text-left">
                                   <div className="font-medium">
-                                    {browser.label}
+                                    {t(browser.labelKey)}
                                   </div>
                                   <div className="text-sm text-muted-foreground">
                                     {t("createProfile.regular.badge")}
@@ -826,8 +865,7 @@ export function CreateProfileDialog({
                           </div>
                         )}
 
-                        {selectedBrowser === "fingerprint-chromium" ||
-                        selectedBrowser === "wayfern" ? (
+                        {isLocalKernel(selectedBrowser) ? (
                           // Kernel + identity configuration
                           <div className="space-y-6">
                             {/* Local kernel install status */}
@@ -846,10 +884,8 @@ export function CreateProfileDialog({
                                 </p>
                                 <RippleButton
                                   onClick={() => {
-                                    if (
-                                      selectedBrowser === "fingerprint-chromium"
-                                    ) {
-                                      void loadLocalKernels();
+                                    if (isLocalKernel(selectedBrowser)) {
+                                      void loadLocalKernels(selectedBrowser);
                                     } else if (selectedBrowser) {
                                       void loadReleaseTypes(selectedBrowser);
                                     }
@@ -862,52 +898,59 @@ export function CreateProfileDialog({
                               </div>
                             )}
                             {!isLoadingReleaseTypes &&
+                              selectedBrowser === "cloakbrowser-150" &&
+                              !cloakLicenseConfigured && (
+                                <div className="rounded-md border border-warning/50 bg-warning/10 p-3">
+                                  <p className="text-sm text-warning">
+                                    {t("createProfile.cloakKeyRequired")}
+                                  </p>
+                                </div>
+                              )}
+                            {!isLoadingReleaseTypes &&
                               !releaseTypesError &&
-                              !getBestAvailableVersion(
-                                "fingerprint-chromium",
-                              ) && (
+                              !getBestAvailableVersion(selectedBrowser) && (
                                 <div className="flex items-center gap-3 rounded-md border border-warning/50 bg-warning/10 p-3">
                                   <p className="text-sm text-warning">
                                     {t("createProfile.platformUnavailable", {
-                                      browser: "Fingerprint Chromium",
+                                      browser: t(
+                                        `createProfile.kernelNames.${selectedBrowser}`,
+                                      ),
                                     })}
                                   </p>
                                 </div>
                               )}
                             {!isLoadingReleaseTypes &&
                               !releaseTypesError &&
-                              !isBrowserCurrentlyDownloading(
-                                "fingerprint-chromium",
-                              ) &&
-                              !getCreatableVersion("fingerprint-chromium") &&
-                              getBestAvailableVersion(
-                                "fingerprint-chromium",
-                              ) && (
+                              !isBrowserCurrentlyDownloading(selectedBrowser) &&
+                              !getCreatableVersion(selectedBrowser) &&
+                              getBestAvailableVersion(selectedBrowser) && (
                                 <div className="flex items-center gap-3 rounded-md border p-3">
                                   <p className="text-sm text-muted-foreground">
                                     {t("createProfile.version.needsDownload", {
-                                      browser: "Fingerprint Chromium",
-                                      version: getBestAvailableVersion(
-                                        "fingerprint-chromium",
-                                      )?.version,
+                                      browser: t(
+                                        `createProfile.kernelNames.${selectedBrowser}`,
+                                      ),
+                                      version:
+                                        getBestAvailableVersion(selectedBrowser)
+                                          ?.version,
                                     })}
                                   </p>
                                   <LoadingButton
                                     onClick={() => {
-                                      void handleDownload(
-                                        "fingerprint-chromium",
-                                      );
+                                      void handleDownload(selectedBrowser);
                                     }}
                                     isLoading={isBrowserCurrentlyDownloading(
-                                      "fingerprint-chromium",
+                                      selectedBrowser,
                                     )}
                                     size="sm"
-                                    disabled={isBrowserCurrentlyDownloading(
-                                      "fingerprint-chromium",
-                                    )}
+                                    disabled={
+                                      isBrowserCurrentlyDownloading(
+                                        selectedBrowser,
+                                      ) || !cloakLicenseConfigured
+                                    }
                                   >
                                     {isBrowserCurrentlyDownloading(
-                                      "fingerprint-chromium",
+                                      selectedBrowser,
                                     )
                                       ? t("common.buttons.downloading")
                                       : t("common.buttons.download")}
@@ -916,76 +959,71 @@ export function CreateProfileDialog({
                               )}
                             {!isLoadingReleaseTypes &&
                               !releaseTypesError &&
-                              !isBrowserCurrentlyDownloading(
-                                "fingerprint-chromium",
-                              ) &&
-                              getCreatableVersion("fingerprint-chromium") && (
+                              !isBrowserCurrentlyDownloading(selectedBrowser) &&
+                              getCreatableVersion(selectedBrowser) && (
                                 <div className="rounded-md border p-3 text-sm text-muted-foreground">
                                   ✓{" "}
                                   {t("createProfile.version.available", {
-                                    browser: "Fingerprint Chromium",
-                                    version: getCreatableVersion(
-                                      "fingerprint-chromium",
-                                    )?.version,
+                                    browser: t(
+                                      `createProfile.kernelNames.${selectedBrowser}`,
+                                    ),
+                                    version:
+                                      getCreatableVersion(selectedBrowser)
+                                        ?.version,
                                   })}
                                 </div>
                               )}
                             {!isLoadingReleaseTypes &&
                               !releaseTypesError &&
-                              !isBrowserCurrentlyDownloading(
-                                "fingerprint-chromium",
-                              ) &&
-                              getCreatableVersion("fingerprint-chromium") &&
-                              !isBrowserVersionAvailable(
-                                "fingerprint-chromium",
-                              ) &&
-                              getBestAvailableVersion(
-                                "fingerprint-chromium",
-                              ) && (
+                              !isBrowserCurrentlyDownloading(selectedBrowser) &&
+                              getCreatableVersion(selectedBrowser) &&
+                              !isBrowserVersionAvailable(selectedBrowser) &&
+                              getBestAvailableVersion(selectedBrowser) && (
                                 <div className="flex items-center gap-3 rounded-md border p-3">
                                   <p className="flex-1 text-sm text-muted-foreground">
                                     {t(
                                       "createProfile.version.upgradeAvailable",
                                       {
-                                        browser: "Fingerprint Chromium",
-                                        version: getBestAvailableVersion(
-                                          "fingerprint-chromium",
-                                        )?.version,
+                                        browser: t(
+                                          `createProfile.kernelNames.${selectedBrowser}`,
+                                        ),
+                                        version:
+                                          getBestAvailableVersion(
+                                            selectedBrowser,
+                                          )?.version,
                                       },
                                     )}
                                   </p>
                                   <LoadingButton
                                     onClick={() => {
-                                      void handleDownload(
-                                        "fingerprint-chromium",
-                                      );
+                                      void handleDownload(selectedBrowser);
                                     }}
                                     isLoading={isBrowserCurrentlyDownloading(
-                                      "fingerprint-chromium",
+                                      selectedBrowser,
                                     )}
                                     size="sm"
                                     variant="outline"
                                     disabled={isBrowserCurrentlyDownloading(
-                                      "fingerprint-chromium",
+                                      selectedBrowser,
                                     )}
                                   >
                                     {isBrowserCurrentlyDownloading(
-                                      "fingerprint-chromium",
+                                      selectedBrowser,
                                     )
                                       ? t("common.buttons.downloading")
                                       : t("common.buttons.download")}
                                   </LoadingButton>
                                 </div>
                               )}
-                            {isBrowserCurrentlyDownloading(
-                              "fingerprint-chromium",
-                            ) && (
+                            {isBrowserCurrentlyDownloading(selectedBrowser) && (
                               <div className="rounded-md border p-3 text-sm text-muted-foreground">
                                 {t("createProfile.version.downloading", {
-                                  browser: "Fingerprint Chromium",
-                                  version: getBestAvailableVersion(
-                                    "fingerprint-chromium",
-                                  )?.version,
+                                  browser: t(
+                                    `createProfile.kernelNames.${selectedBrowser}`,
+                                  ),
+                                  version:
+                                    getBestAvailableVersion(selectedBrowser)
+                                      ?.version,
                                 })}
                               </div>
                             )}
@@ -1142,7 +1180,7 @@ export function CreateProfileDialog({
                                           v.id === selectedProxyId.slice(4),
                                       );
                                       return vpn
-                                        ? `WG �?${vpn.name}`
+                                        ? `WG — ${vpn.name}`
                                         : t("createProfile.proxy.noProxy");
                                     }
                                     const proxy = storedProxies.find(
@@ -1509,7 +1547,7 @@ export function CreateProfileDialog({
                                           v.id === selectedProxyId.slice(4),
                                       );
                                       return vpn
-                                        ? `WG �?${vpn.name}`
+                                        ? `WG — ${vpn.name}`
                                         : t("createProfile.proxy.noProxy");
                                     }
                                     const proxy = storedProxies.find(

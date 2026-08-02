@@ -9,17 +9,24 @@
 //! 6. Locate chrome.exe
 //! 7. Atomic move to `binaries/<id>/<version>`
 //! 8. Write local install registry
-//! 10. Failure deletes only staging/partial — never the live install
+//! 10. Failure deletes only staging/partial 鈥?never the live install
 
 use super::install_registry::{
   find_executable, install_root, now_secs, InstallRegistryFile, InstalledKernel,
 };
 use super::manifest::{current_platform_id, KernelAsset, KernelManifest};
+use base64::{engine::general_purpose::STANDARD, Engine as _};
+use ring::signature::{UnparsedPublicKey, ED25519};
 use sha2::{Digest, Sha256};
 use std::fs::{self, File};
 use std::io::{self, Read, Write};
 use std::path::Path;
 use zip::ZipArchive;
+
+const CLOAK_DOWNLOAD_BASE: &str = "https://cloakbrowser.dev";
+const CLOAK_SIGNING_PUBKEY: &str = "MKFKwIhUcKWq5xTuNA0Ovg99njcDEcEJvmWYYhApvaU=";
+const CLOAK_WINDOWS_ARCHIVE: &str = "cloakbrowser-windows-x64.zip";
+const CLOAK_MAX_ARCHIVE_SIZE: u64 = 1_200_000_000;
 
 #[derive(Debug, thiserror::Error)]
 pub enum KernelDownloadError {
@@ -446,7 +453,169 @@ pub async fn install_fingerprint_chromium_148() -> Result<InstalledKernel, Kerne
   download_and_install_asset(&asset).await
 }
 
-// ── Tauri commands ──────────────────────────────────────────────────────────
+fn parse_cloak_signed_manifest(text: &str, version: &str) -> Result<String, KernelDownloadError> {
+  let declared = text.lines().find_map(|line| {
+    line
+      .trim()
+      .strip_prefix("version=")
+      .map(|value| value.trim().to_string())
+  });
+  if declared.as_deref() != Some(version) {
+    return Err(KernelDownloadError::Message(format!(
+      "signed manifest version mismatch: expected {version}, got {}",
+      declared.as_deref().unwrap_or("missing")
+    )));
+  }
+  text
+    .lines()
+    .find_map(|line| {
+      let mut fields = line.split_whitespace();
+      let sha = fields.next()?;
+      let filename = fields.next()?.trim_start_matches('*');
+      (filename == CLOAK_WINDOWS_ARCHIVE && sha.len() == 64).then(|| sha.to_ascii_lowercase())
+    })
+    .ok_or_else(|| {
+      KernelDownloadError::Message(format!(
+        "signed manifest does not contain {CLOAK_WINDOWS_ARCHIVE}"
+      ))
+    })
+}
+
+async fn fetch_verified_cloak_hash(version: &str) -> Result<String, KernelDownloadError> {
+  let base = format!("{CLOAK_DOWNLOAD_BASE}/releases/pro/chromium-v{version}");
+  let client = reqwest::Client::builder()
+    .connect_timeout(std::time::Duration::from_secs(10))
+    .read_timeout(std::time::Duration::from_secs(20))
+    .build()
+    .map_err(|e| KernelDownloadError::Network(e.to_string()))?;
+  let manifest = client
+    .get(format!("{base}/SHA256SUMS"))
+    .send()
+    .await
+    .map_err(|e| KernelDownloadError::Network(e.to_string()))?
+    .error_for_status()
+    .map_err(|e| KernelDownloadError::Network(e.to_string()))?
+    .bytes()
+    .await
+    .map_err(|e| KernelDownloadError::Network(e.to_string()))?;
+  let signature_text = client
+    .get(format!("{base}/SHA256SUMS.sig"))
+    .send()
+    .await
+    .map_err(|e| KernelDownloadError::Network(e.to_string()))?
+    .error_for_status()
+    .map_err(|e| KernelDownloadError::Network(e.to_string()))?
+    .text()
+    .await
+    .map_err(|e| KernelDownloadError::Network(e.to_string()))?;
+
+  let public_key = STANDARD
+    .decode(CLOAK_SIGNING_PUBKEY)
+    .map_err(|e| KernelDownloadError::Message(format!("invalid pinned signing key: {e}")))?;
+  let signature = STANDARD
+    .decode(signature_text.trim())
+    .map_err(|e| KernelDownloadError::Message(format!("invalid manifest signature: {e}")))?;
+  UnparsedPublicKey::new(&ED25519, public_key)
+    .verify(&manifest, &signature)
+    .map_err(|_| KernelDownloadError::Message("CloakBrowser manifest signature rejected".into()))?;
+  let manifest_text = std::str::from_utf8(&manifest)
+    .map_err(|e| KernelDownloadError::Message(format!("invalid signed manifest text: {e}")))?;
+  parse_cloak_signed_manifest(manifest_text, version)
+}
+
+async fn download_and_install_cloak_latest(
+  key: &str,
+  release: &super::cloak_license::CloakLatestRelease,
+) -> Result<InstalledKernel, KernelDownloadError> {
+  let expected_sha = fetch_verified_cloak_hash(&release.version).await?;
+  if let Some(existing) = InstallRegistryFile::load()
+    .find(&release.id, &release.version)
+    .filter(|entry| {
+      entry.sha256.eq_ignore_ascii_case(&expected_sha) && Path::new(&entry.executable).is_file()
+    })
+  {
+    return Ok(existing.clone());
+  }
+
+  let cache = crate::app_dirs::cache_dir().join("kernel_downloads");
+  fs::create_dir_all(&cache).map_err(|e| KernelDownloadError::Io(e.to_string()))?;
+  let partial = cache.join(format!(
+    "{}-{}-{}.zip.partial",
+    release.id, release.version, release.platform
+  ));
+  cleanup_path(&partial);
+
+  let client = reqwest::Client::builder()
+    .connect_timeout(std::time::Duration::from_secs(30))
+    .read_timeout(std::time::Duration::from_secs(180))
+    .build()
+    .map_err(|e| KernelDownloadError::Network(e.to_string()))?;
+  let response = client
+    .get(format!(
+      "{CLOAK_DOWNLOAD_BASE}/api/download/{}",
+      release.version
+    ))
+    .bearer_auth(key)
+    .header("X-Platform", &release.platform)
+    .send()
+    .await
+    .map_err(|e| KernelDownloadError::Network(e.to_string()))?
+    .error_for_status()
+    .map_err(|e| KernelDownloadError::Network(e.to_string()))?;
+  if response
+    .content_length()
+    .is_some_and(|length| length > CLOAK_MAX_ARCHIVE_SIZE)
+  {
+    return Err(KernelDownloadError::Message(
+      "CloakBrowser archive exceeds the safety limit".into(),
+    ));
+  }
+
+  let mut file = File::create(&partial).map_err(|e| KernelDownloadError::Io(e.to_string()))?;
+  let mut stream = response.bytes_stream();
+  let mut written = 0_u64;
+  use futures_util::StreamExt;
+  while let Some(chunk) = stream.next().await {
+    let chunk = chunk.map_err(|e| KernelDownloadError::Network(e.to_string()))?;
+    written = written.saturating_add(chunk.len() as u64);
+    if written > CLOAK_MAX_ARCHIVE_SIZE {
+      drop(file);
+      cleanup_path(&partial);
+      return Err(KernelDownloadError::Message(
+        "CloakBrowser archive exceeds the safety limit".into(),
+      ));
+    }
+    file
+      .write_all(&chunk)
+      .map_err(|e| KernelDownloadError::Io(e.to_string()))?;
+  }
+  drop(file);
+
+  let actual_sha = sha256_file(&partial)?;
+  if !actual_sha.eq_ignore_ascii_case(&expected_sha) {
+    cleanup_path(&partial);
+    return Err(KernelDownloadError::Sha256Mismatch {
+      expected: expected_sha,
+      actual: actual_sha,
+    });
+  }
+
+  let asset = KernelAsset {
+    id: release.id.clone(),
+    version: release.version.clone(),
+    platform: release.platform.clone(),
+    url: format!("{CLOAK_DOWNLOAD_BASE}/api/download/{}", release.version),
+    sha256: expected_sha,
+    size: written,
+    executable_candidates: vec!["chrome.exe".into()],
+    source_status: release.source_status.clone(),
+  };
+  let result = install_verified_zip_file(&asset, &partial, None);
+  cleanup_path(&partial);
+  result
+}
+
+// 鈹€鈹€ Tauri commands 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
 
 #[tauri::command]
 pub fn list_kernel_manifest() -> Result<KernelManifest, String> {
@@ -469,6 +638,30 @@ pub async fn install_kernel(id: String, version: String) -> Result<InstalledKern
   download_and_install_asset(&asset)
     .await
     .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn install_cloak_latest() -> Result<InstalledKernel, String> {
+  let key = super::cloak_license::require_valid_license_key().await?;
+  let release = super::cloak_license::fetch_latest_release().await?;
+  download_and_install_cloak_latest(&key, &release)
+    .await
+    .map_err(|error| {
+      let code = match error {
+        KernelDownloadError::Sha256Mismatch { .. } => "CLOAK_BINARY_VERIFICATION_FAILED",
+        KernelDownloadError::Message(ref message)
+          if message.contains("signature") || message.contains("signed manifest") =>
+        {
+          "CLOAK_BINARY_VERIFICATION_FAILED"
+        }
+        _ => "CLOAK_DOWNLOAD_FAILED",
+      };
+      serde_json::json!({
+        "code": code,
+        "params": { "detail": error.to_string() }
+      })
+      .to_string()
+    })
 }
 
 #[cfg(test)]
@@ -512,6 +705,19 @@ mod tests {
     let asset = make_asset(data.len() as u64, &hash);
     verify_download_bytes(&asset, data).unwrap();
     assert!(verify_download_bytes(&asset, b"wrong").is_err());
+  }
+
+  #[test]
+  fn parses_version_bound_cloak_manifest() {
+    let text = concat!(
+      "version=150.0.7871.114.3\n",
+      "a905bfdaa79c2ac2db2119ac4b153da8c1aebde9732da617de71722176b05084  cloakbrowser-windows-x64.zip\n"
+    );
+    assert_eq!(
+      parse_cloak_signed_manifest(text, "150.0.7871.114.3").unwrap(),
+      "a905bfdaa79c2ac2db2119ac4b153da8c1aebde9732da617de71722176b05084"
+    );
+    assert!(parse_cloak_signed_manifest(text, "150.0.7871.114.2").is_err());
   }
 
   #[test]
@@ -603,7 +809,7 @@ mod tests {
     assert!(Path::new(&exe_before).is_file());
 
     // Bad zip should not wipe the existing install of a *different* version path.
-    // Same version replace only happens after verify — wrong sha never reaches extract.
+    // Same version replace only happens after verify 鈥?wrong sha never reaches extract.
     let bad = make_asset(4, &sha256_hex(b"bad!"));
     assert!(install_verified_zip_bytes(&bad, b"bad!", Some(&binaries)).is_err());
     assert!(Path::new(&exe_before).is_file());

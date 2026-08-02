@@ -37,7 +37,7 @@ import { cn } from "@/lib/utils";
 import type { DetectedProfile } from "@/types";
 import { RippleButton } from "./ui/ripple";
 
-const TARGET_BROWSER = "fingerprint-chromium";
+const TARGET_BROWSER = "cloakbrowser-150";
 const IMPORT_SOURCES = ["chrome", "edge", "chromium"] as const;
 
 interface ImportProfileDialogProps {

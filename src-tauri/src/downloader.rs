@@ -148,7 +148,9 @@ impl Downloader {
     _download_info: &DownloadInfo,
   ) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
     match browser_type {
-      BrowserType::FingerprintChromium => {
+      BrowserType::FingerprintChromium
+      | BrowserType::CloakBrowser146
+      | BrowserType::CloakBrowser150 => {
         // Audited HTTPS URL from embedded kernel manifest (already in download_info).
         Ok(_download_info.url.clone())
       }
@@ -481,7 +483,7 @@ impl Downloader {
       stream_restarts += 1;
       let delay = 2u64.pow(stream_restarts.min(4));
       log::warn!(
-        "{} — resuming from {} bytes (restart {}/{}) in {}s",
+        "{} 鈥?resuming from {} bytes (restart {}/{}) in {}s",
         err,
         std::fs::metadata(&file_path).map(|m| m.len()).unwrap_or(0),
         stream_restarts,

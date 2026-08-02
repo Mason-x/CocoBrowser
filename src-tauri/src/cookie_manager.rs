@@ -16,7 +16,7 @@ use tauri::AppHandle;
 
 /// Chromium cookie decryption support for reading existing encrypted cookies.
 /// Writes always go through the plaintext `value` column (see `write_chrome_cookies`),
-/// so no encryption path is needed here — Chromium reads plaintext when
+/// so no encryption path is needed here 鈥?Chromium reads plaintext when
 /// `encrypted_value` is empty, regardless of what other cookies store.
 pub mod chrome_decrypt {
   use aes::cipher::{block_padding::Pkcs7, BlockModeDecrypt, KeyIvInit};
@@ -30,7 +30,7 @@ pub mod chrome_decrypt {
   /// PBKDF2 iteration count for deriving the AES key from the password stored
   /// in `os_crypt_key`. Must match Chromium's `OSCryptImpl` on each platform:
   /// macOS uses 1003 iterations, Linux uses 1. Getting this wrong produces a
-  /// different AES key → silent decryption failure → empty cookie values.
+  /// different AES key 鈫?silent decryption failure 鈫?empty cookie values.
   /// See `components/os_crypt/sync/os_crypt_{mac.mm,linux.cc}` in Chromium.
   #[cfg(target_os = "macos")]
   const PBKDF2_ITERATIONS: u32 = 1003;
@@ -59,7 +59,7 @@ pub mod chrome_decrypt {
 
   pub fn get_encryption_key(profile_data_path: &Path) -> Option<[u8; KEY_LEN]> {
     let key_file = profile_data_path.join("os_crypt_key");
-    // Read as raw bytes and do NOT trim — Chromium's `ReadFileToString`
+    // Read as raw bytes and do NOT trim 鈥?Chromium's `ReadFileToString`
     // passes the exact file contents to `Pbkdf2(file_contents)`. Any
     // normalisation we do here would produce a different derived key.
     let contents = std::fs::read(&key_file).ok()?;
@@ -74,8 +74,7 @@ pub mod chrome_decrypt {
   /// Chromium prefixes encrypted values with "v10" / "v11" and, since ~M100,
   /// prepends `SHA-256(host_key)` to the plaintext before encryption as an
   /// integrity check. After decryption we verify and strip those 32 bytes
-  /// when present. Passing `host_key` is required to do that verification —
-  /// without it we'd return 32 bytes of hash noise plus the actual value,
+  /// when present. Passing `host_key` is required to do that verification 鈥?  /// without it we'd return 32 bytes of hash noise plus the actual value,
   /// which is not valid UTF-8 and gets thrown away.
   pub fn decrypt(encrypted: &[u8], host_key: &str, key: &[u8; KEY_LEN]) -> Option<String> {
     if encrypted.len() < 3 {
@@ -254,7 +253,7 @@ impl CookieManager {
     let profile_data_path = profile.get_profile_data_path(profiles_dir);
 
     match profile.browser.as_str() {
-      "fingerprint-chromium" => {
+      "fingerprint-chromium" | "cloakbrowser-146" | "cloakbrowser-150" => {
         let path = Self::chromium_cookie_path(&profile_data_path);
         if path.exists() {
           Ok(path)
@@ -280,7 +279,7 @@ impl CookieManager {
     let profile_data_path = profile.get_profile_data_path(profiles_dir);
 
     match profile.browser.as_str() {
-      "fingerprint-chromium" => {
+      "fingerprint-chromium" | "cloakbrowser-146" | "cloakbrowser-150" => {
         let path = Self::chromium_cookie_path(&profile_data_path);
         if !path.exists() {
           Self::create_empty_chrome_cookies_db(&path)?;
@@ -551,7 +550,7 @@ impl CookieManager {
     let db_path = Self::get_cookie_db_path(profile, &profiles_dir)?;
 
     let cookies = match profile.browser.as_str() {
-      "fingerprint-chromium" => {
+      "fingerprint-chromium" | "cloakbrowser-146" | "cloakbrowser-150" => {
         let key = Self::get_chrome_encryption_key(profile, &profiles_dir);
         Self::read_chrome_cookies(&db_path, key.as_ref())?
       }
@@ -604,8 +603,7 @@ impl CookieManager {
   ///
   /// `immutable=1` tells SQLite the file will not change during the read,
   /// which causes it to skip all locking. That lets us read metadata even
-  /// while the browser holds an exclusive lock on the cookies database —
-  /// the trade-off is that we may see a slightly stale snapshot, which is
+  /// while the browser holds an exclusive lock on the cookies database 鈥?  /// the trade-off is that we may see a slightly stale snapshot, which is
   /// acceptable for the badge/preview use cases this powers.
   fn open_cookie_db_readonly(db_path: &Path) -> Result<Connection, String> {
     let path_str = db_path.to_string_lossy();
@@ -669,7 +667,7 @@ impl CookieManager {
     let conn = Self::open_cookie_db_readonly(&db_path)?;
 
     let (count_sql, domain_sql) = match profile.browser.as_str() {
-      "fingerprint-chromium" => (
+      "fingerprint-chromium" | "cloakbrowser-146" | "cloakbrowser-150" => (
         "SELECT COUNT(*) FROM cookies",
         "SELECT host_key, COUNT(*) FROM cookies GROUP BY host_key ORDER BY COUNT(*) DESC, host_key ASC",
       ),
@@ -743,7 +741,7 @@ impl CookieManager {
 
     let source_db_path = Self::get_cookie_db_path(source, &profiles_dir)?;
     let all_cookies = match source.browser.as_str() {
-      "fingerprint-chromium" => {
+      "fingerprint-chromium" | "cloakbrowser-146" | "cloakbrowser-150" => {
         let key = Self::get_chrome_encryption_key(source, &profiles_dir);
         Self::read_chrome_cookies(&source_db_path, key.as_ref())?
       }
@@ -814,7 +812,9 @@ impl CookieManager {
       };
 
       let write_result = match target.browser.as_str() {
-        "fingerprint-chromium" => Self::write_chrome_cookies(&target_db_path, &cookies_to_copy),
+        "fingerprint-chromium" | "cloakbrowser-146" | "cloakbrowser-150" => {
+          Self::write_chrome_cookies(&target_db_path, &cookies_to_copy)
+        }
         _ => {
           results.push(CookieCopyResult {
             target_profile_id: target_id.clone(),
@@ -1253,11 +1253,13 @@ impl CookieManager {
       return Err("No valid cookies found in the file".to_string());
     }
 
-    // Profile may have never been launched yet — create an empty DB on demand.
+    // Profile may have never been launched yet 鈥?create an empty DB on demand.
     let db_path = Self::ensure_cookie_db_path(profile, &profiles_dir)?;
 
     let write_result = match profile.browser.as_str() {
-      "fingerprint-chromium" => Self::write_chrome_cookies(&db_path, &cookies),
+      "fingerprint-chromium" | "cloakbrowser-146" | "cloakbrowser-150" => {
+        Self::write_chrome_cookies(&db_path, &cookies)
+      }
       _ => return Err(format!("Unsupported browser type: {}", profile.browser)),
     };
 
@@ -1760,7 +1762,7 @@ mod tests {
   ///
   /// If PBKDF2 iterations or the host-hash prefix handling ever regress,
   /// this test fails and we instantly know why all copied cookies end up
-  /// with empty values — which is exactly the bug that shipped and made
+  /// with empty values 鈥?which is exactly the bug that shipped and made
   /// issue-265-style silent failures reappear.
   #[test]
   #[cfg(target_os = "macos")]
@@ -1791,9 +1793,9 @@ mod tests {
   }
 
   /// Sanity: decrypting with the wrong host_key (hash mismatch) must not
-  /// return a half-garbage value — it should fall back to the full
+  /// return a half-garbage value 鈥?it should fall back to the full
   /// decrypted bytes, which for a modern cookie includes the 32-byte hash
-  /// prefix and therefore won't be valid UTF-8 → `None`.
+  /// prefix and therefore won't be valid UTF-8 鈫?`None`.
   #[test]
   #[cfg(target_os = "macos")]
   fn test_decrypt_with_wrong_host_returns_none_or_raw() {

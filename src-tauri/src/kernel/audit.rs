@@ -1,10 +1,9 @@
-//! Fingerprint consistency and leak audit (plan §10).
+//! Fingerprint consistency and leak audit (plan 搂10).
 //!
 //! Works offline for expected/persona checks. Live observation uses headed
 //! Chromium + loopback CDP when a kernel binary is installed.
 
-use super::driver::{KernelDriver, KernelLaunchRequest};
-use super::fingerprint_chromium::FingerprintChromiumDriver;
+use super::driver::KernelLaunchRequest;
 use super::launch_plan::{AutomationMode, LocalProxyEndpoint};
 use super::persona::{ensure_persona, FingerprintPersona};
 use super::process_guard::ProcessGuard;
@@ -912,7 +911,9 @@ async fn collect_live(
     return Err("profile is already running; stop it before audit launch".into());
   }
 
-  let driver = FingerprintChromiumDriver::new();
+  let driver = super::registry::KernelRegistry::instance()
+    .require(&profile.browser)
+    .map_err(|e| e.to_string())?;
   let cdp_port = {
     let listener = std::net::TcpListener::bind("127.0.0.1:0").map_err(|e| e.to_string())?;
     listener.local_addr().map_err(|e| e.to_string())?.port()
@@ -974,7 +975,7 @@ async fn collect_live(
       let plan = driver
         .build_launch_plan(&request)
         .map_err(|e| e.to_string())?;
-      let mut guard = ProcessGuard::spawn(&plan.executable, &plan.args)?;
+      let mut guard = ProcessGuard::spawn_with_env(&plan.executable, &plan.args, &plan.env)?;
       tokio::time::sleep(Duration::from_millis(500)).await;
       if !guard.is_alive() {
         return Err("audit browser exited immediately".into());
@@ -1009,8 +1010,8 @@ fn load_profile(profile_id: &str) -> Result<BrowserProfile, String> {
 /// Static + optional live audit for a profile.
 pub async fn run_profile_audit(profile_id: String, live: bool) -> Result<AuditResult, String> {
   let profile = load_profile(&profile_id)?;
-  if profile.browser != "fingerprint-chromium" {
-    return Err("audit currently supports fingerprint-chromium profiles only".into());
+  if !super::kinds::is_persona_kernel(&profile.browser) {
+    return Err("audit currently supports fingerprint-capable profiles only".into());
   }
   let persona = ensure_persona(profile.persona.as_ref(), &profile.version)?;
 
@@ -1100,7 +1101,7 @@ pub async fn run_stability_audit(
   })
 }
 
-// ── Tauri commands ──────────────────────────────────────────────────────────
+// 鈹€鈹€ Tauri commands 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
 
 #[tauri::command]
 pub async fn run_fingerprint_audit(

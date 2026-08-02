@@ -91,6 +91,28 @@ impl KernelCapabilities {
       headless: CapabilityMode::Experimental,
     }
   }
+
+  pub fn cloak_browser(kernel_id: &str, version: &str) -> Self {
+    Self {
+      kernel_id: kernel_id.to_string(),
+      min_version: version.to_string(),
+      max_version: None,
+      seed: CapabilityMode::Configurable,
+      identity: CapabilityMode::Configurable,
+      locale: CapabilityMode::Configurable,
+      timezone: CapabilityMode::Configurable,
+      hardware_concurrency: CapabilityMode::Configurable,
+      canvas: CapabilityMode::SeedDriven,
+      audio: CapabilityMode::SeedDriven,
+      fonts: CapabilityMode::SeedDriven,
+      client_rects: CapabilityMode::SeedDriven,
+      gpu: CapabilityMode::SeedDriven,
+      custom_gpu_metadata: CapabilityMode::SeedDriven,
+      geolocation: CapabilityMode::Configurable,
+      cross_os: CapabilityMode::Unsupported,
+      headless: CapabilityMode::Experimental,
+    }
+  }
 }
 
 #[cfg(test)]
@@ -114,5 +136,12 @@ mod tests {
     assert_eq!(caps.custom_gpu_metadata, CapabilityMode::Unsupported);
     assert_eq!(caps.geolocation, CapabilityMode::Unsupported);
     assert_eq!(caps.headless, CapabilityMode::Experimental);
+  }
+
+  #[test]
+  fn cloak_exposes_seeded_surfaces_and_gpu_metadata() {
+    let caps = KernelCapabilities::cloak_browser("cloakbrowser-150", "150.0.0.0");
+    assert_eq!(caps.canvas, CapabilityMode::SeedDriven);
+    assert_eq!(caps.custom_gpu_metadata, CapabilityMode::SeedDriven);
   }
 }

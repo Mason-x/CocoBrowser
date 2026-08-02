@@ -55,7 +55,7 @@ pub struct ApiProfileResponse {
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct CreateProfileRequest {
   pub name: String,
-  /// Browser engine. The local-first API accepts `"fingerprint-chromium"`.
+  /// Browser engine. New profiles accept `"cloakbrowser-150"` or `"cloakbrowser-146"`.
   pub browser: String,
   /// Optional. Omit (or pass `"latest"`) to use the newest already-downloaded
   /// version of the chosen browser. A concrete version must already be
@@ -468,7 +468,7 @@ impl ApiServer {
     let api = ApiDoc::openapi();
 
     let v1_routes = v1_routes
-      // Inert chokepoint (innermost → runs after auth) for the future per-hour
+      // Inert chokepoint (innermost 鈫?runs after auth) for the future per-hour
       // automation request limit. See rate_limit_middleware.
       .layer(middleware::from_fn(rate_limit_middleware))
       .layer(middleware::from_fn_with_state(
@@ -529,7 +529,7 @@ impl ApiServer {
 /// (automation tools typically send no Origin).
 fn is_loopback_host(host: &str) -> bool {
   let host = host.trim();
-  // Strip port without breaking IPv6 bracket notation: "[::1]:8080" → "[::1]"
+  // Strip port without breaking IPv6 bracket notation: "[::1]:8080" 鈫?"[::1]"
   let host = if host.starts_with('[') {
     host
       .split(']')
@@ -691,7 +691,7 @@ async fn request_logging_middleware(request: axum::extract::Request, next: Next)
 
 /// Chokepoint for the future per-hour automation request limit. The limit
 /// (`requests_per_hour`, default 100) is already plumbed through entitlements;
-/// this middleware is intentionally inert today — it resolves the limit but
+/// this middleware is intentionally inert today 鈥?it resolves the limit but
 /// never blocks. To enforce, count authenticated requests per rolling hour and
 /// return `StatusCode::TOO_MANY_REQUESTS` once the limit (when > 0) is exceeded.
 async fn rate_limit_middleware(
@@ -907,7 +907,7 @@ async fn get_profile(
 
 /// Create a profile.
 ///
-/// - `browser` must be `"fingerprint-chromium"`; any other value is rejected
+/// - `browser` must be a creatable CloakBrowser kernel; any other value is rejected
 ///   with 400.
 /// - `version` is optional: omit it or pass `"latest"` to use the newest
 ///   already-downloaded version of that browser. The version must be present
@@ -934,16 +934,12 @@ async fn create_profile(
 ) -> Result<Json<ApiProfileResponse>, (StatusCode, String)> {
   let profile_manager = ProfileManager::instance();
 
-  // New local API profiles use the audited fingerprint-chromium kernel only.
-  // Reject anything
-  // else up front — otherwise the profile is created with no fingerprint and an
-  // unrecognized browser, then crashes with a 500 on /run. Mirrors the MCP
-  // create_profile validation.
-  if request.browser != "fingerprint-chromium" {
+  // New local API profiles use one of the two creatable CloakBrowser modes.
+  if !crate::kernel::kinds::is_creatable_kernel(&request.browser) {
     return Err((
       StatusCode::BAD_REQUEST,
       format!(
-        "Invalid browser \"{}\". Must be \"fingerprint-chromium\".",
+        "Invalid browser \"{}\". Must be \"cloakbrowser-150\" or \"cloakbrowser-146\".",
         request.browser
       ),
     ));
@@ -952,30 +948,30 @@ async fn create_profile(
   // Resolve the version. Omitted, empty, or "latest" means "newest version
   // already downloaded for this browser". The create path generates the
   // fingerprint by launching that binary, so the version must be present
-  // locally — we don't fetch new versions here. 400 if none is downloaded.
+  // locally 鈥?we don't fetch new versions here. 400 if none is downloaded.
   let install_registry = crate::kernel::install_registry::InstallRegistryFile::load();
   let version = match request.version.as_deref() {
     Some(v) if !v.is_empty() && v != "latest" => {
       if install_registry
-        .find("fingerprint-chromium", v)
+        .find(&request.browser, v)
         .filter(|entry| std::path::Path::new(&entry.executable).is_file())
         .is_none()
       {
         return Err((
           StatusCode::BAD_REQUEST,
-          format!("fingerprint-chromium {v} is not installed"),
+          format!("{} {v} is not installed", request.browser),
         ));
       }
       v.to_string()
     }
     _ => {
       let mut versions: Vec<String> = install_registry
-        .list_for_id("fingerprint-chromium")
+        .list_for_id(&request.browser)
         .into_iter()
         .filter(|entry| std::path::Path::new(&entry.executable).is_file())
         .map(|entry| entry.version.clone())
         .collect();
-      // browsers is a HashMap, so keys are unordered — sort newest-first by
+      // browsers is a HashMap, so keys are unordered 鈥?sort newest-first by
       // semver before taking the latest.
       versions.sort_by(|a, b| crate::version_cache::compare_versions(b, a));
       match versions.into_iter().next() {
@@ -984,7 +980,7 @@ async fn create_profile(
           return Err((
             StatusCode::BAD_REQUEST,
             format!(
-              "No downloaded version of \"{}\" is available. Download the browser in CocoBrowser first — this endpoint does not download browsers.",
+              "No downloaded version of \"{}\" is available. Download the browser in CocoBrowser first 鈥?this endpoint does not download browsers.",
               request.browser
             ),
           ));
@@ -2100,8 +2096,7 @@ async fn kill_profile(
 }
 
 // API Handler - Batch run local profiles. Mirrors the
-// single `/run` gate; never breaks the batch on a single profile's failure —
-// each profile gets its own result entry.
+// single `/run` gate; never breaks the batch on a single profile's failure 鈥?// each profile gets its own result entry.
 #[utoipa::path(
   post,
   path = "/v1/profiles/batch/run",
@@ -2428,7 +2423,7 @@ mod tests {
 
   // Removing `browser` from UpdateProfileRequest, and rejecting invalid
   // `browser` values on create, must NOT make the API reject requests that
-  // carry extra/unknown fields — old clients still send them. serde ignores
+  // carry extra/unknown fields 鈥?old clients still send them. serde ignores
   // unknown fields by default; these tests lock that in so a future
   // `#[serde(deny_unknown_fields)]` can't silently break compatibility.
   #[test]
@@ -2443,20 +2438,21 @@ mod tests {
 
   #[test]
   fn create_profile_request_ignores_unknown_fields() {
-    let json = r#"{"name": "p", "browser": "fingerprint-chromium", "version": "latest", "future_field": true}"#;
+    let json =
+      r#"{"name": "p", "browser": "cloakbrowser-150", "version": "latest", "future_field": true}"#;
     let parsed: CreateProfileRequest =
       serde_json::from_str(json).expect("unknown fields must be ignored, not rejected");
-    assert_eq!(parsed.browser, "fingerprint-chromium");
+    assert_eq!(parsed.browser, "cloakbrowser-150");
   }
 
   #[test]
   fn create_profile_request_allows_omitting_version_and_configs() {
-    // Minimal body: no version. Must deserialize — version resolves to the
+    // Minimal body: no version. Must deserialize 鈥?version resolves to the
     // latest downloaded kernel at the handler.
-    let json = r#"{"name": "p", "browser": "fingerprint-chromium"}"#;
+    let json = r#"{"name": "p", "browser": "cloakbrowser-150"}"#;
     let parsed: CreateProfileRequest =
       serde_json::from_str(json).expect("version and configs are optional");
-    assert_eq!(parsed.browser, "fingerprint-chromium");
+    assert_eq!(parsed.browser, "cloakbrowser-150");
     assert!(parsed.version.is_none());
   }
 
@@ -2464,9 +2460,11 @@ mod tests {
   fn create_profile_browser_validation_matches_supported_engines() {
     // The handler rejects anything that isn't a launchable engine; this is the
     // same predicate it uses, kept in lockstep with MCP's create_profile.
-    let is_valid = |b: &str| b == "fingerprint-chromium";
+    let is_valid = crate::kernel::kinds::is_creatable_kernel;
     assert!(!is_valid("wayfern"));
-    assert!(is_valid("fingerprint-chromium"));
+    assert!(is_valid("cloakbrowser-150"));
+    assert!(is_valid("cloakbrowser-146"));
+    assert!(!is_valid("fingerprint-chromium"));
     assert!(!is_valid("chromium"));
     assert!(!is_valid(""));
   }
@@ -2530,7 +2528,7 @@ mod tests {
   }
 
   // The served /openapi.json comes from the hand-maintained ApiDoc `paths(...)`
-  // list, not from the router — endpoints registered on the router but missing
+  // list, not from the router 鈥?endpoints registered on the router but missing
   // from ApiDoc silently disappear from the spec. Lock in the ones that were
   // once dropped, and that removed endpoints stay gone.
   #[test]

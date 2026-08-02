@@ -11,6 +11,17 @@ interface KernelUpdateStatus {
   latestAudited: string | null;
 }
 
+interface CloakLatestRelease {
+  id: string;
+  version: string;
+}
+
+interface InstalledKernel {
+  id: string;
+  version: string;
+  executable: string;
+}
+
 interface GeoIpStatus {
   available: boolean;
   stale: boolean;
@@ -45,14 +56,25 @@ export function useHeaderStatus(): HeaderStatus {
   const refresh = useCallback(() => {
     void (async () => {
       try {
-        setKernel(
-          await invoke<KernelUpdateStatus>("check_kernel_updates_command", {
-            kernelId: "fingerprint-chromium",
-            force: false,
-          }),
-        );
+        const [latest, installed] = await Promise.all([
+          invoke<CloakLatestRelease>("get_cloak_latest_release"),
+          invoke<InstalledKernel[]>("list_installed_kernels"),
+        ]);
+        const installedVersions = installed
+          .filter(
+            (entry) => entry.id === latest.id && Boolean(entry.executable),
+          )
+          .map((entry) => entry.version);
+        setKernel({
+          installedVersions,
+          latestAudited: latest.version,
+          auditedNotInstalled: installedVersions.includes(latest.version)
+            ? null
+            : latest.version,
+        });
       } catch (error) {
-        console.error("Failed to check kernel updates:", error);
+        console.error("Failed to check CloakBrowser updates:", error);
+        setKernel(null);
       }
       try {
         setGeoip(await invoke<GeoIpStatus>("get_geoip_status"));

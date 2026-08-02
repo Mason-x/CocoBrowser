@@ -93,9 +93,9 @@ impl GeoIPDownloader {
       .list_profiles()
       .map_err(|e| format!("Failed to list profiles: {e}"))?;
 
-    let needs_geoip = profiles
-      .iter()
-      .any(|profile| matches!(profile.browser.as_str(), "wayfern" | "fingerprint-chromium"));
+    let needs_geoip = profiles.iter().any(|profile| {
+      profile.browser == "wayfern" || crate::kernel::kinds::is_persona_kernel(&profile.browser)
+    });
 
     if needs_geoip {
       return Ok(!Self::is_geoip_database_available() || Self::is_geoip_stale());
@@ -322,8 +322,8 @@ pub fn check_missing_geoip_database() -> Result<bool, String> {
 
 /// Displayable GeoIP database state for the kernels page.
 ///
-/// Unlike the kernel, the GeoIP database has no fixed hash to pin against — it
-/// is validated by size bounds and a MaxMind reader parse after download — so
+/// Unlike the kernel, the GeoIP database has no fixed hash to pin against 鈥?it
+/// is validated by size bounds and a MaxMind reader parse after download 鈥?so
 /// refreshing it is a plain user-initiated action rather than an audited install.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -475,13 +475,13 @@ mod tests {
     let tmp = tempfile::TempDir::new().unwrap();
     let _guard = crate::app_dirs::set_test_cache_dir(tmp.path().to_path_buf());
 
-    // No timestamp file → stale
+    // No timestamp file 鈫?stale
     assert!(GeoIPDownloader::is_geoip_stale());
 
     let timestamp_path = GeoIPDownloader::get_timestamp_path();
     std::fs::create_dir_all(timestamp_path.parent().unwrap()).unwrap();
 
-    // Recent timestamp → not stale
+    // Recent timestamp 鈫?not stale
     let now = std::time::SystemTime::now()
       .duration_since(std::time::UNIX_EPOCH)
       .unwrap()
@@ -489,7 +489,7 @@ mod tests {
     std::fs::write(&timestamp_path, now.to_string()).unwrap();
     assert!(!GeoIPDownloader::is_geoip_stale());
 
-    // 8 days ago → stale
+    // 8 days ago 鈫?stale
     let eight_days_ago = now - 8 * 24 * 60 * 60;
     std::fs::write(&timestamp_path, eight_days_ago.to_string()).unwrap();
     assert!(GeoIPDownloader::is_geoip_stale());

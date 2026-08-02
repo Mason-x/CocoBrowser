@@ -1,7 +1,7 @@
 /**
  * String references kept so Tauri commands that remain registered for
  * migration / diagnostics are still detected by the unused-command test.
- * Prefer Kernels UI + install_kernel for new fingerprint-chromium installs.
+ * Prefer the Kernels UI and its verified CloakBrowser install commands.
  */
 export const LOCAL_FIRST_COMMAND_REFS = [
   "get_browser_release_types",

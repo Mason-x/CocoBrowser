@@ -1,6 +1,6 @@
 //! Exit-IP / timezone / language consistency for per-profile proxies.
 //!
-//! Before launching fingerprint-chromium:
+//! Before launching a Persona-based fingerprint kernel:
 //! 1. Query public IP through the same local proxy sidecar the browser will use
 //! 2. Resolve country + IANA timezone via local GeoLite (no remote geo API required)
 //! 3. Compare with Persona; block on hard mismatches unless user matches exit

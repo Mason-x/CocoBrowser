@@ -35,7 +35,7 @@ pub struct McpTool {
 /// elements. Returns a JSON string `{elements, count, truncated}` where
 /// `elements` is the newline-joined labeled list. Live references are stashed
 /// on `window.__coco_interactive` so subsequent `click_by_index` /
-/// `type_by_index` calls can resolve `index → Element` without round-tripping
+/// `type_by_index` calls can resolve `index 鈫?Element` without round-tripping
 /// a selector. `__MAX_CHARS__` is substituted at call time.
 const INTERACTIVE_ELEMENTS_JS: &str = r#"(() => {
   const SELECTORS = 'a, button, input, select, textarea, [role="button"], [role="link"], [role="checkbox"], [role="radio"], [role="tab"], [role="menuitem"], [role="combobox"], [role="option"], [contenteditable=""], [contenteditable="true"], [tabindex]:not([tabindex="-1"])';
@@ -154,10 +154,10 @@ impl McpServer {
   /// High-risk tools (headless / evaluate) still check settings flags.
   async fn require_capability(feature: &str, allowed: bool) -> Result<(), McpError> {
     if !allowed {
-      log::warn!("[mcp] Rejected '{feature}' — capability disabled in settings");
+      log::warn!("[mcp] Rejected '{feature}' 鈥?capability disabled in settings");
       return Err(McpError {
         code: -32000,
-        message: format!("{feature} is disabled (check Settings → Automation flags)"),
+        message: format!("{feature} is disabled (check Settings 鈫?Automation flags)"),
       });
     }
     Ok(())
@@ -276,7 +276,7 @@ impl McpServer {
           .delete(Self::handle_mcp_delete),
       )
       .route("/health", get(Self::handle_health))
-      // Inert chokepoint (innermost → runs after auth) for the future per-hour
+      // Inert chokepoint (innermost 鈫?runs after auth) for the future per-hour
       // automation request limit. See rate_limit_middleware.
       .layer(middleware::from_fn(Self::rate_limit_middleware))
       .layer(middleware::from_fn_with_state(
@@ -304,7 +304,7 @@ impl McpServer {
 
   /// Chokepoint for the future per-hour automation request limit, mirroring the
   /// REST API's. The limit (`requests_per_hour`, default 100) is plumbed through
-  /// entitlements; this is intentionally inert today — it resolves the limit but
+  /// entitlements; this is intentionally inert today 鈥?it resolves the limit but
   /// never blocks. To enforce, count authenticated tool calls per rolling hour
   /// and return StatusCode::TOO_MANY_REQUESTS once the limit (when > 0) is hit.
   async fn rate_limit_middleware(req: Request<Body>, next: Next) -> Result<Response, StatusCode> {
@@ -493,7 +493,7 @@ impl McpServer {
     vec![
       McpTool {
         name: "list_profiles".to_string(),
-        description: "List all local fingerprint-chromium profiles".to_string(),
+        description: "List all local fingerprint-capable profiles".to_string(),
         input_schema: serde_json::json!({
           "type": "object",
           "properties": {},
@@ -600,7 +600,7 @@ impl McpServer {
             },
             "browser": {
               "type": "string",
-              "enum": ["fingerprint-chromium"],
+              "enum": ["cloakbrowser-150", "cloakbrowser-146"],
               "description": "Local fingerprint Chromium kernel"
             },
             "proxy_id": {
@@ -1035,7 +1035,7 @@ impl McpServer {
       // Fingerprint management tools
       McpTool {
         name: "get_profile_fingerprint".to_string(),
-        description: "Get the stable Persona for a fingerprint-chromium profile".to_string(),
+        description: "Get the stable Persona for a fingerprint-capable profile".to_string(),
         input_schema: serde_json::json!({
           "type": "object",
           "properties": {
@@ -1050,7 +1050,7 @@ impl McpServer {
       McpTool {
         name: "update_profile_fingerprint".to_string(),
         description:
-          "Update and validate the stable Persona for a stopped fingerprint-chromium profile."
+          "Update and validate the stable Persona for a stopped fingerprint-capable profile."
             .to_string(),
         input_schema: serde_json::json!({
           "type": "object",
@@ -1184,7 +1184,7 @@ impl McpServer {
       // Cookie management tools
       McpTool {
         name: "import_profile_cookies".to_string(),
-        description: "Import cookies into a stopped fingerprint-chromium profile from a JSON array (Puppeteer / EditThisCookie format) or a Netscape cookies.txt. Format is auto-detected.".to_string(),
+        description: "Import cookies into a stopped fingerprint-capable profile from a JSON array (Puppeteer / EditThisCookie format) or a Netscape cookies.txt. Format is auto-detected.".to_string(),
         input_schema: serde_json::json!({
           "type": "object",
           "properties": {
@@ -1299,7 +1299,7 @@ impl McpServer {
       },
       McpTool {
         name: "type_text".to_string(),
-        description: "Focus an element by CSS selector and type text into it. By default uses realistic human-like typing with variable speed, natural errors, and self-corrections. Only set instant=true when you are certain the target does not have bot detection (e.g. browser address bars, developer tools, internal apps) — using instant on public websites risks the profile being flagged as a bot.".to_string(),
+        description: "Focus an element by CSS selector and type text into it. By default uses realistic human-like typing with variable speed, natural errors, and self-corrections. Only set instant=true when you are certain the target does not have bot detection (e.g. browser address bars, developer tools, internal apps) 鈥?using instant on public websites risks the profile being flagged as a bot.".to_string(),
         input_schema: serde_json::json!({
           "type": "object",
           "properties": {
@@ -1321,7 +1321,7 @@ impl McpServer {
             },
             "instant": {
               "type": "boolean",
-              "description": "Paste all text at once instead of human typing. WARNING: only use on targets without bot detection — using this on public websites risks the profile being flagged."
+              "description": "Paste all text at once instead of human typing. WARNING: only use on targets without bot detection 鈥?using this on public websites risks the profile being flagged."
             },
             "wpm": {
               "type": "number",
@@ -1383,7 +1383,7 @@ impl McpServer {
             },
             "max_chars": {
               "type": "integer",
-              "description": "Cap on the serialized output length (default: 40000). The response carries a `truncated` flag if the list was cut off — narrow the viewport or scroll if you need elements past the cutoff."
+              "description": "Cap on the serialized output length (default: 40000). The response carries a `truncated` flag if the list was cut off 鈥?narrow the viewport or scroll if you need elements past the cutoff."
             }
           },
           "required": ["profile_id"]
@@ -1558,8 +1558,7 @@ impl McpServer {
 
     // Surface the call in logs so customer reports show which tools the MCP
     // client is actually invoking (and therefore which gate any subsequent
-    // error came from). Log only the tool name and the profile_id arg —
-    // arbitrary URLs / JS / selectors can be sensitive.
+    // error came from). Log only the tool name and the profile_id arg 鈥?    // arbitrary URLs / JS / selectors can be sensitive.
     let profile_id = arguments
       .get("profile_id")
       .and_then(|v| v.as_str())
@@ -1648,7 +1647,7 @@ impl McpServer {
       "connect_vpn" => self.handle_connect_vpn(arguments).await,
       "disconnect_vpn" => self.handle_disconnect_vpn(arguments).await,
       "get_vpn_status" => self.handle_get_vpn_status(arguments).await,
-      // Fingerprint management — viewing is free everywhere (matches the REST
+      // Fingerprint management 鈥?viewing is free everywhere (matches the REST
       // API and the get_profile tool expose the same Persona.
       "get_profile_fingerprint" => self.handle_get_profile_fingerprint(arguments).await,
       "update_profile_fingerprint" => {
@@ -1747,7 +1746,7 @@ impl McpServer {
 
     let filtered: Vec<&BrowserProfile> = profiles
       .iter()
-      .filter(|profile| profile.browser == "fingerprint-chromium")
+      .filter(|profile| crate::kernel::kinds::is_persona_kernel(&profile.browser))
       .collect();
 
     Ok(serde_json::json!({
@@ -1785,10 +1784,10 @@ impl McpServer {
         message: format!("Profile not found: {profile_id}"),
       })?;
 
-    if profile.browser != "fingerprint-chromium" {
+    if !crate::kernel::kinds::is_persona_kernel(&profile.browser) {
       return Err(McpError {
         code: -32000,
-        message: "MCP supports fingerprint-chromium profiles only".to_string(),
+        message: "MCP supports CloakBrowser profiles only".to_string(),
       });
     }
 
@@ -1844,10 +1843,10 @@ impl McpServer {
         message: format!("Profile not found: {profile_id}"),
       })?;
 
-    if profile.browser != "fingerprint-chromium" {
+    if !crate::kernel::kinds::is_persona_kernel(&profile.browser) {
       return Err(McpError {
         code: -32000,
-        message: "MCP supports fingerprint-chromium profiles only".to_string(),
+        message: "MCP supports CloakBrowser profiles only".to_string(),
       });
     }
 
@@ -1858,7 +1857,7 @@ impl McpServer {
       message: "MCP server not properly initialized".to_string(),
     })?;
 
-    // Reserve a loopback CDP port so fingerprint-chromium is launched in an
+    // Reserve a loopback CDP port so the fingerprint kernel is launched in an
     // automation mode and subsequent MCP tools can attach to the same session.
     let cdp_port = Self::find_free_loopback_port()?;
     crate::browser_runner::launch_browser_profile_impl(
@@ -1914,10 +1913,10 @@ impl McpServer {
         message: format!("Profile not found: {profile_id}"),
       })?;
 
-    if profile.browser != "fingerprint-chromium" {
+    if !crate::kernel::kinds::is_persona_kernel(&profile.browser) {
       return Err(McpError {
         code: -32000,
-        message: "MCP supports fingerprint-chromium profiles only".to_string(),
+        message: "MCP supports CloakBrowser profiles only".to_string(),
       });
     }
 
@@ -2005,9 +2004,9 @@ impl McpServer {
         lines.push(format!("{profile_id}: not found"));
         continue;
       };
-      if profile.browser != "fingerprint-chromium" {
+      if !crate::kernel::kinds::is_persona_kernel(&profile.browser) {
         lines.push(format!(
-          "{profile_id}: unsupported browser (MCP supports fingerprint-chromium only)"
+          "{profile_id}: unsupported browser (MCP supports CloakBrowser only)"
         ));
         continue;
       }
@@ -2128,10 +2127,10 @@ impl McpServer {
         message: "Missing browser".to_string(),
       })?;
 
-    if browser != "fingerprint-chromium" {
+    if !crate::kernel::kinds::is_creatable_kernel(browser) {
       return Err(McpError {
         code: -32602,
-        message: "browser must be 'fingerprint-chromium'".to_string(),
+        message: "browser must be 'cloakbrowser-150' or 'cloakbrowser-146'".to_string(),
       });
     }
 
@@ -2158,7 +2157,7 @@ impl McpServer {
 
     let registry = crate::kernel::install_registry::InstallRegistryFile::load();
     let mut versions: Vec<String> = registry
-      .list_for_id("fingerprint-chromium")
+      .list_for_id(browser)
       .into_iter()
       .filter(|entry| std::path::Path::new(&entry.executable).is_file())
       .map(|entry| entry.version.clone())
@@ -2427,10 +2426,10 @@ impl McpServer {
         message: format!("Profile not found: {profile_id}"),
       })?;
 
-    if profile.browser != "fingerprint-chromium" {
+    if !crate::kernel::kinds::is_persona_kernel(&profile.browser) {
       return Err(McpError {
         code: -32000,
-        message: "MCP supports fingerprint-chromium profiles only".to_string(),
+        message: "MCP supports CloakBrowser profiles only".to_string(),
       });
     }
 
@@ -3342,10 +3341,10 @@ impl McpServer {
         message: format!("Profile not found: {profile_id}"),
       })?;
 
-    if profile.browser != "fingerprint-chromium" {
+    if !crate::kernel::kinds::is_persona_kernel(&profile.browser) {
       return Err(McpError {
         code: -32000,
-        message: "MCP supports fingerprint-chromium profiles only".to_string(),
+        message: "MCP supports CloakBrowser profiles only".to_string(),
       });
     }
     let persona =
@@ -3356,7 +3355,7 @@ impl McpServer {
         },
       )?;
     let fingerprint_info = serde_json::json!({
-      "browser": "fingerprint-chromium",
+      "browser": profile.browser,
       "persona": persona,
     });
 
@@ -3676,12 +3675,12 @@ impl McpServer {
   }
 
   async fn get_cdp_port_for_profile(&self, profile: &BrowserProfile) -> Result<u16, McpError> {
-    // Retry a few times — port info may not be stored yet right after launch
+    // Retry a few times 鈥?port info may not be stored yet right after launch
     for attempt in 0..10 {
       if attempt > 0 {
         tokio::time::sleep(std::time::Duration::from_secs(1)).await;
       }
-      let port = if profile.browser == "fingerprint-chromium" {
+      let port = if crate::kernel::kinds::is_persona_kernel(&profile.browser) {
         crate::kernel::session::SessionManager::instance()
           .get(profile.id)
           .and_then(|session| session.process)
@@ -4010,7 +4009,7 @@ impl McpServer {
     loop {
       let remaining = deadline.saturating_duration_since(tokio::time::Instant::now());
       if remaining.is_zero() {
-        // Timed out waiting for load — return the command result if we have it
+        // Timed out waiting for load 鈥?return the command result if we have it
         break;
       }
 
@@ -4045,7 +4044,7 @@ impl McpServer {
           );
         }
 
-        // Check for Page.loadEventFired — page is fully loaded
+        // Check for Page.loadEventFired 鈥?page is fully loaded
         if response.get("method") == Some(&serde_json::json!("Page.loadEventFired")) {
           break;
         }
@@ -4084,10 +4083,10 @@ impl McpServer {
         message: format!("Profile not found: {profile_id}"),
       })?;
 
-    if profile.browser != "fingerprint-chromium" {
+    if !crate::kernel::kinds::is_persona_kernel(&profile.browser) {
       return Err(McpError {
         code: -32000,
-        message: "MCP supports fingerprint-chromium profiles only".to_string(),
+        message: "MCP supports CloakBrowser profiles only".to_string(),
       });
     }
 
@@ -4559,7 +4558,7 @@ impl McpServer {
 
     let payload = if truncated {
       format!(
-        "{text}\n\n[truncated: showing {max_chars} of {total_chars} chars — call with a larger max_chars or use get_interactive_elements for an indexed view]"
+        "{text}\n\n[truncated: showing {max_chars} of {total_chars} chars 鈥?call with a larger max_chars or use get_interactive_elements for an indexed view]"
       )
     } else {
       text
@@ -4640,7 +4639,7 @@ impl McpServer {
     // Walk the DOM for visible, non-disabled interactive elements, label them
     // with a zero-based index, and cache the live references on
     // `window.__coco_interactive` so click_by_index / type_by_index can
-    // resolve the index → Element without round-tripping a selector.
+    // resolve the index 鈫?Element without round-tripping a selector.
     let js = INTERACTIVE_ELEMENTS_JS.replace("__MAX_CHARS__", &max_chars.to_string());
 
     let result = self
@@ -4686,7 +4685,7 @@ impl McpServer {
       .unwrap_or(false);
 
     let header = if truncated {
-      format!("{count} interactive elements (truncated at {max_chars} chars — re-call with a larger max_chars or scroll the page):")
+      format!("{count} interactive elements (truncated at {max_chars} chars 鈥?re-call with a larger max_chars or scroll the page):")
     } else {
       format!("{count} interactive elements:")
     };

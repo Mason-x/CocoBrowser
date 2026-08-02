@@ -33,7 +33,10 @@ cocobrowser/
 │   │   ├── mcp_server.rs            # MCP protocol server
 │   │   ├── sync/                    # Cloud sync (engine, encryption, manifest, scheduler)
 │   │   ├── vpn/                     # WireGuard tunnels
-│   │   ├── wayfern_manager.rs       # Wayfern (Chromium) browser management
+│   │   ├── kernel/                  # Kernel drivers, verified installers, Persona/audit
+│   │   │   ├── cloakbrowser.rs      # CloakBrowser 146/150 launch + session limits
+│   │   │   ├── cloak_license.rs     # Encrypted key storage and official release lookup
+│   │   │   └── kinds.rs             # Kernel IDs and capability predicates
 │   │   ├── downloader.rs           # Browser binary downloader
 │   │   ├── extraction.rs           # Archive extraction (zip, tar, dmg, msi)
 │   │   ├── settings_manager.rs     # App settings persistence

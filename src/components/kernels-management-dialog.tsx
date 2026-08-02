@@ -4,13 +4,9 @@ import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { translateBackendError } from "@/lib/backend-errors";
 import { matchProfilePersonaToExit } from "@/lib/geo-persona";
 import { showErrorToast, showSuccessToast } from "@/lib/toast-utils";
-
-// Keep Tauri command wired for the unused-command regression test; full UI
-// for match-to-exit lives on the profile identity form (Phase 6).
-void matchProfilePersonaToExit;
-
 import { Button } from "./ui/button";
 import {
   Dialog,
@@ -19,20 +15,20 @@ import {
   DialogHeader,
   DialogTitle,
 } from "./ui/dialog";
+import { Input } from "./ui/input";
+
+void matchProfilePersonaToExit;
 
 interface KernelAsset {
   id: string;
   version: string;
   platform: string;
-  url: string;
   sha256: string;
   size: number;
-  executableCandidates: string[];
   sourceStatus: string;
 }
 
 interface KernelManifest {
-  schemaVersion: number;
   kernels: KernelAsset[];
 }
 
@@ -40,24 +36,23 @@ interface InstalledKernel {
   id: string;
   version: string;
   platform: string;
-  installPath: string;
   executable: string;
-  sha256: string;
-  sourceStatus: string;
-  installedAt: number;
 }
 
-interface KernelUpdateStatus {
-  kernelId: string;
+interface CloakLicenseStatus {
+  configured: boolean;
+  valid: boolean | null;
+  plan: string | null;
+  expires: string | null;
+  activeSessions: number | null;
+  sessionLimit: number | null;
+}
+
+interface CloakLatestRelease {
+  id: string;
+  version: string;
   platform: string;
-  installedVersions: string[];
-  latestAudited: string | null;
-  auditedNotInstalled: string | null;
-  latestUpstream: string | null;
-  upstreamAheadOfAudited: boolean;
-  upstreamUrl: string;
-  checkedAt: number;
-  error: string | null;
+  sourceStatus: string;
 }
 
 interface GeoIpStatus {
@@ -89,27 +84,38 @@ export function KernelsManagementDialog({
   const { t } = useTranslation();
   const [manifest, setManifest] = useState<KernelManifest | null>(null);
   const [installed, setInstalled] = useState<InstalledKernel[]>([]);
-  const [updateStatus, setUpdateStatus] = useState<KernelUpdateStatus | null>(
-    null,
-  );
+  const [latest, setLatest] = useState<CloakLatestRelease | null>(null);
+  const [license, setLicense] = useState<CloakLicenseStatus | null>(null);
+  const [licenseKey, setLicenseKey] = useState("");
   const [geoip, setGeoip] = useState<GeoIpStatus | null>(null);
   const [loading, setLoading] = useState(false);
-  const [checking, setChecking] = useState(false);
+  const [installing, setInstalling] = useState<string | null>(null);
+  const [savingLicense, setSavingLicense] = useState(false);
   const [updatingGeoip, setUpdatingGeoip] = useState(false);
-  const [installingKey, setInstallingKey] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
-      const [m, list] = await Promise.all([
-        invoke<KernelManifest>("list_kernel_manifest"),
-        invoke<InstalledKernel[]>("list_installed_kernels"),
-      ]);
-      setManifest(m);
-      setInstalled(list);
-    } catch (err) {
+      const [kernelManifest, installedKernels, licenseStatus] =
+        await Promise.all([
+          invoke<KernelManifest>("list_kernel_manifest"),
+          invoke<InstalledKernel[]>("list_installed_kernels"),
+          invoke<CloakLicenseStatus>("get_cloak_license_status", {
+            refresh: false,
+          }),
+        ]);
+      setManifest(kernelManifest);
+      setInstalled(installedKernels);
+      setLicense(licenseStatus);
+      try {
+        setLatest(await invoke<CloakLatestRelease>("get_cloak_latest_release"));
+      } catch (error) {
+        console.error("Failed to resolve CloakBrowser latest release:", error);
+        setLatest(null);
+      }
+    } catch (error) {
       showErrorToast(t("kernels.loadFailed"), {
-        description: String(err),
+        description: translateBackendError(t, error),
       });
     } finally {
       setLoading(false);
@@ -119,26 +125,8 @@ export function KernelsManagementDialog({
   const refreshGeoip = useCallback(async () => {
     try {
       setGeoip(await invoke<GeoIpStatus>("get_geoip_status"));
-    } catch (err) {
-      console.error("Failed to load GeoIP status:", err);
-    }
-  }, []);
-
-  // `force` skips the six-hour upstream cache; the cached path keeps opening
-  // this page cheap and stays within GitHub's unauthenticated rate limit.
-  const checkUpdates = useCallback(async (force: boolean) => {
-    setChecking(true);
-    try {
-      setUpdateStatus(
-        await invoke<KernelUpdateStatus>("check_kernel_updates_command", {
-          kernelId: "fingerprint-chromium",
-          force,
-        }),
-      );
-    } catch (err) {
-      console.error("Failed to check kernel updates:", err);
-    } finally {
-      setChecking(false);
+    } catch (error) {
+      console.error("Failed to load GeoIP status:", error);
     }
   }, []);
 
@@ -146,16 +134,14 @@ export function KernelsManagementDialog({
     if (isOpen) {
       void refresh();
       void refreshGeoip();
-      void checkUpdates(false);
     }
-  }, [isOpen, refresh, refreshGeoip, checkUpdates]);
+  }, [isOpen, refresh, refreshGeoip]);
 
   const isInstalled = (id: string, version: string) =>
-    installed.some((k) => k.id === id && k.version === version);
+    installed.some((kernel) => kernel.id === id && kernel.version === version);
 
-  const handleInstall = async (asset: KernelAsset) => {
-    const key = `${asset.id}@${asset.version}`;
-    setInstallingKey(key);
+  const installLegacy = async (asset: KernelAsset) => {
+    setInstalling(asset.id);
     try {
       await invoke<InstalledKernel>("install_kernel", {
         id: asset.id,
@@ -163,35 +149,107 @@ export function KernelsManagementDialog({
       });
       showSuccessToast(t("kernels.installSuccess", { version: asset.version }));
       await refresh();
-      await checkUpdates(false);
-    } catch (err) {
+    } catch (error) {
       showErrorToast(t("kernels.installFailed"), {
-        description: String(err),
+        description: translateBackendError(t, error),
       });
     } finally {
-      setInstallingKey(null);
+      setInstalling(null);
     }
   };
 
-  const handleGeoipUpdate = async () => {
+  const installLatest = async () => {
+    setInstalling("cloakbrowser-150");
+    try {
+      const kernel = await invoke<InstalledKernel>("install_cloak_latest");
+      showSuccessToast(
+        t("kernels.installSuccess", { version: kernel.version }),
+      );
+      await refresh();
+    } catch (error) {
+      showErrorToast(t("kernels.installFailed"), {
+        description: translateBackendError(t, error),
+      });
+    } finally {
+      setInstalling(null);
+    }
+  };
+
+  const saveLicense = async () => {
+    setSavingLicense(true);
+    try {
+      setLicense(
+        await invoke<CloakLicenseStatus>("set_cloak_license_key", {
+          key: licenseKey,
+        }),
+      );
+      setLicenseKey("");
+      showSuccessToast(t("kernels.cloak.licenseSaved"));
+    } catch (error) {
+      showErrorToast(t("kernels.cloak.licenseSaveFailed"), {
+        description: translateBackendError(t, error),
+      });
+    } finally {
+      setSavingLicense(false);
+    }
+  };
+
+  const clearLicense = async () => {
+    setSavingLicense(true);
+    try {
+      await invoke("clear_cloak_license_key");
+      setLicense(null);
+      setLicenseKey("");
+      await refresh();
+      showSuccessToast(t("kernels.cloak.licenseCleared"));
+    } catch (error) {
+      showErrorToast(t("kernels.cloak.licenseClearFailed"), {
+        description: translateBackendError(t, error),
+      });
+    } finally {
+      setSavingLicense(false);
+    }
+  };
+
+  const validateLicense = async () => {
+    setSavingLicense(true);
+    try {
+      setLicense(
+        await invoke<CloakLicenseStatus>("get_cloak_license_status", {
+          refresh: true,
+        }),
+      );
+    } catch (error) {
+      showErrorToast(t("kernels.cloak.licenseCheckFailed"), {
+        description: translateBackendError(t, error),
+      });
+    } finally {
+      setSavingLicense(false);
+    }
+  };
+
+  const updateGeoip = async () => {
     setUpdatingGeoip(true);
     try {
       await invoke("download_geoip_database");
       showSuccessToast(t("kernels.geoip.updateSuccess"));
       await refreshGeoip();
-    } catch (err) {
+    } catch (error) {
       showErrorToast(t("kernels.geoip.updateFailed"), {
-        description: String(err),
+        description: String(error),
       });
     } finally {
       setUpdatingGeoip(false);
     }
   };
 
+  const legacy = manifest?.kernels.find(
+    (asset) => asset.id === "cloakbrowser-146",
+  );
+  const latestInstalled = latest
+    ? isInstalled(latest.id, latest.version)
+    : false;
   const geoipBusy = updatingGeoip || geoip?.downloading === true;
-  // Only call the refresh "update" when something is actually pending. A fresh
-  // database can still be re-downloaded on demand, so the button stays enabled
-  // — it just stops implying that action is required.
   const geoipNeedsUpdate = geoip ? !geoip.available || geoip.stale : false;
 
   return (
@@ -206,202 +264,242 @@ export function KernelsManagementDialog({
           <DialogDescription>{t("kernels.description")}</DialogDescription>
         </DialogHeader>
 
-        <div className="mt-4 space-y-4">
-          <p className="text-sm text-muted-foreground">
-            {t("kernels.securityNote")}
-          </p>
-
-          {/* Kernel update status and GeoIP sit side by side: they are separate
-              concerns with different trust models, so they never share a column. */}
-          <div className="grid gap-4 sm:grid-cols-2 items-start">
-            {/* Kernel updates */}
-            <div className="flex h-full flex-col rounded-md border border-border p-3 space-y-2">
-              <div className="flex items-center justify-between gap-3">
+        <div className="mt-4 space-y-4 overflow-y-auto">
+          <div className="rounded-md border border-border p-3 space-y-3">
+            <div className="flex items-start justify-between gap-3">
+              <div>
                 <h3 className="text-sm font-medium">
-                  {t("kernels.updates.title")}
+                  {t("kernels.cloak.licenseTitle")}
                 </h3>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={checking}
-                  onClick={() => void checkUpdates(true)}
-                >
-                  {checking
-                    ? t("kernels.updates.checking")
-                    : t("kernels.updates.checkNow")}
-                </Button>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {t("kernels.cloak.licenseDescription")}
+                </p>
               </div>
-
-              {updateStatus && (
-                <div className="space-y-1.5 text-xs">
-                  {updateStatus.auditedNotInstalled ? (
-                    <p className="text-success">
-                      {t("kernels.updates.auditedAvailable", {
-                        version: updateStatus.auditedNotInstalled,
-                      })}
-                    </p>
-                  ) : (
-                    !updateStatus.upstreamAheadOfAudited && (
-                      <p className="text-muted-foreground">
-                        {t("kernels.updates.upToDate")}
-                      </p>
-                    )
-                  )}
-
-                  {updateStatus.upstreamAheadOfAudited &&
-                    updateStatus.latestUpstream && (
-                      <div className="space-y-1">
-                        <p className="text-warning">
-                          {t("kernels.updates.upstreamAhead", {
-                            version: updateStatus.latestUpstream,
-                          })}
-                        </p>
-                        <p className="text-muted-foreground">
-                          {t("kernels.updates.upstreamAheadHint")}
-                        </p>
-                        <button
-                          type="button"
-                          className="text-muted-foreground underline hover:text-foreground"
-                          onClick={() => void openUrl(updateStatus.upstreamUrl)}
-                        >
-                          {t("kernels.updates.viewUpstream")}
-                        </button>
-                      </div>
-                    )}
-
-                  {updateStatus.error ? (
-                    <p className="text-muted-foreground">
-                      {t("kernels.updates.checkFailed")}
-                    </p>
-                  ) : (
-                    <p className="text-muted-foreground">
-                      {t("kernels.updates.lastChecked", {
-                        time: formatTime(updateStatus.checkedAt),
-                      })}
-                    </p>
-                  )}
-                </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => void openUrl("https://cloakbrowser.dev/free")}
+              >
+                {t("kernels.cloak.getFreeKey")}
+              </Button>
+            </div>
+            <div className="flex gap-2">
+              <Input
+                type="password"
+                value={licenseKey}
+                onChange={(event) => setLicenseKey(event.target.value)}
+                placeholder={t("kernels.cloak.licensePlaceholder")}
+                autoComplete="off"
+              />
+              <Button
+                disabled={savingLicense || !licenseKey.trim()}
+                onClick={() => void saveLicense()}
+              >
+                {t("common.buttons.save")}
+              </Button>
+            </div>
+            <div className="flex flex-wrap items-center gap-2 text-xs">
+              <span
+                className={
+                  license?.configured ? "text-success" : "text-muted-foreground"
+                }
+              >
+                {license?.configured
+                  ? t("kernels.cloak.licenseConfigured")
+                  : t("kernels.cloak.licenseMissing")}
+              </span>
+              {license?.valid !== null && license?.valid !== undefined && (
+                <span
+                  className={
+                    license.valid ? "text-success" : "text-destructive"
+                  }
+                >
+                  {license.valid
+                    ? t("kernels.cloak.licenseValid", {
+                        plan: license.plan ?? "",
+                      })
+                    : t("kernels.cloak.licenseInvalid")}
+                </span>
+              )}
+              {license?.activeSessions !== null &&
+                license?.activeSessions !== undefined && (
+                  <span className="text-muted-foreground">
+                    {t("kernels.cloak.sessions", {
+                      active: license.activeSessions,
+                      limit: license.sessionLimit ?? t("kernels.cloak.unknown"),
+                    })}
+                  </span>
+                )}
+              {license?.configured && (
+                <>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={savingLicense}
+                    onClick={() => void validateLicense()}
+                  >
+                    {t("kernels.cloak.validate")}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={savingLicense}
+                    onClick={() => void clearLicense()}
+                  >
+                    {t("common.buttons.clear")}
+                  </Button>
+                </>
               )}
             </div>
+            <p className="text-xs text-warning">
+              {t("kernels.cloak.privacyNotice")}
+            </p>
+          </div>
 
-            {/* GeoIP */}
-            <div className="flex h-full flex-col rounded-md border border-border p-3 space-y-2">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <h3 className="text-sm font-medium">
-                    {t("kernels.geoip.title")}
-                  </h3>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {t("kernels.geoip.description")}
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="rounded-md border border-border p-3 space-y-2">
+              <div>
+                <p className="text-sm font-medium">
+                  {t("kernels.cloak.latestTitle")}
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {latest
+                    ? t("kernels.cloak.versionPlatform", {
+                        version: latest.version,
+                        platform: latest.platform,
+                      })
+                    : t("kernels.cloak.latestUnavailable")}
+                </p>
+                <p className="mt-1 text-xs text-warning">
+                  {t("kernels.cloak.oneSession")}
+                </p>
+                {!license?.configured && (
+                  <p className="mt-1 text-xs text-warning">
+                    {t("kernels.cloak.keyRequiredBeforeInstall")}
+                  </p>
+                )}
+              </div>
+              <Button
+                size="sm"
+                disabled={
+                  !latest ||
+                  !license?.configured ||
+                  latestInstalled ||
+                  installing === "cloakbrowser-150"
+                }
+                onClick={() => void installLatest()}
+              >
+                {latestInstalled
+                  ? t("kernels.installed")
+                  : installing === "cloakbrowser-150"
+                    ? t("kernels.installing")
+                    : t("kernels.install")}
+              </Button>
+            </div>
+
+            {legacy && (
+              <div className="rounded-md border border-border p-3 space-y-2">
+                <div>
+                  <p className="text-sm font-medium">
+                    {t("kernels.cloak.legacyTitle")}
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {t("kernels.cloak.versionPlatform", {
+                      version: legacy.version,
+                      platform: legacy.platform,
+                    })}
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {t("kernels.sizeMegabytes", {
+                      size: (legacy.size / (1024 * 1024)).toFixed(1),
+                    })}
+                  </p>
+                  <p className="mt-1 break-all text-xs text-muted-foreground">
+                    {t("kernels.sha256", { value: legacy.sha256 })}
                   </p>
                 </div>
                 <Button
                   size="sm"
-                  variant={geoipNeedsUpdate ? "default" : "outline"}
-                  disabled={geoipBusy}
-                  onClick={() => void handleGeoipUpdate()}
+                  disabled={
+                    isInstalled(legacy.id, legacy.version) ||
+                    installing === legacy.id
+                  }
+                  onClick={() => void installLegacy(legacy)}
                 >
-                  {geoipBusy
-                    ? t("kernels.geoip.updating")
-                    : geoipNeedsUpdate
-                      ? t("kernels.geoip.updateNow")
-                      : t("kernels.geoip.redownload")}
+                  {isInstalled(legacy.id, legacy.version)
+                    ? t("kernels.installed")
+                    : installing === legacy.id
+                      ? t("kernels.installing")
+                      : t("kernels.install")}
                 </Button>
               </div>
-
-              {geoip && (
-                <div className="text-xs space-y-1">
-                  {!geoip.available ? (
-                    <p className="text-warning">{t("kernels.geoip.missing")}</p>
-                  ) : geoip.stale ? (
-                    <p className="text-warning">{t("kernels.geoip.stale")}</p>
-                  ) : (
-                    <p className="text-success">{t("kernels.geoip.current")}</p>
-                  )}
-                  {geoip.lastDownload !== null && (
-                    <p className="text-muted-foreground">
-                      {t("kernels.geoip.updatedAt", {
-                        time: formatTime(geoip.lastDownload),
-                      })}
-                      {geoip.sizeBytes
-                        ? ` · ${(geoip.sizeBytes / (1024 * 1024)).toFixed(1)} MB`
-                        : ""}
-                    </p>
-                  )}
-                  {!geoipNeedsUpdate && (
-                    <p className="text-muted-foreground">
-                      {t("kernels.geoip.freshnessNote")}
-                    </p>
-                  )}
-                </div>
-              )}
-            </div>
+            )}
           </div>
 
-          {loading && !manifest ? (
+          <div className="rounded-md border border-border p-3 space-y-2">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-medium">
+                  {t("kernels.geoip.title")}
+                </h3>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {t("kernels.geoip.description")}
+                </p>
+              </div>
+              <Button
+                size="sm"
+                variant={geoipNeedsUpdate ? "default" : "outline"}
+                disabled={geoipBusy}
+                onClick={() => void updateGeoip()}
+              >
+                {geoipBusy
+                  ? t("kernels.geoip.updating")
+                  : geoipNeedsUpdate
+                    ? t("kernels.geoip.updateNow")
+                    : t("kernels.geoip.redownload")}
+              </Button>
+            </div>
+            {geoip && (
+              <p className="text-xs text-muted-foreground">
+                {!geoip.available
+                  ? t("kernels.geoip.missing")
+                  : geoip.stale
+                    ? t("kernels.geoip.stale")
+                    : t("kernels.geoip.current")}
+                {geoip.lastDownload !== null
+                  ? ` · ${t("kernels.geoip.updatedAt", {
+                      time: formatTime(geoip.lastDownload),
+                    })}`
+                  : ""}
+              </p>
+            )}
+          </div>
+
+          {loading && installed.length === 0 ? (
             <p className="text-sm text-muted-foreground">
               {t("common.buttons.loading")}
             </p>
           ) : (
-            <ul className="space-y-3">
-              {(manifest?.kernels ?? []).map((asset) => {
-                const key = `${asset.id}@${asset.version}`;
-                const installedAlready = isInstalled(asset.id, asset.version);
-                const busy = installingKey === key;
-                return (
-                  <li
-                    key={key}
-                    className="rounded-md border border-border p-3 flex flex-col gap-2"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="font-medium text-sm">
-                          {asset.id} · {asset.version}
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {asset.platform} ·{" "}
-                          {(asset.size / (1024 * 1024)).toFixed(1)} MB
-                        </p>
-                        <p className="text-xs text-muted-foreground break-all mt-1">
-                          SHA-256: {asset.sha256}
-                        </p>
-                        {asset.sourceStatus === "binary-source-delayed" && (
-                          <p className="text-xs text-warning mt-1">
-                            {t("kernels.sourceDelayed")}
-                          </p>
-                        )}
-                      </div>
-                      <Button
-                        size="sm"
-                        disabled={busy || installedAlready}
-                        onClick={() => void handleInstall(asset)}
-                      >
-                        {installedAlready
-                          ? t("kernels.installed")
-                          : busy
-                            ? t("kernels.installing")
-                            : t("kernels.install")}
-                      </Button>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-
-          {installed.length > 0 && (
-            <div>
-              <h3 className="text-sm font-medium mb-2">
-                {t("kernels.installedList")}
-              </h3>
-              <ul className="space-y-1 text-xs text-muted-foreground">
-                {installed.map((k) => (
-                  <li key={`${k.id}-${k.version}`} className="break-all">
-                    {k.id} {k.version} → {k.executable}
-                  </li>
-                ))}
-              </ul>
-            </div>
+            installed.length > 0 && (
+              <div>
+                <h3 className="mb-2 text-sm font-medium">
+                  {t("kernels.installedList")}
+                </h3>
+                <ul className="space-y-1 text-xs text-muted-foreground">
+                  {installed.map((kernel) => (
+                    <li
+                      key={`${kernel.id}-${kernel.version}`}
+                      className="break-all"
+                    >
+                      {kernel.id} {kernel.version} — {kernel.executable}
+                      {kernel.id === "fingerprint-chromium" && (
+                        <> · {t("kernels.cloak.legacyInstalledOnly")}</>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )
           )}
         </div>
       </DialogContent>

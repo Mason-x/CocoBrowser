@@ -30,7 +30,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { getBrowserIcon } from "@/lib/browser-utils";
+import { getBrowserIcon, isFingerprintKernel } from "@/lib/browser-utils";
 import type {
   BrowserProfile,
   CookieCopyRequest,
@@ -84,9 +84,7 @@ export function CookieCopyDialog({
   // dead-end state (source picked = target list empty = copy button disabled).
   const eligibleSourceProfiles = useMemo(() => {
     return profiles.filter(
-      (p) =>
-        !selectedProfiles.includes(p.id) &&
-        p.browser === "fingerprint-chromium",
+      (p) => !selectedProfiles.includes(p.id) && isFingerprintKernel(p.browser),
     );
   }, [profiles, selectedProfiles]);
 
@@ -95,7 +93,7 @@ export function CookieCopyDialog({
       (p) =>
         selectedProfiles.includes(p.id) &&
         p.id !== sourceProfileId &&
-        p.browser === "fingerprint-chromium",
+        isFingerprintKernel(p.browser),
     );
   }, [profiles, selectedProfiles, sourceProfileId]);
 

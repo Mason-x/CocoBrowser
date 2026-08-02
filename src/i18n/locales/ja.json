@@ -415,7 +415,16 @@
     },
     "downloadingSubtitle": "ダウンロード中…",
     "browsersDownloading": "ブラウザをダウンロード中です。ダウンロードが完了するとプロファイルを作成できます。",
-    "personaAutoHint": "安定した Windows + Chrome の識別情報を CSPRNG シードから自動生成します。作成後は「識別情報」でタイムゾーンと言語をプロキシ出口に合わせるか、シードを再生成できます。"
+    "personaAutoHint": "安定した Windows + Chrome の識別情報を CSPRNG シードから自動生成します。作成後は「識別情報」でタイムゾーンと言語をプロキシ出口に合わせるか、シードを再生成できます。",
+    "kernelNames": {
+      "cloakbrowser-150": "CloakBrowser 150 Latest",
+      "cloakbrowser-146": "CloakBrowser 146 Legacy",
+      "fingerprint-chromium": "Fingerprint Chromium",
+      "wayfern": "Wayfern"
+    },
+    "cloakLatestSubtitle": "Best Turnstile compatibility · free key · one active session",
+    "cloakLegacySubtitle": "Keyless fallback · public fixed release",
+    "cloakKeyRequired": "No CloakBrowser key is configured. Configure a valid key on the Kernel page before installing or creating a v150 profile."
   },
   "deleteDialog": {
     "title": "プロファイルを削除",
@@ -815,7 +824,7 @@
       "sourcePlaceholder": "Cookie をコピーするプロファイルを選択",
       "running": "(実行中)",
       "targetProfiles": "対象プロファイル ({{count}})",
-      "noOtherTargets": "他の Fingerprint Chromium プロファイルが選択されていません",
+      "noOtherTargets": "No other compatible fingerprint profiles selected",
       "selectSourceFirst": "最初にソースプロファイルを選択してください",
       "selectionStatus": "({{selected}} / {{total}} 選択中)",
       "searchPlaceholder": "ドメインまたは Cookie を検索...",
@@ -1835,10 +1844,20 @@
     "importSourceUnsupported": "{{browser}} は非対応です。Chrome、Edge、Chromium のみインポートできます。",
     "importSourceInvalid": "有効な Chrome、Edge、Chromium プロファイルではありません。",
     "importFailed": "インポート失敗：{{detail}}",
-    "kernelNotInstalled": "先に監査済み Fingerprint Chromium 148 をインストールしてください。",
+    "kernelNotInstalled": "Install {{kernel}} {{version}} before continuing.",
     "extensionPackageInvalid": "拡張機能パッケージを拒否しました：{{detail}}",
     "kernelVersionNotAvailable": "カーネル {{requested}} はダウンロードできません。現在のバージョンは {{current}} です。",
-    "profileLockedByDevice": "このプロファイルは {{device}} で開いています。先にその端末で閉じてください。"
+    "profileLockedByDevice": "このプロファイルは {{device}} で開いています。先にその端末で閉じてください。",
+    "browserNotCreatable": "New profiles must use CloakBrowser 150 Latest or CloakBrowser 146 Legacy.",
+    "cloakLicenseKeyRequired": "Configure one CloakBrowser key before installing or launching the latest v150 mode.",
+    "cloakLicenseInvalid": "The CloakBrowser key is invalid or expired.",
+    "cloakLicenseServerUnavailable": "CloakBrowser license validation is unavailable: {{detail}}",
+    "cloakLicenseStorageFailed": "Could not access the protected CloakBrowser key: {{detail}}",
+    "cloakPlatformUnsupported": "CloakBrowser is currently available only on Windows x64 in this app.",
+    "cloakReleaseLookupFailed": "Could not resolve the official CloakBrowser v150 release: {{detail}}",
+    "cloakDownloadFailed": "CloakBrowser download failed: {{detail}}",
+    "cloakBinaryVerificationFailed": "The CloakBrowser binary failed signature or checksum verification and was not installed.",
+    "cloakSessionLimitReached": "The v150 session limit is in use. Close the other running v150 environment and try again."
   },
   "rail": {
     "profiles": "プロファイル",
@@ -1973,7 +1992,7 @@
     "steps": {
       "createProfile": {
         "title": "最初のプロファイルを作成",
-        "content": "ここをクリックして最初のプロファイルを作成します。Fingerprint Chromium を選択してください。監査済みのローカルカーネルが未インストールの場合、プロファイル画面から明示的にインストールできます。"
+        "content": "Create your first profile with CloakBrowser 150 Latest or 146 Legacy. If the selected kernel is not installed, the profile dialog will ask before downloading it."
       },
       "dnsBlocking": {
         "title": "DNS ブロック",
@@ -2006,7 +2025,7 @@
     },
     "ready": {
       "title": "準備しています",
-      "descDownloading": "明示的な操作により、監査済み Fingerprint Chromium カーネルをインストールしています。この初回セットアップはバックグラウンドで実行されます。",
+      "descDownloading": "Installing the selected CloakBrowser kernel after your explicit request. This one-time setup runs in the background.",
       "descReady": "ブラウザの準備ができました。最初のプロファイルを作成しましょう。",
       "cta": "最初のプロファイルを作成",
       "downloading": "ダウンロード中…",
@@ -2083,6 +2102,34 @@
       "updateFailed": "GeoIP データベースの更新に失敗しました",
       "redownload": "再ダウンロード",
       "freshnessNote": "鮮度は上流のバージョン確認ではなく、ローカルのダウンロード日で判定しています。"
+    },
+    "sizeMegabytes": "{{size}} MB",
+    "sha256": "SHA-256: {{value}}",
+    "cloak": {
+      "licenseTitle": "CloakBrowser latest key",
+      "licenseDescription": "Required only for the latest v150 mode. The key is protected by the operating system and is never stored in a profile.",
+      "getFreeKey": "Get free key",
+      "licensePlaceholder": "Paste one CloakBrowser key",
+      "licenseSaved": "CloakBrowser key saved",
+      "licenseSaveFailed": "Could not save the CloakBrowser key",
+      "licenseCleared": "CloakBrowser key cleared",
+      "licenseClearFailed": "Could not clear the CloakBrowser key",
+      "licenseCheckFailed": "Could not validate the CloakBrowser key",
+      "licenseConfigured": "Key configured",
+      "licenseMissing": "No key configured",
+      "licenseValid": "Valid · {{plan}} plan",
+      "licenseInvalid": "Invalid or expired key",
+      "sessions": "Active sessions: {{active}} / {{limit}}",
+      "unknown": "unknown",
+      "validate": "Validate",
+      "privacyNotice": "The wrapper and this app are open source, but the CloakBrowser binary is proprietary. v150 contacts CloakBrowser for validation and session leases, so it is not fully unlinkable from the vendor.",
+      "latestTitle": "CloakBrowser 150 Latest",
+      "latestUnavailable": "Latest release information is unavailable",
+      "legacyTitle": "CloakBrowser 146 Legacy",
+      "versionPlatform": "{{version}} · {{platform}}",
+      "oneSession": "A free key allows one concurrently running v150 environment. You may create any number of profiles.",
+      "keyRequiredBeforeInstall": "A valid key must be configured before v150 can be installed or used.",
+      "legacyInstalledOnly": "legacy kernel retained only for existing profiles"
     }
   },
   "identity": {
@@ -2115,7 +2162,9 @@
     "matchExitFailed": "Failed to match persona to exit",
     "column": "Identity",
     "configure": "Identity…",
-    "currentConfiguration": "Current Fingerprint Chromium persona",
+    "currentConfiguration": "Current CloakBrowser persona",
+    "legacyConfiguration": "Legacy fingerprint-chromium persona",
+    "legacyKernelNotice": "This existing profile still uses fingerprint-chromium 148. It does not use a CloakBrowser key and has not been migrated to CloakBrowser. Install v146, or configure a key and install v150, then create a new profile to use CloakBrowser.",
     "schemaVersion": "Schema version",
     "brandVersion": "Browser brand",
     "acceptLanguages": "Accepted languages",
@@ -2124,7 +2173,9 @@
     "spoofingDisabled": "Disabled spoofing surfaces",
     "spoofingDisabledHint": "Checked surfaces use the browser's native value and reduce fingerprint masking.",
     "followExitIp": "出口 IP に追従",
-    "followExitIpHint": "有効な間は、起動のたびにプロキシ出口から値を再取得します。自分の値を固定するにはオフにしてください。"
+    "followExitIpHint": "有効な間は、起動のたびにプロキシ出口から値を再取得します。自分の値を固定するにはオフにしてください。",
+    "cloakNoiseDisabled": "Disable CloakBrowser fingerprint noise",
+    "cloakNoiseDisabledHint": "Leave this off to keep stable seed-based Canvas, WebGL, Audio, and ClientRects fingerprints. CloakBrowser exposes one global switch, not independent controls."
   },
   "audit": {
     "title": "Fingerprint audit",

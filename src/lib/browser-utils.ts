@@ -17,6 +17,8 @@ export function getBrowserDisplayName(browserType: string): string {
 
   const browserNames: Record<string, string> = {
     "fingerprint-chromium": "Fingerprint Chromium",
+    "cloakbrowser-146": "CloakBrowser 146 Legacy",
+    "cloakbrowser-150": "CloakBrowser 150 Latest",
     chrome: "Google Chrome",
     edge: "Microsoft Edge",
     chromium: "Chromium",
@@ -34,6 +36,8 @@ export function getBrowserDisplayName(browserType: string): string {
 export function getBrowserIcon(browserType: string) {
   switch (browserType) {
     case "fingerprint-chromium":
+    case "cloakbrowser-146":
+    case "cloakbrowser-150":
     case "chrome":
     case "edge":
     case "chromium":
@@ -42,6 +46,14 @@ export function getBrowserIcon(browserType: string) {
     default:
       return FaExclamationTriangle;
   }
+}
+
+export function isFingerprintKernel(browserType: string): boolean {
+  return (
+    browserType === "fingerprint-chromium" ||
+    browserType === "cloakbrowser-146" ||
+    browserType === "cloakbrowser-150"
+  );
 }
 
 export function getProfileIcon(profile: {

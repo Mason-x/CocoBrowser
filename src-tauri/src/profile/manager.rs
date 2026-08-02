@@ -86,23 +86,38 @@ impl ProfileManager {
       return Err("Cannot set both proxy_id and vpn_id".into());
     }
 
-    if browser != "fingerprint-chromium" {
+    if !crate::kernel::kinds::is_creatable_kernel(browser) {
       return Err(
-        "New profiles must use the local fingerprint-chromium kernel; Wayfern is legacy read-only"
+        serde_json::json!({ "code": "BROWSER_NOT_CREATABLE" })
+          .to_string()
           .into(),
       );
+    }
+
+    if crate::kernel::kinds::requires_cloak_license(browser) {
+      crate::kernel::cloak_license::require_valid_license_key()
+        .await
+        .map_err(|error| -> Box<dyn std::error::Error> { error.into() })?;
     }
 
     crate::kernel::geo_consistency::reject_cloud_proxy_id(proxy_id.as_deref())?;
 
     let registry = crate::kernel::install_registry::InstallRegistryFile::load();
-    let installed = registry
-      .find("fingerprint-chromium", version)
-      .ok_or_else(|| format!("fingerprint-chromium {version} is not installed"))?;
+    let installed = registry.find(browser, version).ok_or_else(|| {
+      serde_json::json!({
+        "code": "KERNEL_NOT_INSTALLED",
+        "params": { "kernel": browser, "version": version }
+      })
+      .to_string()
+    })?;
     if !std::path::Path::new(&installed.executable).is_file() {
       return Err(
-        format!("fingerprint-chromium {version} registry entry points to a missing executable")
-          .into(),
+        serde_json::json!({
+          "code": "KERNEL_NOT_INSTALLED",
+          "params": { "kernel": browser, "version": version }
+        })
+        .to_string()
+        .into(),
       );
     }
 
@@ -134,8 +149,8 @@ impl ProfileManager {
     let profile_data_dir = profile_uuid_dir.join("profile");
     let profile_file = profile_uuid_dir.join("metadata.json");
 
-    // Local-first fingerprint-chromium: build a stable Persona (no Wayfern CDP).
-    let final_persona = if browser == "fingerprint-chromium" {
+    // Persona kernels use a stable identity assembled before launch.
+    let final_persona = if crate::kernel::kinds::is_persona_kernel(browser) {
       Some(
         crate::kernel::persona::FingerprintPersona::auto_consistent_windows(version)
           .map_err(|e| format!("Failed to create persona: {e}"))?,
@@ -475,15 +490,18 @@ impl ProfileManager {
 
     // Verify the new version through the authoritative kernel registry. The
     // legacy downloaded-browser registry deliberately does not own local kernels.
-    if profile.browser == "fingerprint-chromium" {
+    if crate::kernel::kinds::is_persona_kernel(&profile.browser) {
       let registry = crate::kernel::install_registry::InstallRegistryFile::load();
       let installed = registry
-        .find("fingerprint-chromium", version)
-        .ok_or_else(|| format!("fingerprint-chromium {version} is not installed"))?;
+        .find(&profile.browser, version)
+        .ok_or_else(|| format!("{} {version} is not installed", profile.browser))?;
       if !std::path::Path::new(&installed.executable).is_file() {
         return Err(
-          format!("fingerprint-chromium {version} registry entry points to a missing executable")
-            .into(),
+          format!(
+            "{} {version} registry entry points to a missing executable",
+            profile.browser
+          )
+          .into(),
         );
       }
 
@@ -493,7 +511,7 @@ impl ProfileManager {
         None => crate::kernel::persona::FingerprintPersona::auto_consistent_windows(version)?,
       };
       persona.brand_version = major.clone();
-      persona.capability_revision = format!("fchromium-{major}-v1");
+      persona.capability_revision = format!("{}-{major}-v1", profile.browser);
       persona.proxy_geo_signature = None;
       persona.validate(version)?;
       profile.persona = Some(persona);
@@ -930,7 +948,7 @@ impl ProfileManager {
 
     // The clone gets `persona: None` above, so the launch path mints a fresh
     // seed rather than reusing the source's fingerprint. NOTE: the user-data-dir
-    // copy still duplicates cookies/localStorage/TLS state — a separate
+    // copy still duplicates cookies/localStorage/TLS state 鈥?a separate
     // storage-linkage vector the user must clear for full isolation.
     self.save_profile(&new_profile)?;
 
@@ -941,7 +959,7 @@ impl ProfileManager {
     Ok(new_profile)
   }
 
-  /// Update fingerprint-chromium persona. Refuses while the profile is running.
+  /// Update a fingerprint-capable kernel Persona. Refuses while running.
   pub async fn update_profile_persona(
     &self,
     app_handle: tauri::AppHandle,
@@ -962,8 +980,8 @@ impl ProfileManager {
         format!("Profile with ID '{profile_id}' not found").into()
       })?;
 
-    if profile.browser != "fingerprint-chromium" {
-      return Err("Persona is only supported for fingerprint-chromium profiles".into());
+    if !crate::kernel::kinds::is_persona_kernel(&profile.browser) {
+      return Err("Persona is only supported for fingerprint-capable profiles".into());
     }
 
     let is_running = self
@@ -1010,8 +1028,8 @@ impl ProfileManager {
         format!("Profile with ID '{profile_id}' not found").into()
       })?;
 
-    if profile.browser != "fingerprint-chromium" {
-      return Err("Persona is only supported for fingerprint-chromium profiles".into());
+    if !crate::kernel::kinds::is_persona_kernel(&profile.browser) {
+      return Err("Persona is only supported for fingerprint-capable profiles".into());
     }
 
     let is_running = self
@@ -1071,7 +1089,7 @@ impl ProfileManager {
     }
 
     let proxy_id = proxy_id.filter(|id| !id.trim().is_empty());
-    if profile.browser == "fingerprint-chromium" {
+    if crate::kernel::kinds::is_persona_kernel(&profile.browser) {
       crate::kernel::geo_consistency::reject_cloud_proxy_id(proxy_id.as_deref())?;
     }
     crate::validate_profile_network(proxy_id.as_deref(), None).await?;
@@ -1083,7 +1101,7 @@ impl ProfileManager {
     profile.proxy_id = proxy_id.clone();
     profile.vpn_id = None;
     profile.updated_at = Some(crate::proxy_manager::now_secs());
-    // Proxy change invalidates geo stamp — force re-audit on next launch.
+    // Proxy change invalidates geo stamp 鈥?force re-audit on next launch.
     if let Some(ref mut persona) = profile.persona {
       persona.proxy_geo_signature = None;
     }
@@ -1706,11 +1724,8 @@ pub async fn create_browser_profile_new(
   dns_blocklist: Option<String>,
   launch_hook: Option<String>,
 ) -> Result<BrowserProfile, String> {
-  if browser_str != "fingerprint-chromium" {
-    return Err(
-      "New profiles must use the local fingerprint-chromium kernel; Wayfern is legacy read-only"
-        .to_string(),
-    );
+  if !crate::kernel::kinds::is_creatable_kernel(&browser_str) {
+    return Err(serde_json::json!({ "code": "BROWSER_NOT_CREATABLE" }).to_string());
   }
 
   crate::kernel::geo_consistency::reject_cloud_proxy_id(proxy_id.as_deref())?;

@@ -5,12 +5,10 @@ use std::fs::{self, create_dir_all};
 use std::path::{Path, PathBuf};
 
 use crate::kernel::install_registry::InstallRegistryFile;
-use crate::kernel::manifest::{current_platform_id, KernelManifest};
 use crate::profile::types::{get_host_os, BrowserProfile, SyncMode};
 use crate::profile::ProfileManager;
 
-const TARGET_KERNEL: &str = "fingerprint-chromium";
-const AUDITED_KERNEL_VERSION: &str = "148.0.7778.215";
+const TARGET_KERNEL: &str = "cloakbrowser-150";
 const MAX_IMPORT_ENTRIES: usize = 200_000;
 const MAX_IMPORT_BYTES: u64 = 20 * 1024 * 1024 * 1024;
 const MAX_PREFERENCES_BYTES: u64 = 50 * 1024 * 1024;
@@ -60,7 +58,7 @@ impl ProfileImporter {
     let mut detected_profiles = Vec::new();
 
     // Import is intentionally limited to the three profile formats audited for
-    // migration into fingerprint-chromium. Chromium-derived products are not
+    // migration into CloakBrowser. Chromium-derived products are not
     // assumed compatible merely because they contain a Preferences file.
     detected_profiles.extend(self.detect_chrome_profiles()?);
     detected_profiles.extend(self.detect_edge_profiles()?);
@@ -217,7 +215,7 @@ impl ProfileImporter {
       "chrome" => "Google Chrome",
       "edge" => "Microsoft Edge",
       "chromium" => "Chromium",
-      TARGET_KERNEL => "Fingerprint Chromium",
+      TARGET_KERNEL => "CloakBrowser 150 Latest",
       _ => "Unknown Browser",
     }
   }
@@ -242,7 +240,7 @@ impl ProfileImporter {
     }
     crate::kernel::geo_consistency::reject_cloud_proxy_id(proxy_id.as_deref())?;
 
-    let version = self.get_audited_kernel_version()?;
+    let version = self.get_target_kernel_version()?;
     let persona = crate::kernel::persona::FingerprintPersona::auto_consistent_windows(&version)
       .map_err(|e| format!("Failed to create fingerprint persona: {e}"))?;
     persona.validate(&version)?;
@@ -277,7 +275,7 @@ impl ProfileImporter {
         id: profile_id,
         name: new_profile_name.trim().to_string(),
         browser: TARGET_KERNEL.to_string(),
-        version,
+        version: version.clone(),
         proxy_id,
         vpn_id: None,
         launch_hook: None,
@@ -319,35 +317,34 @@ impl ProfileImporter {
       browser_type,
       new_profile_name.trim(),
       TARGET_KERNEL,
-      AUDITED_KERNEL_VERSION,
+      version,
       source_path.display()
     );
     Ok(())
   }
 
-  fn get_audited_kernel_version(&self) -> Result<String, Box<dyn std::error::Error>> {
-    let manifest = KernelManifest::embedded()?;
-    let asset = manifest
-      .find(TARGET_KERNEL, AUDITED_KERNEL_VERSION, current_platform_id())
-      .ok_or_else(|| serde_json::json!({ "code": "KERNEL_NOT_INSTALLED" }).to_string())?;
+  fn get_target_kernel_version(&self) -> Result<String, Box<dyn std::error::Error>> {
     let registry = InstallRegistryFile::load();
-    let installed = registry
-      .find(TARGET_KERNEL, AUDITED_KERNEL_VERSION)
+    let mut versions: Vec<String> = registry
+      .list_for_id(TARGET_KERNEL)
+      .into_iter()
       .filter(|entry| {
-        entry.platform == asset.platform
-          && entry.sha256.eq_ignore_ascii_case(&asset.sha256)
-          && entry.source_status == asset.source_status
+        entry.platform == crate::kernel::manifest::current_platform_id()
+          && entry.source_status == "proprietary-binary"
           && Path::new(&entry.executable).is_file()
+          && Path::new(&entry.install_path).is_dir()
       })
-      .ok_or_else(|| serde_json::json!({ "code": "KERNEL_NOT_INSTALLED" }).to_string())?;
-    if !Path::new(&installed.install_path).is_dir() {
-      return Err(
-        serde_json::json!({ "code": "KERNEL_NOT_INSTALLED" })
-          .to_string()
-          .into(),
-      );
-    }
-    Ok(asset.version.clone())
+      .map(|entry| entry.version.clone())
+      .collect();
+    crate::version_cache::sort_versions(&mut versions);
+    versions.into_iter().next().ok_or_else(|| {
+      serde_json::json!({
+        "code": "KERNEL_NOT_INSTALLED",
+        "params": { "kernel": TARGET_KERNEL, "version": "150.x" }
+      })
+      .to_string()
+      .into()
+    })
   }
 
   fn validate_source_profile(

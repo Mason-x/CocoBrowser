@@ -38,7 +38,7 @@ pub struct BrowserProfile {
   pub last_launch: Option<u64>,
   #[serde(default = "default_release_type")]
   pub release_type: String,
-  /// Local fingerprint-chromium / future-kernel identity (stable seed + locale).
+  /// Local fingerprint-kernel identity (stable seed + locale).
   #[serde(default)]
   pub persona: Option<FingerprintPersona>,
   #[serde(default)]
@@ -74,7 +74,7 @@ pub struct BrowserProfile {
   #[serde(default)]
   pub password_protected: bool,
   /// Profile creation timestamp (epoch seconds, UTC). `None` for legacy
-  /// profiles that pre-date this field — those are treated as ancient by
+  /// profiles that pre-date this field 鈥?those are treated as ancient by
   /// any staleness check.
   #[serde(default)]
   pub created_at: Option<u64>,

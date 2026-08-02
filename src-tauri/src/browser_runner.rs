@@ -129,8 +129,8 @@ impl BrowserRunner {
     remote_debugging_port: Option<u16>,
     headless: bool,
   ) -> Result<BrowserProfile, Box<dyn std::error::Error + Send + Sync>> {
-    // fingerprint-chromium: Persona + Job Object + geo gate via KernelDriver.
-    if profile.browser == "fingerprint-chromium" {
+    // Persona kernels: stable identity + Job Object + geo gate via KernelDriver.
+    if crate::kernel::kinds::is_persona_kernel(&profile.browser) {
       use crate::kernel::geo_consistency::{
         check_geo_consistency, match_persona_to_exit, reject_cloud_proxy_id, GeoGateResult,
       };
@@ -322,7 +322,7 @@ impl BrowserRunner {
 
       let mut extension_paths = Vec::new();
       // Its worker navigates the startup tab to the workbench once the extension
-      // is registered. Only when the caller asked for no particular URL — an
+      // is registered. Only when the caller asked for no particular URL 鈥?an
       // automation client that wants a page should get that page.
       if url.is_none() {
         if let Some(dir) = crate::workbench::extension_if_enabled(&profile_id_str) {
@@ -369,7 +369,7 @@ impl BrowserRunner {
         ephemeral: profile.ephemeral,
       };
 
-      let kernel = match self.kernel_registry.require("fingerprint-chromium") {
+      let kernel = match self.kernel_registry.require(&profile.browser) {
         Ok(kernel) => kernel,
         Err(error) => {
           let _ = PROXY_MANAGER
@@ -385,7 +385,7 @@ impl BrowserRunner {
           let _ = PROXY_MANAGER
             .stop_proxy_by_profile_id(app_handle.clone(), &profile_id_str)
             .await;
-          return Err(format!("Failed to launch fingerprint-chromium: {e}").into());
+          return Err(e.to_string().into());
         }
       };
 
@@ -629,8 +629,8 @@ impl BrowserRunner {
     app_handle: tauri::AppHandle,
     profile: &BrowserProfile,
   ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    // fingerprint-chromium: stop via KernelDriver Job Object tree only.
-    if profile.browser == "fingerprint-chromium" {
+    // Persona kernels: stop via their KernelDriver Job Object tree only.
+    if crate::kernel::kinds::is_persona_kernel(&profile.browser) {
       let profile_id_str = profile.id.to_string();
       if let Err(e) = PROXY_MANAGER
         .stop_proxy_by_profile_id(app_handle.clone(), &profile_id_str)
@@ -641,11 +641,11 @@ impl BrowserRunner {
 
       let kernel = self
         .kernel_registry
-        .require("fingerprint-chromium")
+        .require(&profile.browser)
         .map_err(|e| -> Box<dyn std::error::Error + Send + Sync> { e.into() })?;
       let process = crate::kernel::BrowserProcess {
         profile_id: profile_id_str.clone(),
-        kernel_id: "fingerprint-chromium".into(),
+        kernel_id: profile.browser.clone(),
         pid: profile.process_id,
         created_at: None,
         cdp_port: None,
@@ -653,7 +653,7 @@ impl BrowserRunner {
           profile,
           &self.profile_manager.get_profiles_dir(),
         ),
-        instance_id: profile.process_id.map(|pid| format!("fchromium-{pid}")),
+        instance_id: profile.process_id.map(|pid| format!("kernel-{pid}")),
         used_fingerprint: None,
       };
       kernel
@@ -682,7 +682,7 @@ impl BrowserRunner {
 
     Err(
       format!(
-        "Unsupported browser '{}' for profile '{}' — only Wayfern is supported",
+        "Unsupported browser '{}' for profile '{}' 鈥?only Wayfern is supported",
         profile.browser, profile.name
       )
       .into(),
@@ -774,8 +774,7 @@ pub async fn launch_browser_profile_impl(
         .to_string(),
       );
     }
-    // Offline, or the server rejected us. Launching is still the right call —
-    // refusing would make the app unusable without network — but the profile may
+    // Offline, or the server rejected us. Launching is still the right call 鈥?    // refusing would make the app unusable without network 鈥?but the profile may
     // be stale and is not protected from a second device opening it.
     crate::sync::LaunchGate::Degraded(reason) => {
       log::warn!(
@@ -928,7 +927,7 @@ pub async fn kill_browser_profile(
       );
 
       // Notify sync scheduler that profile stopped, which makes the queued upload
-      // eligible. The cross-device lock is deliberately NOT released here — it is
+      // eligible. The cross-device lock is deliberately NOT released here 鈥?it is
       // released once that upload finishes, in the scheduler, so another device
       // cannot start pulling while this one is still writing.
       if let Some(scheduler) = crate::sync::get_global_scheduler() {

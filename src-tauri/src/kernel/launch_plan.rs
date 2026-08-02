@@ -51,6 +51,9 @@ pub struct LaunchPlan {
   pub kernel_version: String,
   pub executable: PathBuf,
   pub args: Vec<String>,
+  /// Child-only secrets such as a CloakBrowser key. Never serialize them into
+  /// diagnostics, IPC payloads, or persisted audit output.
+  #[serde(skip_serializing)]
   pub env: BTreeMap<String, String>,
   pub working_dir: Option<PathBuf>,
   pub user_data_dir: PathBuf,

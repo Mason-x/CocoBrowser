@@ -51,6 +51,7 @@ import { useProxyEvents } from "@/hooks/use-proxy-events";
 import { useSyncSessions } from "@/hooks/use-sync-session";
 import { useVpnEvents } from "@/hooks/use-vpn-events";
 import { translateBackendError } from "@/lib/backend-errors";
+import { isFingerprintKernel } from "@/lib/browser-utils";
 import {
   ONBOARDING_TOUR_FINISHED_EVENT,
   setOnboardingActive,
@@ -71,7 +72,7 @@ import {
 import { buildWorkbenchPage } from "@/lib/workbench-page";
 import type { BrowserProfile, SyncSettings } from "@/types";
 
-type BrowserTypeString = "fingerprint-chromium";
+type BrowserTypeString = "cloakbrowser-150" | "cloakbrowser-146";
 
 interface PendingUrl {
   id: string;
@@ -794,7 +795,7 @@ export default function Home() {
       // Resizing changes the reported viewport and breaks Persona consistency,
       // so this matters for the current kernel too — it previously only fired
       // for the legacy engine.
-      if (profile.browser === "fingerprint-chromium") {
+      if (isFingerprintKernel(profile.browser)) {
         try {
           const dismissed = await invoke<boolean>(
             "get_window_resize_warning_dismissed",
@@ -1043,8 +1044,7 @@ export default function Home() {
   const handleBulkCopyCookies = useCallback(() => {
     if (selectedProfiles.length === 0) return;
     const eligibleProfiles = profiles.filter(
-      (p) =>
-        selectedProfiles.includes(p.id) && p.browser === "fingerprint-chromium",
+      (p) => selectedProfiles.includes(p.id) && isFingerprintKernel(p.browser),
     );
     if (eligibleProfiles.length === 0) {
       showErrorToast(t("errors.cookieCopyUnsupportedBrowser"));

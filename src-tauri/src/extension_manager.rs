@@ -1074,7 +1074,7 @@ impl ExtensionManager {
   ) -> Result<(), Box<dyn std::error::Error>> {
     let group = self.get_group(group_id)?;
     let browser_type = match browser {
-      "fingerprint-chromium" => "chromium",
+      "fingerprint-chromium" | "cloakbrowser-146" | "cloakbrowser-150" => "chromium",
       _ => return Err(format!("Extensions are not supported for browser '{browser}'").into()),
     };
 
@@ -1114,7 +1114,7 @@ impl ExtensionManager {
       return Ok(Vec::new());
     }
 
-    if profile.browser.as_str() != "fingerprint-chromium" {
+    if !crate::kernel::kinds::is_persona_kernel(&profile.browser) {
       return Ok(Vec::new());
     }
 
@@ -1195,7 +1195,7 @@ impl ExtensionManager {
     let mut archive = match zip::ZipArchive::new(std::io::Cursor::new(data.as_slice())) {
       Ok(a) => a,
       Err(e) => {
-        // CRX files have a header before the ZIP data — try skipping the CRX header
+        // CRX files have a header before the ZIP data 鈥?try skipping the CRX header
         if let Some(zip_start) = Self::find_zip_start(&data) {
           zip::ZipArchive::new(std::io::Cursor::new(&data[zip_start..]))
             .map_err(|e2| format!("Failed to open CRX as zip after header skip: {e2}"))?

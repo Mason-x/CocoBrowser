@@ -111,7 +111,7 @@ fn default_true() -> bool {
 #[serde(rename_all = "camelCase")]
 pub struct FingerprintPersona {
   pub schema_version: u32,
-  /// Stable 32-bit seed for fingerprint-chromium `--fingerprint=`.
+  /// Stable 32-bit seed for the kernel `--fingerprint=` flag.
   pub seed: u32,
   pub platform: FingerprintPlatform,
   pub platform_version: Option<String>,
@@ -328,7 +328,7 @@ fn host_windows_version_string() -> String {
   "15.0.0".to_string()
 }
 
-/// Migrate / ensure a profile has a persona when using fingerprint-chromium.
+/// Migrate or ensure a profile has a Persona for a fingerprint kernel.
 pub fn ensure_persona(
   existing: Option<&FingerprintPersona>,
   kernel_version: &str,

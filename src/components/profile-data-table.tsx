@@ -96,6 +96,7 @@ import {
   getOSDisplayName,
   getProfileIcon,
   isCrossOsProfile,
+  isFingerprintKernel,
 } from "@/lib/browser-utils";
 import { formatRelativeTime } from "@/lib/flag-utils";
 import { showErrorToast, showSuccessToast } from "@/lib/toast-utils";
@@ -2764,7 +2765,7 @@ export function ProfilesDataTable({
         },
         cell: ({ row }) => {
           const profile = row.original as BrowserProfile;
-          if (profile.browser === "fingerprint-chromium" && profile.persona) {
+          if (isFingerprintKernel(profile.browser) && profile.persona) {
             const p = profile.persona;
             return (
               <div className="flex min-w-0 flex-col text-xs leading-tight">

@@ -76,7 +76,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { translateBackendError } from "@/lib/backend-errors";
-import { getProfileIcon } from "@/lib/browser-utils";
+import { getProfileIcon, isFingerprintKernel } from "@/lib/browser-utils";
 import { formatRelativeTime } from "@/lib/flag-utils";
 import { matchProfilePersonaToExit } from "@/lib/geo-persona";
 import { showErrorToast, showSuccessToast } from "@/lib/toast-utils";
@@ -414,10 +414,9 @@ export function ProfileInfoDialog({
     {
       id: "fingerprint",
       icon: <LuFingerprint className="size-4" />,
-      label:
-        profile.browser === "fingerprint-chromium"
-          ? t("identity.configure")
-          : t("profiles.actions.changeFingerprint"),
+      label: isFingerprintKernel(profile.browser)
+        ? t("identity.configure")
+        : t("profiles.actions.changeFingerprint"),
       onClick: () => {
         handleAction(() => onConfigureIdentity?.(profile));
       },
@@ -426,8 +425,7 @@ export function ProfileInfoDialog({
       runningBadge: isRunning,
       hidden:
         !(
-          profile.browser === "fingerprint-chromium" ||
-          profile.browser === "wayfern"
+          isFingerprintKernel(profile.browser) || profile.browser === "wayfern"
         ) || !onConfigureIdentity,
     },
     {
@@ -444,7 +442,7 @@ export function ProfileInfoDialog({
         });
       },
       disabled: false,
-      hidden: profile.browser !== "fingerprint-chromium",
+      hidden: !isFingerprintKernel(profile.browser),
     },
     {
       icon: <LuUsers className="size-4" />,
@@ -1846,6 +1844,13 @@ function FingerprintChromiumPersonaInline({
 
   const busy = isSaving || isMatching || isRegenerating;
   const readOnly = isDisabled || isRunning || busy;
+  const isCloakBrowser =
+    profile.browser === "cloakbrowser-150" ||
+    profile.browser === "cloakbrowser-146";
+  const isLegacyFingerprint = profile.browser === "fingerprint-chromium";
+  const cloakNoiseDisabled =
+    persona?.spoofingDisabled?.includes("canvas") === true &&
+    persona.spoofingDisabled.includes("webgl");
   const dirty =
     persona !== null &&
     JSON.stringify(persona) !== JSON.stringify(initialPersona);
@@ -1943,12 +1948,22 @@ function FingerprintChromiumPersonaInline({
       <div>
         <div className="flex items-center gap-2 text-sm font-semibold">
           <LuFingerprint className="size-4" />
-          {t("identity.currentConfiguration")}
+          {t(
+            isLegacyFingerprint
+              ? "identity.legacyConfiguration"
+              : "identity.currentConfiguration",
+          )}
         </div>
         <p className="mt-1 text-xs text-muted-foreground">
           {t("profileInfo.sectionDesc.fingerprint")}
         </p>
       </div>
+
+      {isLegacyFingerprint && (
+        <p className="rounded-md border border-warning/40 bg-warning/10 p-2 text-xs text-warning">
+          {t("identity.legacyKernelNotice")}
+        </p>
+      )}
 
       {isRunning && (
         <p className="rounded-md border border-warning/40 bg-warning/10 p-2 text-xs text-warning">
@@ -2088,40 +2103,76 @@ function FingerprintChromiumPersonaInline({
       </div>
 
       <div className="rounded-md border p-3">
-        <Label>{t("identity.spoofingDisabled")}</Label>
-        <p className="mt-1 text-[11px] text-muted-foreground">
-          {t("identity.spoofingDisabledHint")}
-        </p>
-        <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
-          {PERSONA_SPOOFING_SURFACES.map((surface) => {
-            const checked =
-              persona.spoofingDisabled?.includes(surface) ?? false;
-            return (
-              <div key={surface} className="flex items-center gap-2 text-xs">
-                <Checkbox
-                  id={`persona-surface-${surface}`}
-                  checked={checked}
-                  disabled={readOnly}
-                  onCheckedChange={(nextChecked) => {
-                    const current = persona.spoofingDisabled ?? [];
-                    updatePersona(
-                      "spoofingDisabled",
-                      nextChecked
-                        ? [...new Set([...current, surface])]
-                        : current.filter((item) => item !== surface),
-                    );
-                  }}
-                />
-                <Label
-                  htmlFor={`persona-surface-${surface}`}
-                  className="font-normal"
-                >
-                  {surface}
-                </Label>
-              </div>
-            );
-          })}
-        </div>
+        {isCloakBrowser ? (
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 text-xs">
+              <Checkbox
+                id="persona-cloak-noise-disabled"
+                checked={cloakNoiseDisabled}
+                disabled={readOnly}
+                onCheckedChange={(nextChecked) => {
+                  const current = persona.spoofingDisabled ?? [];
+                  const retained = current.filter(
+                    (item) => item !== "canvas" && item !== "webgl",
+                  );
+                  updatePersona(
+                    "spoofingDisabled",
+                    nextChecked ? [...retained, "canvas", "webgl"] : retained,
+                  );
+                }}
+              />
+              <Label
+                htmlFor="persona-cloak-noise-disabled"
+                className="font-normal"
+              >
+                {t("identity.cloakNoiseDisabled")}
+              </Label>
+            </div>
+            <p className="text-[11px] text-warning">
+              {t("identity.cloakNoiseDisabledHint")}
+            </p>
+          </div>
+        ) : (
+          <>
+            <Label>{t("identity.spoofingDisabled")}</Label>
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              {t("identity.spoofingDisabledHint")}
+            </p>
+            <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
+              {PERSONA_SPOOFING_SURFACES.map((surface) => {
+                const checked =
+                  persona.spoofingDisabled?.includes(surface) ?? false;
+                return (
+                  <div
+                    key={surface}
+                    className="flex items-center gap-2 text-xs"
+                  >
+                    <Checkbox
+                      id={`persona-surface-${surface}`}
+                      checked={checked}
+                      disabled={readOnly}
+                      onCheckedChange={(nextChecked) => {
+                        const current = persona.spoofingDisabled ?? [];
+                        updatePersona(
+                          "spoofingDisabled",
+                          nextChecked
+                            ? [...new Set([...current, surface])]
+                            : current.filter((item) => item !== surface),
+                        );
+                      }}
+                    />
+                    <Label
+                      htmlFor={`persona-surface-${surface}`}
+                      className="font-normal"
+                    >
+                      {surface}
+                    </Label>
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        )}
       </div>
 
       {persona.proxyGeoSignature && (
@@ -2195,10 +2246,8 @@ function FingerprintSectionInline({
   onSaved: () => void;
   t: (key: string, options?: Record<string, unknown>) => string;
 }) {
-  // fingerprint-chromium is the only supported kernel; its editor lives in
-  // FingerprintChromiumPersonaInline. Anything else predates this fork and has
-  // no identity model here.
-  if (profile.browser !== "fingerprint-chromium") {
+  // Persona-capable kernels share the same stable identity editor.
+  if (!isFingerprintKernel(profile.browser)) {
     return (
       <div className="flex flex-col gap-3">
         <div className="flex items-center gap-2 text-sm font-semibold">

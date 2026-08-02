@@ -1,5 +1,6 @@
 //! Resolve a KernelDriver by profile.browser / kernel id string.
 
+use super::cloakbrowser::CloakBrowserDriver;
 use super::driver::KernelDriver;
 use super::fingerprint_chromium::FingerprintChromiumDriver;
 use std::collections::HashMap;
@@ -15,6 +16,14 @@ impl KernelRegistry {
     drivers.insert(
       "fingerprint-chromium",
       Arc::new(FingerprintChromiumDriver::new()),
+    );
+    drivers.insert(
+      "cloakbrowser-146",
+      Arc::new(CloakBrowserDriver::legacy_146()),
+    );
+    drivers.insert(
+      "cloakbrowser-150",
+      Arc::new(CloakBrowserDriver::latest_150()),
     );
     Self { drivers }
   }
@@ -55,11 +64,19 @@ mod tests {
   use super::*;
 
   #[test]
-  fn resolves_only_the_supported_kernel() {
+  fn resolves_supported_kernels() {
     let reg = KernelRegistry::new();
     assert_eq!(
       reg.require("fingerprint-chromium").unwrap().id(),
       "fingerprint-chromium"
+    );
+    assert_eq!(
+      reg.require("cloakbrowser-146").unwrap().id(),
+      "cloakbrowser-146"
+    );
+    assert_eq!(
+      reg.require("cloakbrowser-150").unwrap().id(),
+      "cloakbrowser-150"
     );
     assert!(reg.require("unknown").is_err());
     // The legacy engine was removed; its id must no longer resolve.

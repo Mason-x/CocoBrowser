@@ -4,6 +4,7 @@
 //! (pid, creation time) and/or Job Object membership.
 
 use std::time::SystemTime;
+use std::{collections::BTreeMap, path::Path};
 
 #[cfg(target_os = "windows")]
 use std::os::windows::io::AsRawHandle;
@@ -31,10 +32,21 @@ unsafe impl Send for ProcessGuard {}
 impl ProcessGuard {
   /// Spawn `exe` with `args`, attach to a Job Object on Windows so the whole
   /// Chromium process tree is killed together.
-  pub fn spawn(exe: &std::path::Path, args: &[String]) -> Result<Self, String> {
+  pub fn spawn(exe: &Path, args: &[String]) -> Result<Self, String> {
+    Self::spawn_with_env(exe, args, &BTreeMap::new())
+  }
+
+  /// Spawn with a small set of additional environment variables. The parent
+  /// environment remains inherited; only the supplied keys are overlaid.
+  pub fn spawn_with_env(
+    exe: &Path,
+    args: &[String],
+    env: &BTreeMap<String, String>,
+  ) -> Result<Self, String> {
     let mut cmd = std::process::Command::new(exe);
     cmd
       .args(args)
+      .envs(env)
       .stdin(std::process::Stdio::null())
       .stdout(std::process::Stdio::null())
       .stderr(std::process::Stdio::null());
@@ -164,15 +176,17 @@ impl ProcessGuard {
   }
 
   pub fn is_alive(&mut self) -> bool {
-    if let Some(child) = self.child.as_mut() {
-      match child.try_wait() {
-        Ok(None) => true,
-        Ok(Some(_)) => false,
-        Err(_) => false,
-      }
-    } else {
-      false
-    }
+    matches!(self.try_exit_code(), Ok(None))
+  }
+
+  pub fn try_exit_code(&mut self) -> Result<Option<i32>, String> {
+    let Some(child) = self.child.as_mut() else {
+      return Ok(Some(-1));
+    };
+    child
+      .try_wait()
+      .map(|status| status.map(|value| value.code().unwrap_or(-1)))
+      .map_err(|e| e.to_string())
   }
 }
 

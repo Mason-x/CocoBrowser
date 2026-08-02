@@ -3,6 +3,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { isFingerprintKernel } from "@/lib/browser-utils";
 import { showErrorToast, showSuccessToast } from "@/lib/toast-utils";
 import type { BrowserProfile } from "@/types";
 import { LoadingButton } from "./loading-button";
@@ -178,9 +179,7 @@ export function FingerprintAuditDialog({
             type="button"
             size="sm"
             isLoading={running}
-            disabled={
-              profile.browser !== "fingerprint-chromium" || runningStability
-            }
+            disabled={!isFingerprintKernel(profile.browser) || runningStability}
             onClick={() => void runAudit(true)}
           >
             {t("audit.runLive")}
@@ -190,9 +189,7 @@ export function FingerprintAuditDialog({
             size="sm"
             variant="outline"
             isLoading={running}
-            disabled={
-              profile.browser !== "fingerprint-chromium" || runningStability
-            }
+            disabled={!isFingerprintKernel(profile.browser) || runningStability}
             onClick={() => void runAudit(false)}
           >
             {t("audit.runStatic")}
@@ -202,7 +199,7 @@ export function FingerprintAuditDialog({
             size="sm"
             variant="outline"
             isLoading={runningStability}
-            disabled={profile.browser !== "fingerprint-chromium" || running}
+            disabled={!isFingerprintKernel(profile.browser) || running}
             onClick={() => void runStability()}
           >
             {t("audit.runStability")}

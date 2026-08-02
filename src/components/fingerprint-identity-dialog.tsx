@@ -3,6 +3,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { isFingerprintKernel } from "@/lib/browser-utils";
 import { matchProfilePersonaToExit } from "@/lib/geo-persona";
 import { showErrorToast, showSuccessToast } from "@/lib/toast-utils";
 import type { BrowserProfile, FingerprintPersona } from "@/types";
@@ -69,7 +70,7 @@ export function FingerprintIdentityDialog({
     }
   }, [profile]);
 
-  if (profile?.browser !== "fingerprint-chromium") {
+  if (!profile || !isFingerprintKernel(profile.browser)) {
     return null;
   }
 

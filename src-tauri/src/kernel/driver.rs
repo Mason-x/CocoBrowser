@@ -59,7 +59,7 @@ pub struct KernelLaunchRequest {
   pub remote_debugging_port: Option<u16>,
   pub headless: bool,
   pub extension_paths: Vec<String>,
-  /// Stable fingerprint identity for fingerprint-chromium (and future kernels).
+  /// Stable fingerprint identity for Persona-capable kernels.
   pub persona: Option<FingerprintPersona>,
   /// Pre-formatted local proxy URL for kernels that take a single string.
   /// Prefer `local_proxy` for new kernels.

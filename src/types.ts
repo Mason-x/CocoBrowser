@@ -22,7 +22,7 @@ export interface BrowserProfile {
   process_id?: number;
   last_launch?: number;
   release_type: string;
-  /** Local fingerprint-chromium identity (stable seed + locale). */
+  /** Local fingerprint-kernel identity (stable seed + locale). */
   persona?: FingerprintPersona;
   group_id?: string; // Reference to profile group
   tags?: string[];

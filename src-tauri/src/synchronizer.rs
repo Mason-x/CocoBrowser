@@ -13,9 +13,6 @@ const MAX_CONCURRENT_LAUNCHES: usize = 5;
 
 /// Event captured from the leader browser via Wayfern.inputCaptured CDP events.
 /// Fields match the Wayfern.inputCaptured event schema directly.
-/// The only kernel this fork ships.
-const SUPPORTED_BROWSER: &str = "fingerprint-chromium";
-
 /// Name of the isolated world the capture script runs in.
 const CAPTURE_WORLD: &str = "coco_browse_together";
 
@@ -200,10 +197,8 @@ impl SynchronizerManager {
       .ok_or("Leader profile not found")?
       .clone();
 
-    if leader.browser != SUPPORTED_BROWSER {
-      return Err(format!(
-        "Browse-together requires a {SUPPORTED_BROWSER} profile."
-      ));
+    if !crate::kernel::kinds::is_persona_kernel(&leader.browser) {
+      return Err("Browse-together requires a fingerprint-capable profile.".into());
     }
 
     // Check leader is not already running
@@ -225,9 +220,9 @@ impl SynchronizerManager {
         .find(|p| p.id.to_string() == *fid)
         .ok_or(format!("Follower profile '{fid}' not found"))?
         .clone();
-      if fp.browser != SUPPORTED_BROWSER {
+      if !crate::kernel::kinds::is_persona_kernel(&fp.browser) {
         return Err(format!(
-          "Profile '{}' cannot be synchronized: browse-together requires a {SUPPORTED_BROWSER} profile.",
+          "Profile '{}' cannot be synchronized: browse-together requires a fingerprint-capable profile.",
           fp.name
         ));
       }

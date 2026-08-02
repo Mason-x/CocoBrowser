@@ -415,7 +415,16 @@
     },
     "downloadingSubtitle": "正在下载…",
     "browsersDownloading": "浏览器仍在下载中。下载完成后即可创建环境。",
-    "personaAutoHint": "系统会用 CSPRNG 随机种子自动生成稳定的 Windows + Chrome 身份。创建后可在“身份”中按代理出口匹配时区和语言，或重新生成种子。"
+    "personaAutoHint": "系统会用 CSPRNG 随机种子自动生成稳定的 Windows + Chrome 身份。创建后可在“身份”中按代理出口匹配时区和语言，或重新生成种子。",
+    "kernelNames": {
+      "cloakbrowser-150": "CloakBrowser 150 最新模式",
+      "cloakbrowser-146": "CloakBrowser 146 兼容模式",
+      "fingerprint-chromium": "Fingerprint Chromium",
+      "wayfern": "Wayfern"
+    },
+    "cloakLatestSubtitle": "Turnstile 兼容优先 · 免费密钥 · 单活动会话",
+    "cloakLegacySubtitle": "无需密钥的备用模式 · 固定公开版本",
+    "cloakKeyRequired": "尚未配置 CloakBrowser 密钥。安装或创建 v150 环境前，请先在“内核”页面配置并验证有效密钥。"
   },
   "deleteDialog": {
     "title": "删除环境",
@@ -815,7 +824,7 @@
       "sourcePlaceholder": "选择要复制 Cookie 的环境",
       "running": "(运行中)",
       "targetProfiles": "目标环境 ({{count}})",
-      "noOtherTargets": "未选择其他 Fingerprint Chromium 配置",
+      "noOtherTargets": "没有选择其他兼容的指纹环境",
       "selectSourceFirst": "请先选择源环境",
       "selectionStatus": "(已选择 {{selected}} / {{total}})",
       "searchPlaceholder": "搜索域名或 Cookie...",
@@ -1835,10 +1844,20 @@
     "importSourceUnsupported": "不支持 {{browser}} 配置，只能导入 Chrome、Edge 或 Chromium。",
     "importSourceInvalid": "所选文件夹不是有效的 Chrome、Edge 或 Chromium 配置目录。",
     "importFailed": "配置导入失败：{{detail}}",
-    "kernelNotInstalled": "导入配置前，请先安装已审计的 Fingerprint Chromium 148 内核。",
+    "kernelNotInstalled": "请先安装 {{kernel}} {{version}}。",
     "extensionPackageInvalid": "扩展包已被拒绝：{{detail}}",
     "kernelVersionNotAvailable": "内核版本 {{requested}} 无法下载，当前版本为 {{current}}。",
-    "profileLockedByDevice": "该配置正在 {{device}} 上打开，请先在那台设备上关闭。"
+    "profileLockedByDevice": "该配置正在 {{device}} 上打开，请先在那台设备上关闭。",
+    "browserNotCreatable": "新环境必须使用 CloakBrowser 150 最新模式或 CloakBrowser 146 兼容模式。",
+    "cloakLicenseKeyRequired": "安装或启动 v150 最新模式前，请先配置一个 CloakBrowser 密钥。",
+    "cloakLicenseInvalid": "CloakBrowser 密钥无效或已过期。",
+    "cloakLicenseServerUnavailable": "暂时无法验证 CloakBrowser 许可：{{detail}}",
+    "cloakLicenseStorageFailed": "无法访问受保护的 CloakBrowser 密钥：{{detail}}",
+    "cloakPlatformUnsupported": "本应用目前仅在 Windows x64 上提供 CloakBrowser。",
+    "cloakReleaseLookupFailed": "无法获取 CloakBrowser v150 官方版本：{{detail}}",
+    "cloakDownloadFailed": "CloakBrowser 下载失败：{{detail}}",
+    "cloakBinaryVerificationFailed": "CloakBrowser 内核未通过签名或校验和验证，已拒绝安装。",
+    "cloakSessionLimitReached": "v150 的活动会话名额已占用。请关闭另一个正在运行的 v150 环境后重试。"
   },
   "rail": {
     "profiles": "环境",
@@ -1973,7 +1992,7 @@
     "steps": {
       "createProfile": {
         "title": "创建你的第一个环境",
-        "content": "点击这里创建您的第一个环境。浏览器请选择 Fingerprint Chromium；如果尚未安装经过审计的本地内核，环境对话框会提示您明确安装。"
+        "content": "点击此处创建第一个环境。可选择 CloakBrowser 150 最新模式或 146 兼容模式；尚未安装时，创建窗口会提示你明确下载。"
       },
       "dnsBlocking": {
         "title": "DNS 拦截",
@@ -2006,7 +2025,7 @@
     },
     "ready": {
       "title": "正在准备",
-      "descDownloading": "正在按您的明确操作安装经过审计的 Fingerprint Chromium 内核。此一次性设置在后台运行。",
+      "descDownloading": "正在按你的明确操作安装所选 CloakBrowser 内核。首次安装会在后台完成。",
       "descReady": "你的浏览器已就绪。来创建你的第一个环境吧。",
       "cta": "创建我的第一个环境",
       "downloading": "正在下载…",
@@ -2083,6 +2102,34 @@
       "updateFailed": "更新 GeoIP 数据库失败",
       "redownload": "重新下载",
       "freshnessNote": "是否最新依据本地下载日期判断，并非与上游比对版本。"
+    },
+    "sizeMegabytes": "{{size}} MB",
+    "sha256": "SHA-256：{{value}}",
+    "cloak": {
+      "licenseTitle": "CloakBrowser 最新版密钥",
+      "licenseDescription": "仅 v150 最新模式需要。密钥由操作系统加密保护，不会写入浏览器配置。",
+      "getFreeKey": "获取免费密钥",
+      "licensePlaceholder": "粘贴一个 CloakBrowser 密钥",
+      "licenseSaved": "CloakBrowser 密钥已保存",
+      "licenseSaveFailed": "无法保存 CloakBrowser 密钥",
+      "licenseCleared": "CloakBrowser 密钥已清除",
+      "licenseClearFailed": "无法清除 CloakBrowser 密钥",
+      "licenseCheckFailed": "无法验证 CloakBrowser 密钥",
+      "licenseConfigured": "已配置密钥",
+      "licenseMissing": "未配置密钥",
+      "licenseValid": "有效 · {{plan}} 方案",
+      "licenseInvalid": "密钥无效或已过期",
+      "sessions": "活动会话：{{active}} / {{limit}}",
+      "unknown": "未知",
+      "validate": "验证",
+      "privacyNotice": "封装层和本应用开源，但 CloakBrowser 内核二进制为闭源专有软件。v150 会连接 CloakBrowser 完成许可验证和会话租约，因此无法做到与供应商完全不关联。",
+      "latestTitle": "CloakBrowser 150 最新模式",
+      "latestUnavailable": "暂时无法获取最新版本信息",
+      "legacyTitle": "CloakBrowser 146 兼容模式",
+      "versionPlatform": "{{version}} · {{platform}}",
+      "oneSession": "一个免费密钥只允许同时运行一个 v150 环境；可创建任意数量的环境配置。",
+      "keyRequiredBeforeInstall": "必须先配置有效密钥，才能安装或使用 v150。",
+      "legacyInstalledOnly": "仅为既有环境保留的旧内核"
     }
   },
   "identity": {
@@ -2115,7 +2162,9 @@
     "matchExitFailed": "匹配代理出口失败",
     "column": "身份",
     "configure": "身份…",
-    "currentConfiguration": "当前 Fingerprint Chromium 指纹配置",
+    "currentConfiguration": "当前 CloakBrowser Persona",
+    "legacyConfiguration": "旧版 fingerprint-chromium Persona",
+    "legacyKernelNotice": "这个既有环境仍使用 fingerprint-chromium 148，不使用 CloakBrowser 密钥，也没有迁移到 CloakBrowser。若要使用 CloakBrowser，请安装 v146，或配置密钥并安装 v150，然后新建环境。",
     "schemaVersion": "配置架构版本",
     "brandVersion": "浏览器品牌版本",
     "acceptLanguages": "接受的语言（逗号分隔）",
@@ -2124,7 +2173,9 @@
     "spoofingDisabled": "停用伪装的指纹面",
     "spoofingDisabledHint": "勾选后该指纹面将使用浏览器原生值，会降低指纹伪装效果。",
     "followExitIp": "跟随出口 IP",
-    "followExitIpHint": "开启时，每次启动都会按代理出口重新生成该值。关闭后可自定义并固定不变。"
+    "followExitIpHint": "开启时，每次启动都会按代理出口重新生成该值。关闭后可自定义并固定不变。",
+    "cloakNoiseDisabled": "关闭 CloakBrowser 全局指纹噪声",
+    "cloakNoiseDisabledHint": "默认不勾选，以保持 Canvas、WebGL、Audio 和 ClientRects 的稳定 seed 指纹。上游仅提供一个全局开关，无法像比特浏览器一样逐项关闭。"
   },
   "audit": {
     "title": "指纹审计",

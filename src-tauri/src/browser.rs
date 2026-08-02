@@ -13,20 +13,28 @@ pub struct ProxySettings {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum BrowserType {
-  /// The only supported kernel (adryfish/fingerprint-chromium).
+  /// Previous local kernel, retained for existing profiles.
   FingerprintChromium,
+  /// Public keyless CloakBrowser 146 binary.
+  CloakBrowser146,
+  /// Latest CloakBrowser 150 channel, activated with a license key.
+  CloakBrowser150,
 }
 
 impl BrowserType {
   pub fn as_str(&self) -> &'static str {
     match self {
       BrowserType::FingerprintChromium => "fingerprint-chromium",
+      BrowserType::CloakBrowser146 => "cloakbrowser-146",
+      BrowserType::CloakBrowser150 => "cloakbrowser-150",
     }
   }
 
   pub fn from_str(s: &str) -> Result<Self, String> {
     match s {
       "fingerprint-chromium" | "fchromium" => Ok(BrowserType::FingerprintChromium),
+      "cloakbrowser-146" => Ok(BrowserType::CloakBrowser146),
+      "cloakbrowser-150" => Ok(BrowserType::CloakBrowser150),
       _ => Err(format!("Unknown browser type: {s}")),
     }
   }
@@ -375,7 +383,9 @@ impl BrowserFactory {
   pub fn create_browser(&self, browser_type: BrowserType) -> Box<dyn Browser> {
     match browser_type {
       // fchromium uses the same on-disk layout helpers as Chromium/chrome.exe.
-      BrowserType::FingerprintChromium => Box::new(ChromiumBrowser::new()),
+      BrowserType::FingerprintChromium
+      | BrowserType::CloakBrowser146
+      | BrowserType::CloakBrowser150 => Box::new(ChromiumBrowser::new()),
     }
   }
 }

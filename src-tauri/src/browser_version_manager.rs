@@ -52,8 +52,8 @@ impl BrowserVersionManager {
     let (os, arch) = Self::get_platform_info();
 
     match browser {
-      "fingerprint-chromium" => {
-        // v0.1 audited binary is windows-x64 only (see kernel manifest).
+      "fingerprint-chromium" | "cloakbrowser-146" | "cloakbrowser-150" => {
+        // Local fingerprint kernels are currently packaged for Windows x64.
         Ok(os == "windows" && arch == "x64")
       }
       "wayfern" => {
@@ -74,9 +74,8 @@ impl BrowserVersionManager {
 
   /// Get list of browsers supported on the current platform
   pub fn get_supported_browsers(&self) -> Vec<String> {
-    // Local-first: only fingerprint-chromium is offered for new installs.
-    // Legacy "wayfern" profiles can still launch if binaries already exist.
-    let all_browsers = vec!["fingerprint-chromium"];
+    // New profiles use CloakBrowser; previous kernel IDs remain readable only.
+    let all_browsers = vec!["cloakbrowser-150", "cloakbrowser-146"];
 
     all_browsers
       .into_iter()
@@ -122,23 +121,29 @@ impl BrowserVersionManager {
     &self,
     browser: &str,
   ) -> Result<BrowserReleaseTypes, Box<dyn std::error::Error + Send + Sync>> {
-    if browser == "fingerprint-chromium" {
+    if matches!(browser, "fingerprint-chromium" | "cloakbrowser-146") {
       let version = crate::kernel::manifest::KernelManifest::embedded()
         .ok()
         .and_then(|m| {
           m.kernels
             .into_iter()
-            .find(|k| k.id == "fingerprint-chromium")
+            .find(|k| k.id == browser)
             .map(|k| k.version)
         });
       return Ok(BrowserReleaseTypes { stable: version });
+    }
+    if browser == "cloakbrowser-150" {
+      let release = crate::kernel::cloak_license::fetch_latest_release().await?;
+      return Ok(BrowserReleaseTypes {
+        stable: Some(release.version),
+      });
     }
     if browser != "wayfern" {
       return Err(format!("Unsupported browser: {browser}").into());
     }
 
     // Only trust an unexpired cache. A stale entry can point at a version that
-    // is no longer published — the downloader rejects such requests, so serving
+    // is no longer published 鈥?the downloader rejects such requests, so serving
     // it here would make every download started from this list fail.
     if !self.version_cache.is_cache_expired(browser) {
       if let Some(cached_versions) = self.get_cached_browser_versions_detailed(browser) {
@@ -190,18 +195,23 @@ impl BrowserVersionManager {
 
     // Fetch fresh versions from API
     let fresh_versions = match browser {
-      "fingerprint-chromium" => {
+      "fingerprint-chromium" | "cloakbrowser-146" => {
         let v = crate::kernel::manifest::KernelManifest::embedded()
           .ok()
           .and_then(|m| {
             m.kernels
               .into_iter()
-              .find(|k| k.id == "fingerprint-chromium")
+              .find(|k| k.id == browser)
               .map(|k| k.version)
           })
-          .ok_or("no audited fingerprint-chromium version in manifest")?;
+          .ok_or("no audited local kernel version in manifest")?;
         vec![v]
       }
+      "cloakbrowser-150" => vec![
+        crate::kernel::cloak_license::fetch_latest_release()
+          .await?
+          .version,
+      ],
       _ => return Err(format!("Unsupported browser: {browser}").into()),
     };
 
@@ -264,13 +274,15 @@ impl BrowserVersionManager {
     // Since we don't have detailed date/prerelease info for cached versions,
     // we'll fetch fresh detailed info and map it to our merged versions
     let detailed_info: Vec<BrowserVersionInfo> = match browser {
-      "wayfern" => merged_versions
-        .into_iter()
-        .map(|version| BrowserVersionInfo {
-          version: version.clone(),
-          date: "".to_string(),
-        })
-        .collect(),
+      "wayfern" | "fingerprint-chromium" | "cloakbrowser-146" | "cloakbrowser-150" => {
+        merged_versions
+          .into_iter()
+          .map(|version| BrowserVersionInfo {
+            version: version.clone(),
+            date: "".to_string(),
+          })
+          .collect()
+      }
       _ => return Err(format!("Unsupported browser: {browser}").into()),
     };
 
@@ -327,18 +339,23 @@ impl BrowserVersionManager {
     let (os, arch) = Self::get_platform_info();
 
     match browser {
-      "fingerprint-chromium" => {
+      "fingerprint-chromium" | "cloakbrowser-146" => {
         let platform = crate::kernel::manifest::current_platform_id();
         let asset = crate::kernel::manifest::KernelManifest::embedded()?
-          .find("fingerprint-chromium", version, platform)
+          .find(browser, version, platform)
           .cloned()
-          .ok_or_else(|| format!("No audited fingerprint-chromium {version} for {platform}"))?;
+          .ok_or_else(|| format!("No audited {browser} {version} for {platform}"))?;
         Ok(DownloadInfo {
           url: asset.url,
-          filename: format!("fingerprint-chromium-{version}.zip"),
+          filename: format!("{browser}-{version}.zip"),
           is_archive: true,
         })
       }
+      "cloakbrowser-150" => Ok(DownloadInfo {
+        url: format!("https://cloakbrowser.dev/api/download/{version}"),
+        filename: format!("cloakbrowser-{version}-windows-x64.zip"),
+        is_archive: true,
+      }),
       "wayfern" => {
         // Legacy: Wayfern downloads from download.wayfern.com (not used for new installs).
         let platform_key = format!("{os}-{arch}");

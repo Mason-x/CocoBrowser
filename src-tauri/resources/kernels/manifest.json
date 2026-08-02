@@ -10,6 +10,16 @@
       "size": 189767686,
       "executableCandidates": ["chrome.exe", "Chromium/Application/chrome.exe"],
       "sourceStatus": "source-available"
+    },
+    {
+      "id": "cloakbrowser-146",
+      "version": "146.0.7680.177.5",
+      "platform": "windows-x64",
+      "url": "https://cloakbrowser.dev/chromium-v146.0.7680.177.5/cloakbrowser-windows-x64.zip",
+      "sha256": "b213795cb32c3169f766c74ce1d0275fc89d3df256de39c04da7fb4c23b7fdbe",
+      "size": 562004238,
+      "executableCandidates": ["chrome.exe"],
+      "sourceStatus": "proprietary-binary"
     }
   ]
 }

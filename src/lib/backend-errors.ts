@@ -45,6 +45,16 @@ export type BackendErrorCode =
   | "IMPORT_SOURCE_INVALID"
   | "IMPORT_FAILED"
   | "KERNEL_NOT_INSTALLED"
+  | "BROWSER_NOT_CREATABLE"
+  | "CLOAK_LICENSE_KEY_REQUIRED"
+  | "CLOAK_LICENSE_INVALID"
+  | "CLOAK_LICENSE_SERVER_UNAVAILABLE"
+  | "CLOAK_LICENSE_STORAGE_FAILED"
+  | "CLOAK_PLATFORM_UNSUPPORTED"
+  | "CLOAK_RELEASE_LOOKUP_FAILED"
+  | "CLOAK_DOWNLOAD_FAILED"
+  | "CLOAK_BINARY_VERIFICATION_FAILED"
+  | "CLOAK_SESSION_LIMIT_REACHED"
   | "EXTENSION_PACKAGE_INVALID"
   | "UPDATE_CHECKSUMS_UNAVAILABLE"
   | "UPDATE_CHECKSUM_MISMATCH"
@@ -187,7 +197,38 @@ export function translateBackendError(t: TFunction, err: unknown): string {
         detail: parsed.params?.detail ?? "",
       });
     case "KERNEL_NOT_INSTALLED":
-      return t("backendErrors.kernelNotInstalled");
+      return t("backendErrors.kernelNotInstalled", {
+        kernel: parsed.params?.kernel ?? "",
+        version: parsed.params?.version ?? "",
+      });
+    case "BROWSER_NOT_CREATABLE":
+      return t("backendErrors.browserNotCreatable");
+    case "CLOAK_LICENSE_KEY_REQUIRED":
+      return t("backendErrors.cloakLicenseKeyRequired");
+    case "CLOAK_LICENSE_INVALID":
+      return t("backendErrors.cloakLicenseInvalid");
+    case "CLOAK_LICENSE_SERVER_UNAVAILABLE":
+      return t("backendErrors.cloakLicenseServerUnavailable", {
+        detail: parsed.params?.detail ?? "",
+      });
+    case "CLOAK_LICENSE_STORAGE_FAILED":
+      return t("backendErrors.cloakLicenseStorageFailed", {
+        detail: parsed.params?.detail ?? "",
+      });
+    case "CLOAK_PLATFORM_UNSUPPORTED":
+      return t("backendErrors.cloakPlatformUnsupported");
+    case "CLOAK_RELEASE_LOOKUP_FAILED":
+      return t("backendErrors.cloakReleaseLookupFailed", {
+        detail: parsed.params?.detail ?? "",
+      });
+    case "CLOAK_DOWNLOAD_FAILED":
+      return t("backendErrors.cloakDownloadFailed", {
+        detail: parsed.params?.detail ?? "",
+      });
+    case "CLOAK_BINARY_VERIFICATION_FAILED":
+      return t("backendErrors.cloakBinaryVerificationFailed");
+    case "CLOAK_SESSION_LIMIT_REACHED":
+      return t("backendErrors.cloakSessionLimitReached");
     case "EXTENSION_PACKAGE_INVALID":
       return t("backendErrors.extensionPackageInvalid", {
         detail: parsed.params?.detail ?? "",

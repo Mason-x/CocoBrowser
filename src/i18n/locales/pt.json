@@ -415,7 +415,16 @@
     },
     "downloadingSubtitle": "Baixando…",
     "browsersDownloading": "Os navegadores ainda estão sendo baixados. A criação de perfis ficará disponível assim que um download terminar.",
-    "personaAutoHint": "Uma identidade estável de Windows + Chrome é gerada automaticamente (semente CSPRNG). Após a criação, abra Identidade para alinhar fuso horário e idioma à saída do proxy ou regenerar a semente."
+    "personaAutoHint": "Uma identidade estável de Windows + Chrome é gerada automaticamente (semente CSPRNG). Após a criação, abra Identidade para alinhar fuso horário e idioma à saída do proxy ou regenerar a semente.",
+    "kernelNames": {
+      "cloakbrowser-150": "CloakBrowser 150 Latest",
+      "cloakbrowser-146": "CloakBrowser 146 Legacy",
+      "fingerprint-chromium": "Fingerprint Chromium",
+      "wayfern": "Wayfern"
+    },
+    "cloakLatestSubtitle": "Best Turnstile compatibility · free key · one active session",
+    "cloakLegacySubtitle": "Keyless fallback · public fixed release",
+    "cloakKeyRequired": "No CloakBrowser key is configured. Configure a valid key on the Kernel page before installing or creating a v150 profile."
   },
   "deleteDialog": {
     "title": "Excluir Perfil",
@@ -815,7 +824,7 @@
       "sourcePlaceholder": "Selecione um perfil para copiar os cookies",
       "running": "(em execução)",
       "targetProfiles": "Perfis de destino ({{count}})",
-      "noOtherTargets": "Nenhum outro perfil Fingerprint Chromium selecionado",
+      "noOtherTargets": "No other compatible fingerprint profiles selected",
       "selectSourceFirst": "Selecione primeiro um perfil de origem",
       "selectionStatus": "({{selected}} de {{total}} selecionados)",
       "searchPlaceholder": "Buscar domínios ou cookies...",
@@ -1835,10 +1844,20 @@
     "importSourceUnsupported": "Perfis {{browser}} não são aceitos. Importe apenas Chrome, Edge ou Chromium.",
     "importSourceInvalid": "A pasta não é um perfil válido do Chrome, Edge ou Chromium.",
     "importFailed": "Falha na importação: {{detail}}",
-    "kernelNotInstalled": "Instale o kernel auditado Fingerprint Chromium 148 antes de importar.",
+    "kernelNotInstalled": "Install {{kernel}} {{version}} before continuing.",
     "extensionPackageInvalid": "Pacote de extensão rejeitado: {{detail}}",
     "kernelVersionNotAvailable": "A versão de kernel {{requested}} não está disponível para download. A versão atual é {{current}}.",
-    "profileLockedByDevice": "Este perfil está aberto em {{device}}. Feche-o lá primeiro."
+    "profileLockedByDevice": "Este perfil está aberto em {{device}}. Feche-o lá primeiro.",
+    "browserNotCreatable": "New profiles must use CloakBrowser 150 Latest or CloakBrowser 146 Legacy.",
+    "cloakLicenseKeyRequired": "Configure one CloakBrowser key before installing or launching the latest v150 mode.",
+    "cloakLicenseInvalid": "The CloakBrowser key is invalid or expired.",
+    "cloakLicenseServerUnavailable": "CloakBrowser license validation is unavailable: {{detail}}",
+    "cloakLicenseStorageFailed": "Could not access the protected CloakBrowser key: {{detail}}",
+    "cloakPlatformUnsupported": "CloakBrowser is currently available only on Windows x64 in this app.",
+    "cloakReleaseLookupFailed": "Could not resolve the official CloakBrowser v150 release: {{detail}}",
+    "cloakDownloadFailed": "CloakBrowser download failed: {{detail}}",
+    "cloakBinaryVerificationFailed": "The CloakBrowser binary failed signature or checksum verification and was not installed.",
+    "cloakSessionLimitReached": "The v150 session limit is in use. Close the other running v150 environment and try again."
   },
   "rail": {
     "profiles": "Perfis",
@@ -1973,7 +1992,7 @@
     "steps": {
       "createProfile": {
         "title": "Crie seu primeiro perfil",
-        "content": "Clique aqui para criar seu primeiro perfil. Escolha Fingerprint Chromium. Se o kernel local auditado ainda não estiver instalado, a caixa de diálogo do perfil solicitará a instalação explícita."
+        "content": "Create your first profile with CloakBrowser 150 Latest or 146 Legacy. If the selected kernel is not installed, the profile dialog will ask before downloading it."
       },
       "dnsBlocking": {
         "title": "Bloqueio de DNS",
@@ -2006,7 +2025,7 @@
     },
     "ready": {
       "title": "Preparando tudo",
-      "descDownloading": "Instalando o kernel auditado do Fingerprint Chromium após sua solicitação explícita. Esta configuração única é executada em segundo plano.",
+      "descDownloading": "Installing the selected CloakBrowser kernel after your explicit request. This one-time setup runs in the background.",
       "descReady": "Seu navegador está pronto. Vamos criar seu primeiro perfil.",
       "cta": "Criar meu primeiro perfil",
       "downloading": "Baixando…",
@@ -2083,6 +2102,34 @@
       "updateFailed": "Falha ao atualizar o banco de dados GeoIP",
       "redownload": "Baixar novamente",
       "freshnessNote": "A atualidade é baseada na data de download local, não em uma verificação de versão upstream."
+    },
+    "sizeMegabytes": "{{size}} MB",
+    "sha256": "SHA-256: {{value}}",
+    "cloak": {
+      "licenseTitle": "CloakBrowser latest key",
+      "licenseDescription": "Required only for the latest v150 mode. The key is protected by the operating system and is never stored in a profile.",
+      "getFreeKey": "Get free key",
+      "licensePlaceholder": "Paste one CloakBrowser key",
+      "licenseSaved": "CloakBrowser key saved",
+      "licenseSaveFailed": "Could not save the CloakBrowser key",
+      "licenseCleared": "CloakBrowser key cleared",
+      "licenseClearFailed": "Could not clear the CloakBrowser key",
+      "licenseCheckFailed": "Could not validate the CloakBrowser key",
+      "licenseConfigured": "Key configured",
+      "licenseMissing": "No key configured",
+      "licenseValid": "Valid · {{plan}} plan",
+      "licenseInvalid": "Invalid or expired key",
+      "sessions": "Active sessions: {{active}} / {{limit}}",
+      "unknown": "unknown",
+      "validate": "Validate",
+      "privacyNotice": "The wrapper and this app are open source, but the CloakBrowser binary is proprietary. v150 contacts CloakBrowser for validation and session leases, so it is not fully unlinkable from the vendor.",
+      "latestTitle": "CloakBrowser 150 Latest",
+      "latestUnavailable": "Latest release information is unavailable",
+      "legacyTitle": "CloakBrowser 146 Legacy",
+      "versionPlatform": "{{version}} · {{platform}}",
+      "oneSession": "A free key allows one concurrently running v150 environment. You may create any number of profiles.",
+      "keyRequiredBeforeInstall": "A valid key must be configured before v150 can be installed or used.",
+      "legacyInstalledOnly": "legacy kernel retained only for existing profiles"
     }
   },
   "identity": {
@@ -2115,7 +2162,9 @@
     "matchExitFailed": "Failed to match persona to exit",
     "column": "Identity",
     "configure": "Identity…",
-    "currentConfiguration": "Current Fingerprint Chromium persona",
+    "currentConfiguration": "Current CloakBrowser persona",
+    "legacyConfiguration": "Legacy fingerprint-chromium persona",
+    "legacyKernelNotice": "This existing profile still uses fingerprint-chromium 148. It does not use a CloakBrowser key and has not been migrated to CloakBrowser. Install v146, or configure a key and install v150, then create a new profile to use CloakBrowser.",
     "schemaVersion": "Schema version",
     "brandVersion": "Browser brand",
     "acceptLanguages": "Accepted languages",
@@ -2124,7 +2173,9 @@
     "spoofingDisabled": "Disabled spoofing surfaces",
     "spoofingDisabledHint": "Checked surfaces use the browser's native value and reduce fingerprint masking.",
     "followExitIp": "Seguir o IP de saída",
-    "followExitIpHint": "Enquanto ativado, o valor é derivado novamente da saída do proxy a cada inicialização. Desative para fixar o seu próprio valor."
+    "followExitIpHint": "Enquanto ativado, o valor é derivado novamente da saída do proxy a cada inicialização. Desative para fixar o seu próprio valor.",
+    "cloakNoiseDisabled": "Disable CloakBrowser fingerprint noise",
+    "cloakNoiseDisabledHint": "Leave this off to keep stable seed-based Canvas, WebGL, Audio, and ClientRects fingerprints. CloakBrowser exposes one global switch, not independent controls."
   },
   "audit": {
     "title": "Fingerprint audit",
