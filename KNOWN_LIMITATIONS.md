@@ -4,11 +4,13 @@
 
 ## 平台与内核
 
-- 当前新建环境只支持 Windows x64：CloakBrowser 150 最新模式和固定的 146 兼容模式。
+- 新建环境支持 Windows x64 与 Linux x64：CloakBrowser 150 最新模式和固定的 146 兼容模式。150 另有官方 linux-arm64 构建，146 只有 x64。macOS 没有内核构建，装上应用也无法创建环境。
+- Linux 主机必须允许非特权用户命名空间，否则 Chromium 沙箱起不来。应用会在启动前检查并给出提示，不会自动改用 `--no-sandbox` 把沙箱关掉。
+- Linux 上 CloakBrowser Key 只做编码存储（没有 DPAPI 这类账户绑定加密），文件权限限制为 0600；有 root 的人仍可读取。
 - v150 内核需要许可验证与会话租约，免费 Key 限一个活动会话；因此它不能做到与 CloakBrowser 供应商完全不关联。
 - v146 不需要 Key，但属于旧内核，安全更新与 Turnstile 兼容性可能弱于 v150。
 - CocoBrowser 封装层保持开源；CloakBrowser 内核二进制为上游专有软件，无法提供源码级隐私审计或可复现构建证明。
-- 不支持跨 Windows、macOS、Linux 复用同一 Persona；不同操作系统暴露面不同。
+- 不支持跨 Windows、macOS、Linux 复用同一 Persona；不同操作系统暴露面不同。Persona 的 platform 必须与宿主机一致，跨 OS 同步来的环境只能读取，不能在本机启动。
 - 固定内核提升可复现性，但也意味着必须显式审计和发布新版本才能获取后续 Chromium 安全修复。
 - 内核 SHA-256 验证完整性，不等同于开发者代码签名或可复现构建证明。
 - 当前发布包与 Windows 可执行文件没有独立 Authenticode 证书。

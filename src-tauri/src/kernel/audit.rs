@@ -958,6 +958,15 @@ async fn collect_live(
         port,
         protocol: "http".into(),
       };
+      let extension_paths =
+        super::webrtc::extension_for_policy(&profile.id.to_string(), persona.webrtc_policy)
+          .map_err(|detail| {
+            serde_json::json!({
+              "code": "INTERNAL_ERROR",
+              "params": { "detail": detail }
+            })
+            .to_string()
+          })?;
       let request = KernelLaunchRequest {
         profile: profile.clone(),
         profile_path: audit_dir.clone(),
@@ -966,7 +975,7 @@ async fn collect_live(
         automation: AutomationMode::HeadedAutomation,
         remote_debugging_port: Some(cdp_port),
         headless: false,
-        extension_paths: vec![],
+        extension_paths: vec![extension_paths],
         persona: Some(persona.clone()),
         proxy_url: Some(local_proxy.proxy_server_arg()),
         ephemeral: true,
@@ -1147,7 +1156,7 @@ mod tests {
       hardware_concurrency: Some(8),
       window_width: 1920,
       window_height: 1080,
-      webrtc_policy: WebRtcPolicy::DisableNonProxiedUdp,
+      webrtc_policy: WebRtcPolicy::Replace,
       spoofing_disabled: BTreeSet::new(),
       proxy_geo_signature: None,
       capability_revision: "t".into(),
@@ -1203,7 +1212,7 @@ mod tests {
     profile.id = Uuid::new_v4();
     profile.name = "official-kernel-live-validation".into();
     profile.persona = Some(
-      FingerprintPersona::auto_consistent_windows(&installed.version)
+      FingerprintPersona::auto_consistent_host(&installed.version)
         .expect("audited version must produce a valid Persona"),
     );
     ProfileManager::instance()

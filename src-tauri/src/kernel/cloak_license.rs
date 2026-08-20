@@ -109,7 +109,21 @@ fn save_license_key(key: &str) -> Result<(), String> {
   let protected = crate::secret_store::protect_local(LICENSE_PURPOSE, key.as_bytes())?;
   let tmp = path.with_extension("key.tmp");
   fs::write(&tmp, protected).map_err(|e| e.to_string())?;
+  restrict_to_owner(&tmp)?;
   super::install_registry::replace_file(&tmp, &path)
+}
+
+/// Outside Windows the stored key is encoded rather than bound to the OS
+/// account, so the file itself has to keep other local users out.
+#[cfg(unix)]
+fn restrict_to_owner(path: &std::path::Path) -> Result<(), String> {
+  use std::os::unix::fs::PermissionsExt;
+  fs::set_permissions(path, fs::Permissions::from_mode(0o600)).map_err(|e| e.to_string())
+}
+
+#[cfg(not(unix))]
+fn restrict_to_owner(_path: &std::path::Path) -> Result<(), String> {
+  Ok(())
 }
 
 async fn validate_remote(key: &str) -> Result<LicenseResponse, String> {
@@ -152,7 +166,7 @@ pub(crate) async fn require_valid_license_key() -> Result<String, String> {
 
 pub(crate) async fn fetch_latest_release() -> Result<CloakLatestRelease, String> {
   let platform = current_platform_id();
-  if platform != "windows-x64" {
+  if super::downloader::cloak_archive_name(platform).is_none() {
     return Err(json_error("CLOAK_PLATFORM_UNSUPPORTED"));
   }
   let response = http_client()

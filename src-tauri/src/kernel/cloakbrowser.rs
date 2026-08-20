@@ -5,8 +5,8 @@ use super::driver::{KernelDriver, KernelError, KernelInfo, KernelLaunchRequest};
 use super::install_registry::{find_executable, install_root};
 use super::kinds::{requires_cloak_license, CLOAK_BROWSER_146, CLOAK_BROWSER_150};
 use super::launch_plan::{AutomationMode, BrowserProcess, LaunchPlan, LocalProxyEndpoint};
-use super::manifest::KernelManifest;
-use super::persona::{ensure_persona, FingerprintPersona, SpoofingSurface};
+use super::manifest::{current_platform_id, KernelManifest};
+use super::persona::{ensure_persona, FingerprintPersona, SpoofingSurface, WebRtcPolicy};
 use super::process_guard::ProcessGuard;
 use super::session::{SessionManager, SessionState};
 use async_trait::async_trait;
@@ -49,16 +49,17 @@ impl CloakBrowserDriver {
   }
 
   fn validate_at(&self, root: &Path) -> Result<KernelInfo, KernelError> {
+    let platform = current_platform_id();
     let candidates = KernelManifest::embedded()
       .ok()
       .and_then(|manifest| {
         manifest
           .kernels
           .into_iter()
-          .find(|asset| asset.id == self.id)
+          .find(|asset| asset.id == self.id && asset.platform == platform)
           .map(|asset| asset.executable_candidates)
       })
-      .unwrap_or_else(|| vec!["chrome.exe".into()]);
+      .unwrap_or_else(|| super::downloader::cloak_executable_candidates(platform));
     let executable = find_executable(root, &candidates).ok_or_else(|| {
       KernelError::InvalidBinary(format!(
         "{} executable not found under {}",
@@ -80,11 +81,17 @@ impl CloakBrowserDriver {
   }
 
   fn resolve_executable(&self, version: &str) -> Result<PathBuf, KernelError> {
-    Ok(
-      self
-        .validate_at(&install_root(self.id, version))?
-        .executable,
-    )
+    let root = install_root(self.id, version);
+    let info = self.validate_at(&root)?;
+    // Chromium exits immediately when it cannot build its sandbox, so a host
+    // that forbids unprivileged user namespaces gets told why instead of
+    // watching a window fail to appear.
+    if super::linux_sandbox::check_install(&root) != super::linux_sandbox::SandboxReadiness::Ready {
+      return Err(KernelError::Message(
+        serde_json::json!({ "code": "LINUX_SANDBOX_UNAVAILABLE" }).to_string(),
+      ));
+    }
+    Ok(info.executable)
   }
 
   #[allow(clippy::too_many_arguments)]
@@ -97,15 +104,12 @@ impl CloakBrowserDriver {
     extension_paths: &[String],
     url: Option<&str>,
   ) -> Result<Vec<String>, KernelError> {
+    // Personas are validated against the host before this runs, so the only
+    // rejection left here is a platform the kernel has no flag for.
     let platform = persona
       .platform
       .as_cli()
-      .ok_or_else(|| KernelError::Message("unsupported platform for CloakBrowser".into()))?;
-    if platform != "windows" {
-      return Err(KernelError::Unsupported(
-        "CloakBrowser profiles are same-OS only in this build".into(),
-      ));
-    }
+      .ok_or_else(|| KernelError::Unsupported("unsupported platform for CloakBrowser".into()))?;
 
     let mut args = vec![
       format!("--user-data-dir={}", user_data_dir.display()),
@@ -126,12 +130,32 @@ impl CloakBrowserDriver {
       ),
       format!("--fingerprint-screen-width={}", persona.window_width),
       format!("--fingerprint-screen-height={}", persona.window_height),
-      "--disable-non-proxied-udp".into(),
       format!(
         "--webrtc-ip-handling-policy={}",
         persona.webrtc_policy.as_cli()
       ),
+      format!(
+        "--force-webrtc-ip-handling-policy={}",
+        persona.webrtc_policy.as_cli()
+      ),
     ];
+    // Chromium refuses a user data dir stamped by a newer build. A profile
+    // moved onto an older kernel is warned about at switch time, so let the
+    // launch that follows through instead of failing into a native dialog.
+    if super::profile_data::is_downgrade(user_data_dir, &persona.brand_version) {
+      args.push("--allow-profile-downgrade".into());
+    }
+    if persona.webrtc_policy.restricts_direct_udp() {
+      args.push("--disable-non-proxied-udp".into());
+    }
+    if persona.webrtc_policy == WebRtcPolicy::Replace {
+      // CloakBrowser resolves this through the configured proxy and replaces
+      // ICE candidate IPs in the native WebRTC implementation.
+      args.push("--fingerprint-webrtc-ip=auto".into());
+    }
+    if persona.webrtc_policy == WebRtcPolicy::Disabled {
+      args.push("--disable-webrtc".into());
+    }
     if let Some(version) = &persona.platform_version {
       args.push(format!("--fingerprint-platform-version={version}"));
     }
@@ -457,7 +481,7 @@ mod tests {
       hardware_concurrency: Some(8),
       window_width: 1920,
       window_height: 1080,
-      webrtc_policy: WebRtcPolicy::DisableNonProxiedUdp,
+      webrtc_policy: WebRtcPolicy::Replace,
       spoofing_disabled: BTreeSet::new(),
       proxy_geo_signature: None,
       capability_revision: "test".into(),
@@ -483,7 +507,64 @@ mod tests {
     assert!(args
       .iter()
       .any(|arg| arg == "--fingerprint-screen-width=1920"));
+    assert!(args.iter().any(|arg| arg == "--fingerprint-webrtc-ip=auto"));
     assert!(!args.iter().any(|arg| arg == "--fingerprint-noise=false"));
+    assert!(!args.iter().any(|arg| arg == "--allow-profile-downgrade"));
+  }
+
+  // A profile moved back onto an older kernel keeps a newer version stamp on
+  // its user data dir, which Chromium refuses to open without this switch.
+  #[test]
+  fn allows_the_profile_downgrade_the_switch_already_confirmed() {
+    let dir = tempfile::TempDir::new().unwrap();
+    std::fs::write(dir.path().join("Last Version"), "150.0.7401.9").unwrap();
+    let mut persona = persona();
+    persona.brand_version = "146".into();
+
+    let args = CloakBrowserDriver::build_args(
+      &persona,
+      dir.path(),
+      None,
+      AutomationMode::Manual,
+      None,
+      &[],
+      None,
+    )
+    .unwrap();
+    assert!(args.iter().any(|arg| arg == "--allow-profile-downgrade"));
+  }
+
+  #[test]
+  fn webrtc_modes_emit_distinct_launch_args() {
+    let build = |policy| {
+      let mut configured = persona();
+      configured.webrtc_policy = policy;
+      CloakBrowserDriver::build_args(
+        &configured,
+        Path::new("C:/profiles/a"),
+        None,
+        AutomationMode::Manual,
+        None,
+        &[],
+        None,
+      )
+      .unwrap()
+    };
+
+    let privacy = build(WebRtcPolicy::Privacy);
+    assert!(privacy.iter().any(|arg| arg == "--disable-non-proxied-udp"));
+    assert!(!privacy
+      .iter()
+      .any(|arg| arg.starts_with("--fingerprint-webrtc-ip=")));
+
+    let allow = build(WebRtcPolicy::Allow);
+    assert!(allow
+      .iter()
+      .any(|arg| arg == "--force-webrtc-ip-handling-policy=default"));
+    assert!(!allow.iter().any(|arg| arg == "--disable-non-proxied-udp"));
+
+    let disabled = build(WebRtcPolicy::Disabled);
+    assert!(disabled.iter().any(|arg| arg == "--disable-webrtc"));
   }
 
   #[test]

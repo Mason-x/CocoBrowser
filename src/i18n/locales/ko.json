@@ -1237,9 +1237,13 @@
       "nameEmpty": "이름은 비워 둘 수 없습니다"
     },
     "kernel": {
-      "title": "커널 버전",
-      "switchHint": "커널을 전환하면 user agent, GPU 문자열, Canvas 출력이 달라질 수 있으며 프록시 지리 서명이 지워져 프로필을 다시 감사해야 합니다.",
-      "switchSuccess": "커널 {{version}}(으)로 전환했습니다"
+      "title": "커널",
+      "switchHint": "커널을 전환해도 지문 시드, 쿠키, 로그인 상태는 유지되지만 User Agent, GPU 문자열, Canvas 출력은 새 빌드를 따릅니다. 프록시 지역 서명과 마지막 감사 결과는 삭제되므로 전환 후 다시 감사하세요.",
+      "switchSuccess": "{{kernel}} {{version}}(으)로 전환했습니다",
+      "option": "{{kernel}} - {{version}}",
+      "downgradeTitle": "이전 커널로 전환할까요?",
+      "downgradeDescription": "이 환경은 Chromium {{from}}에서 마지막으로 열렸으며 {{to}}은(는) 더 오래된 버전입니다. 프로필 다운그레이드를 허용한 상태로 브라우저를 시작합니다. 최신 빌드가 기록한 데이터를 읽지 못할 수 있으니 중요한 경우 먼저 백업하세요.",
+      "downgradeConfirm": "그래도 전환"
     }
   },
   "extensions": {
@@ -1853,11 +1857,14 @@
     "cloakLicenseInvalid": "The CloakBrowser key is invalid or expired.",
     "cloakLicenseServerUnavailable": "CloakBrowser license validation is unavailable: {{detail}}",
     "cloakLicenseStorageFailed": "Could not access the protected CloakBrowser key: {{detail}}",
-    "cloakPlatformUnsupported": "CloakBrowser is currently available only on Windows x64 in this app.",
+    "cloakPlatformUnsupported": "이 플랫폼용 CloakBrowser 빌드가 없습니다.",
     "cloakReleaseLookupFailed": "Could not resolve the official CloakBrowser v150 release: {{detail}}",
     "cloakDownloadFailed": "CloakBrowser download failed: {{detail}}",
     "cloakBinaryVerificationFailed": "The CloakBrowser binary failed signature or checksum verification and was not installed.",
-    "cloakSessionLimitReached": "The v150 session limit is in use. Close the other running v150 environment and try again."
+    "cloakSessionLimitReached": "The v150 session limit is in use. Close the other running v150 environment and try again.",
+    "linuxSandboxUnavailable": "이 Linux 호스트가 비권한 사용자 네임스페이스를 차단하고 있어 Chromium이 샌드박스를 시작할 수 없습니다. sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0 으로 허용하거나 커널의 chrome-sandbox에 setuid root를 설정하세요.",
+    "kernelSwitchUnsupported": "환경을 {{from}}에서 {{to}}(으)로 옜길 수 없습니다. 지문을 지원하는 커널끼리만 교체할 수 있습니다.",
+    "kernelDowngradeBlocked": "이 환경은 Chromium {{from}}에서 마지막으로 열렸습니다. {{to}}은(는) 더 오래되어 확인 없이는 열 수 없습니다."
   },
   "rail": {
     "profiles": "프로필",
@@ -2168,7 +2175,17 @@
     "schemaVersion": "Schema version",
     "brandVersion": "Browser brand",
     "acceptLanguages": "Accepted languages",
-    "webrtcPolicy": "WebRTC policy",
+    "webrtcPolicy": "WebRTC",
+    "webrtcModes": {
+      "replace": "대체",
+      "replaceDescription": "WebRTC를 활성화하고 공인 IP를 프록시 IP로 대체하며 로컬 IP를 숨깁니다.",
+      "privacy": "개인 정보 보호",
+      "privacyDescription": "WebRTC를 활성화하되 사이트가 IP 주소를 가져오지 못하게 합니다.",
+      "allow": "허용",
+      "allowDescription": "WebRTC를 활성화하고 사이트가 이 컴퓨터의 실제 IP를 가져오도록 허용합니다.",
+      "disabled": "차단",
+      "disabledDescription": "WebRTC를 비활성화합니다. 사이트에서 WebRTC를 사용할 수 없음을 감지할 수 있습니다."
+    },
     "capabilityRevision": "Capability revision",
     "spoofingDisabled": "Disabled spoofing surfaces",
     "spoofingDisabledHint": "Checked surfaces use the browser's native value and reduce fingerprint masking.",

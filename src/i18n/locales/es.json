@@ -1237,9 +1237,13 @@
       "nameEmpty": "El nombre no puede estar vacío"
     },
     "kernel": {
-      "title": "Versión del núcleo",
-      "switchHint": "Cambiar de núcleo puede alterar el user agent, las cadenas de GPU y la salida de Canvas, y borra la firma geográfica del proxy, por lo que el perfil requiere una nueva auditoría.",
-      "switchSuccess": "Cambiado al núcleo {{version}}"
+      "title": "Núcleo",
+      "switchHint": "Cambiar de núcleo conserva la semilla de huella digital, las cookies y las sesiones, pero el user agent, las cadenas de GPU y la salida de Canvas provienen de la nueva compilación. Se borran la firma geográfica del proxy y la última auditoría, así que ejecuta una auditoría nueva después.",
+      "switchSuccess": "Se cambió a {{kernel}} {{version}}",
+      "option": "{{kernel}} - {{version}}",
+      "downgradeTitle": "¿Pasar a un núcleo más antiguo?",
+      "downgradeDescription": "Este entorno se abrió por última vez con Chromium {{from}}, y {{to}} es más antiguo. El navegador se iniciará permitiendo la reversión del perfil; puede que los datos escritos por la compilación más reciente no se puedan leer, así que haz una copia de seguridad si es importante.",
+      "downgradeConfirm": "Cambiar de todos modos"
     }
   },
   "extensions": {
@@ -1853,11 +1857,14 @@
     "cloakLicenseInvalid": "The CloakBrowser key is invalid or expired.",
     "cloakLicenseServerUnavailable": "CloakBrowser license validation is unavailable: {{detail}}",
     "cloakLicenseStorageFailed": "Could not access the protected CloakBrowser key: {{detail}}",
-    "cloakPlatformUnsupported": "CloakBrowser is currently available only on Windows x64 in this app.",
+    "cloakPlatformUnsupported": "CloakBrowser no tiene una compilación para esta plataforma.",
     "cloakReleaseLookupFailed": "Could not resolve the official CloakBrowser v150 release: {{detail}}",
     "cloakDownloadFailed": "CloakBrowser download failed: {{detail}}",
     "cloakBinaryVerificationFailed": "The CloakBrowser binary failed signature or checksum verification and was not installed.",
-    "cloakSessionLimitReached": "The v150 session limit is in use. Close the other running v150 environment and try again."
+    "cloakSessionLimitReached": "The v150 session limit is in use. Close the other running v150 environment and try again.",
+    "linuxSandboxUnavailable": "Chromium no puede iniciar su espacio aislado porque este host Linux bloquea los espacios de nombres de usuario sin privilegios. Actívalos (sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0) o asigna setuid root al chrome-sandbox del núcleo.",
+    "kernelSwitchUnsupported": "No se puede mover un entorno de {{from}} a {{to}}. Solo se pueden intercambiar núcleos con soporte de huella digital.",
+    "kernelDowngradeBlocked": "Este entorno se abrió por última vez con Chromium {{from}}; {{to}} es más antiguo y no puede abrirlo sin confirmación."
   },
   "rail": {
     "profiles": "Perfiles",
@@ -2168,7 +2175,17 @@
     "schemaVersion": "Schema version",
     "brandVersion": "Browser brand",
     "acceptLanguages": "Accepted languages",
-    "webrtcPolicy": "WebRTC policy",
+    "webrtcPolicy": "WebRTC",
+    "webrtcModes": {
+      "replace": "Reemplazar",
+      "replaceDescription": "Activa WebRTC, reemplaza la IP pública por la IP del proxy y oculta la IP local.",
+      "privacy": "Privacidad",
+      "privacyDescription": "Activa WebRTC, pero impide que los sitios obtengan tu dirección IP.",
+      "allow": "Permitir",
+      "allowDescription": "Activa WebRTC y permite que los sitios obtengan la IP real de este equipo.",
+      "disabled": "Bloquear",
+      "disabledDescription": "Desactiva WebRTC. Los sitios pueden detectar que WebRTC no está disponible."
+    },
     "capabilityRevision": "Capability revision",
     "spoofingDisabled": "Disabled spoofing surfaces",
     "spoofingDisabledHint": "Checked surfaces use the browser's native value and reduce fingerprint masking.",

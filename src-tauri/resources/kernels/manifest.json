@@ -20,6 +20,16 @@
       "size": 562004238,
       "executableCandidates": ["chrome.exe"],
       "sourceStatus": "proprietary-binary"
+    },
+    {
+      "id": "cloakbrowser-146",
+      "version": "146.0.7680.177.5",
+      "platform": "linux-x64",
+      "url": "https://cloakbrowser.dev/chromium-v146.0.7680.177.5/cloakbrowser-linux-x64.tar.gz",
+      "sha256": "4a12bcde95fa1bb1beef2b41ab5e5c27c36be78e3be3d0dac8c64d705216670e",
+      "size": 216890134,
+      "executableCandidates": ["chrome"],
+      "sourceStatus": "proprietary-binary"
     }
   ]
 }

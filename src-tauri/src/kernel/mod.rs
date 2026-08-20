@@ -15,12 +15,15 @@ pub mod geo_consistency;
 pub mod install_registry;
 pub mod kinds;
 pub mod launch_plan;
+pub mod linux_sandbox;
 pub mod manifest;
 pub mod persona;
 pub mod process_guard;
+pub mod profile_data;
 pub mod registry;
 pub mod session;
 pub mod update_check;
+pub mod webrtc;
 
 pub use audit::{AuditResult, AuditStatus, StabilityReport};
 pub use capabilities::{CapabilityMode, KernelCapabilities};

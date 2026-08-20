@@ -65,3 +65,11 @@ nodecar/nodecar-bin
 
 # release artifacts (portable builds, their downloaded kernel and runtime data)
 artifacts/
+release/
+
+# scratch
+.tmp/
+
+# internal planning notes: kept on the working machine, never published
+/GROK_IMPLEMENTATION_PLAN.md
+/IMPLEMENTATION_STATUS.md

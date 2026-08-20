@@ -236,8 +236,8 @@ mod tests {
   fn the_expected_values_record_the_persona_the_launch_settled_on() {
     let dir = tempfile::TempDir::new().unwrap();
     let mut persona =
-      crate::kernel::persona::FingerprintPersona::auto_consistent_windows("148.0.7778.215")
-        .expect("a Windows host builds an auto persona");
+      crate::kernel::persona::FingerprintPersona::auto_consistent_host("148.0.7778.215")
+        .expect("a supported host builds an auto persona");
     // What the geo gate does to a persona that follows its exit.
     persona.timezone = "Asia/Tokyo".into();
     persona.language = "ja-JP".into();

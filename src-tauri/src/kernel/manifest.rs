@@ -124,6 +124,52 @@ mod tests {
   }
 
   #[test]
+  fn cloak_146_ships_an_audited_asset_per_supported_platform() {
+    let m = KernelManifest::embedded().expect("embedded manifest");
+    for (platform, sha, size, executable) in [
+      (
+        "windows-x64",
+        "b213795cb32c3169f766c74ce1d0275fc89d3df256de39c04da7fb4c23b7fdbe",
+        562_004_238_u64,
+        "chrome.exe",
+      ),
+      (
+        "linux-x64",
+        "4a12bcde95fa1bb1beef2b41ab5e5c27c36be78e3be3d0dac8c64d705216670e",
+        216_890_134,
+        "chrome",
+      ),
+    ] {
+      let asset = m
+        .find("cloakbrowser-146", "146.0.7680.177.5", platform)
+        .unwrap_or_else(|| panic!("cloakbrowser-146 asset for {platform}"));
+      assert_eq!(asset.sha256, sha);
+      assert_eq!(asset.size, size);
+      assert_eq!(asset.executable_candidates, vec![executable.to_string()]);
+      KernelManifest::validate_asset_integrity_fields(asset).unwrap();
+    }
+  }
+
+  #[test]
+  fn every_audited_asset_targets_a_known_platform() {
+    let m = KernelManifest::embedded().expect("embedded manifest");
+    for asset in &m.kernels {
+      assert!(
+        [
+          "windows-x64",
+          "macos-arm64",
+          "macos-x64",
+          "linux-x64",
+          "linux-arm64"
+        ]
+        .contains(&asset.platform.as_str()),
+        "unknown platform id {}",
+        asset.platform
+      );
+    }
+  }
+
+  #[test]
   fn rejects_non_https_url() {
     let asset = KernelAsset {
       id: "x".into(),

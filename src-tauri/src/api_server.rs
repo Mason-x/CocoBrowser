@@ -73,10 +73,16 @@ pub struct CreateProfileRequest {
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct UpdateProfileRequest {
   pub name: Option<String>,
-  // No `browser` field: a profile's engine is fixed at creation (changing it
-  // would invalidate the generated fingerprint and on-disk profile dir).
-  // Accepting it here only to silently ignore it misled API clients.
+  /// Kernel to move the profile onto, e.g. `cloakbrowser-150`. Requires
+  /// `version` in the same request, and only moves between fingerprint-capable
+  /// kernels: the Persona seed carries across, the rendered fingerprint does
+  /// not. Omit to keep the profile on its current kernel.
+  pub browser: Option<String>,
   pub version: Option<String>,
+  /// Permit a move onto an older Chromium than the one that last opened this
+  /// profile directory. Off by default because Chromium refuses such a profile
+  /// and the older build may not read data the newer one wrote.
+  pub allow_kernel_downgrade: Option<bool>,
   pub proxy_id: Option<String>,
   pub vpn_id: Option<String>,
   pub launch_hook: Option<String>,
@@ -1109,8 +1115,21 @@ async fn update_profile(
     }
   }
 
+  if request.browser.is_some() && request.version.is_none() {
+    return Err((
+      StatusCode::BAD_REQUEST,
+      "browser requires version in the same request".to_string(),
+    ));
+  }
+
   if let Some(version) = request.version {
-    if let Err(e) = profile_manager.update_profile_version(&state.app_handle, &id, &version) {
+    if let Err(e) = profile_manager.switch_profile_kernel(
+      &state.app_handle,
+      &id,
+      request.browser.as_deref(),
+      &version,
+      request.allow_kernel_downgrade.unwrap_or(false),
+    ) {
       return Err(manager_error_response(e));
     }
   }
@@ -2421,19 +2440,28 @@ async fn check_browser_downloaded(
 mod tests {
   use super::*;
 
-  // Removing `browser` from UpdateProfileRequest, and rejecting invalid
-  // `browser` values on create, must NOT make the API reject requests that
+  // Rejecting invalid `browser` values on create must NOT make the API reject requests that
   // carry extra/unknown fields 鈥?old clients still send them. serde ignores
   // unknown fields by default; these tests lock that in so a future
   // `#[serde(deny_unknown_fields)]` can't silently break compatibility.
   #[test]
   fn update_profile_request_ignores_unknown_fields() {
-    // `browser` is no longer a field, plus a wholly unknown field. Both must
-    // be accepted and ignored, not rejected.
-    let json = r#"{"name": "p", "browser": "legacy-engine", "totally_unknown": 123}"#;
+    let json = r#"{"name": "p", "totally_unknown": 123}"#;
     let parsed: UpdateProfileRequest =
       serde_json::from_str(json).expect("unknown fields must be ignored, not rejected");
     assert_eq!(parsed.name.as_deref(), Some("p"));
+    assert!(parsed.browser.is_none());
+  }
+
+  // `browser` moves the profile to another kernel; the manager decides whether
+  // the move is legal, so the request type only has to carry it.
+  #[test]
+  fn update_profile_request_carries_kernel_switch_fields() {
+    let json = r#"{"browser": "cloakbrowser-146", "version": "146.0.7680.1", "allow_kernel_downgrade": true}"#;
+    let parsed: UpdateProfileRequest = serde_json::from_str(json).expect("kernel switch body");
+    assert_eq!(parsed.browser.as_deref(), Some("cloakbrowser-146"));
+    assert_eq!(parsed.version.as_deref(), Some("146.0.7680.1"));
+    assert_eq!(parsed.allow_kernel_downgrade, Some(true));
   }
 
   #[test]
@@ -2515,10 +2543,12 @@ mod tests {
     );
 
     let update_profile = schema_required(&spec, "UpdateProfileRequest");
-    assert!(
-      !update_profile.iter().any(|f| f == "group_id"),
-      "group_id must be optional, required list: {update_profile:?}"
-    );
+    for field in ["group_id", "browser", "version", "allow_kernel_downgrade"] {
+      assert!(
+        !update_profile.iter().any(|f| f == field),
+        "{field} must be optional, required list: {update_profile:?}"
+      );
+    }
 
     let update_proxy = schema_required(&spec, "UpdateProxyRequest");
     assert!(

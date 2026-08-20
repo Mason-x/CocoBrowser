@@ -76,6 +76,8 @@ pub struct ProxyInfo {
   pub upstream_port: u16,
   pub upstream_type: String,
   pub local_port: u16,
+  #[serde(default)]
+  pub local_protocol: String,
   // Optional profile ID to which this proxy instance is logically tied
   pub profile_id: Option<String>,
   pub blocklist_file: Option<String>,
@@ -1170,8 +1172,8 @@ impl ProxyManager {
     profile_id: Option<&str>,
     bypass_rules: Vec<String>,
     blocklist_file: Option<String>,
-    // Protocol the local worker serves the browser: "socks5" (Wayfern). Reflected in
-    // the returned ProxySettings.proxy_type so the caller formats the right local proxy URL scheme.
+    // Protocol the local worker serves the browser. Reflected in the returned
+    // ProxySettings.proxy_type so the caller formats the right local proxy URL scheme.
     local_protocol: &str,
   ) -> Result<ProxySettings, String> {
     if let Some(name) = profile_id {
@@ -1197,7 +1199,8 @@ impl ProxyManager {
 
           let is_same_upstream = existing.upstream_type == desired_type
             && existing.upstream_host == desired_host
-            && existing.upstream_port == desired_port;
+            && existing.upstream_port == desired_port
+            && existing.local_protocol == local_protocol;
 
           if is_same_upstream {
             // Settings match - can reuse existing proxy
@@ -1233,7 +1236,8 @@ impl ProxyManager {
 
         let is_same_upstream = existing.upstream_type == desired_type
           && existing.upstream_host == desired_host
-          && existing.upstream_port == desired_port;
+          && existing.upstream_port == desired_port
+          && existing.local_protocol == local_protocol;
 
         if is_same_upstream {
           // Check if profile_id matches
@@ -1354,6 +1358,7 @@ impl ProxyManager {
         .map(|p| p.proxy_type.clone())
         .unwrap_or_else(|| "DIRECT".to_string()),
       local_port,
+      local_protocol: local_protocol.to_string(),
       profile_id: profile_id.map(|s| s.to_string()),
       blocklist_file: blocklist_file.clone(),
     };
@@ -2101,6 +2106,7 @@ mod tests {
           upstream_port: 3128,
           upstream_type: "http".to_string(),
           local_port: (8000 + i) as u16,
+          local_protocol: "http".to_string(),
           profile_id: None,
           blocklist_file: None,
         };
@@ -2428,6 +2434,7 @@ mod tests {
       upstream_port: 3128,
       upstream_type: "http".to_string(),
       local_port: port,
+      local_protocol: "http".to_string(),
       profile_id: profile_id.map(|s| s.to_string()),
       blocklist_file: None,
     }
@@ -2853,6 +2860,7 @@ mod tests {
       upstream_port: 8080,
       upstream_type: "http".to_string(),
       local_port: 9201,
+      local_protocol: "http".to_string(),
       profile_id: Some("profile_alpha".to_string()),
       blocklist_file: None,
     };
@@ -2863,6 +2871,7 @@ mod tests {
       upstream_port: 8080,
       upstream_type: "http".to_string(),
       local_port: 9202,
+      local_protocol: "http".to_string(),
       profile_id: Some("profile_beta".to_string()),
       blocklist_file: None,
     };
@@ -3130,6 +3139,7 @@ mod tests {
         upstream_port: *port,
         upstream_type: ptype.to_string(),
         local_port: 9300 + i as u16,
+        local_protocol: "http".to_string(),
         profile_id: Some(format!("profile_{ptype}")),
         blocklist_file: None,
       };

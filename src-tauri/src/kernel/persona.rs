@@ -3,7 +3,7 @@
 //! Rules (plan §4.2 / §9):
 //! - `seed` from CSPRNG, never profile-id hash or sequential counters
 //! - seed stable for the life of a profile unless user regenerates
-//! - v0.1 platform must match host OS (Windows-first)
+//! - platform must match host OS (no cross-OS spoofing)
 //! - brand_version matches kernel major
 //! - no fake advanced fields the kernel cannot honor
 
@@ -13,11 +13,12 @@ use std::str::FromStr;
 
 pub const PERSONA_SCHEMA_VERSION: u32 = 1;
 
-/// Host / spoofed OS identity. v0.1 only allows matching the host.
+/// Host / spoofed OS identity. Only the host platform is allowed.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum FingerprintPlatform {
   Windows,
+  Linux,
   #[serde(other)]
   Unsupported,
 }
@@ -26,6 +27,7 @@ impl FingerprintPlatform {
   pub fn as_cli(self) -> Option<&'static str> {
     match self {
       FingerprintPlatform::Windows => Some("windows"),
+      FingerprintPlatform::Linux => Some("linux"),
       FingerprintPlatform::Unsupported => None,
     }
   }
@@ -33,8 +35,11 @@ impl FingerprintPlatform {
   pub fn host_default() -> Self {
     if cfg!(target_os = "windows") {
       FingerprintPlatform::Windows
+    } else if cfg!(target_os = "linux") {
+      FingerprintPlatform::Linux
     } else {
-      // Cross-OS spoofing is unsupported in v0.1; still record host for migration.
+      // Hosts without an audited kernel build get no persona rather than a
+      // borrowed one; still recorded so a migration can see the host.
       FingerprintPlatform::Unsupported
     }
   }
@@ -61,18 +66,27 @@ impl BrowserBrand {
 #[serde(rename_all = "snake_case")]
 pub enum WebRtcPolicy {
   #[default]
-  DisableNonProxiedUdp,
-  DefaultPublicInterfaceOnly,
-  DefaultPublicAndPrivateInterfaces,
+  #[serde(alias = "disable_non_proxied_udp")]
+  Replace,
+  #[serde(alias = "default_public_interface_only")]
+  Privacy,
+  #[serde(alias = "default", alias = "default_public_and_private_interfaces")]
+  Allow,
+  Disabled,
 }
 
 impl WebRtcPolicy {
   pub fn as_cli(self) -> &'static str {
     match self {
-      WebRtcPolicy::DisableNonProxiedUdp => "disable_non_proxied_udp",
-      WebRtcPolicy::DefaultPublicInterfaceOnly => "default_public_interface_only",
-      WebRtcPolicy::DefaultPublicAndPrivateInterfaces => "default_public_and_private_interfaces",
+      WebRtcPolicy::Replace | WebRtcPolicy::Privacy | WebRtcPolicy::Disabled => {
+        "disable_non_proxied_udp"
+      }
+      WebRtcPolicy::Allow => "default",
     }
+  }
+
+  pub fn restricts_direct_udp(self) -> bool {
+    self != WebRtcPolicy::Allow
   }
 }
 
@@ -167,10 +181,11 @@ impl FingerprintPersona {
     }
   }
 
-  /// Default auto-consistent persona for Windows + Chrome major.
-  pub fn auto_consistent_windows(kernel_version: &str) -> Result<Self, String> {
-    if !cfg!(target_os = "windows") {
-      return Err("v0.1 auto-consistent persona only supports Windows hosts".into());
+  /// Default auto-consistent persona for the host OS + Chrome major.
+  pub fn auto_consistent_host(kernel_version: &str) -> Result<Self, String> {
+    let platform = FingerprintPlatform::host_default();
+    if platform == FingerprintPlatform::Unsupported {
+      return Err("auto-consistent personas only support Windows and Linux hosts".into());
     }
     let major = kernel_major(kernel_version)?;
     let (w, h) = pick_common_window();
@@ -178,8 +193,8 @@ impl FingerprintPersona {
     Ok(Self {
       schema_version: PERSONA_SCHEMA_VERSION,
       seed: Self::generate_seed(),
-      platform: FingerprintPlatform::Windows,
-      platform_version: Some(host_windows_version_string()),
+      platform,
+      platform_version: host_platform_version_string(platform),
       brand: BrowserBrand::Chrome,
       brand_version: major.clone(),
       language: "en-US".into(),
@@ -190,7 +205,7 @@ impl FingerprintPersona {
       hardware_concurrency: Some(cores),
       window_width: w,
       window_height: h,
-      webrtc_policy: WebRtcPolicy::DisableNonProxiedUdp,
+      webrtc_policy: WebRtcPolicy::Replace,
       spoofing_disabled: BTreeSet::new(),
       proxy_geo_signature: None,
       capability_revision: format!("fchromium-{major}-v1"),
@@ -218,11 +233,11 @@ impl FingerprintPersona {
     if self.seed == 0 {
       return Err("persona seed must be a non-zero u32".into());
     }
-    if self.platform != FingerprintPlatform::Windows {
-      return Err("v0.1 only allows Windows platform (cross-OS fingerprint disabled)".into());
+    if self.platform.as_cli().is_none() {
+      return Err("persona platform is not supported by this build".into());
     }
-    if !cfg!(target_os = "windows") {
-      return Err("cannot launch Windows persona on a non-Windows host in v0.1".into());
+    if self.platform != FingerprintPlatform::host_default() {
+      return Err("persona platform must match the host OS (cross-OS fingerprint disabled)".into());
     }
     let major = kernel_major(kernel_version)?;
     if self.brand_version != major {
@@ -254,9 +269,6 @@ impl FingerprintPersona {
     }
     if self.spoofing_disabled.contains(&SpoofingSurface::Webgpu) {
       return Err("webgpu cannot be disabled independently; use the webgl/gpu surface".into());
-    }
-    if self.webrtc_policy != WebRtcPolicy::DisableNonProxiedUdp {
-      return Err("unsafe WebRTC policies are disabled in the local-first build".into());
     }
     Ok(())
   }
@@ -323,9 +335,14 @@ fn pick_common_cores() -> u8 {
   CHOICES[idx]
 }
 
-fn host_windows_version_string() -> String {
-  // Conservative default; advanced mode can override with validated values.
-  "15.0.0".to_string()
+fn host_platform_version_string(platform: FingerprintPlatform) -> Option<String> {
+  match platform {
+    // Conservative default; advanced mode can override with validated values.
+    FingerprintPlatform::Windows => Some("15.0.0".to_string()),
+    // Chrome on Linux sends an empty UA-CH platform version, so pinning one
+    // here would report something no real browser reports.
+    FingerprintPlatform::Linux | FingerprintPlatform::Unsupported => None,
+  }
 }
 
 /// Migrate or ensure a profile has a Persona for a fingerprint kernel.
@@ -337,7 +354,7 @@ pub fn ensure_persona(
     p.validate(kernel_version)?;
     return Ok(p.clone());
   }
-  let p = FingerprintPersona::auto_consistent_windows(kernel_version)?;
+  let p = FingerprintPersona::auto_consistent_host(kernel_version)?;
   p.validate(kernel_version)?;
   Ok(p)
 }
@@ -345,6 +362,10 @@ pub fn ensure_persona(
 #[cfg(test)]
 mod tests {
   use super::*;
+
+  fn host_has_personas() -> bool {
+    FingerprintPlatform::host_default() != FingerprintPlatform::Unsupported
+  }
 
   #[test]
   fn seeds_are_nonzero_and_vary() {
@@ -359,31 +380,48 @@ mod tests {
 
   #[test]
   fn auto_persona_valid_for_148() {
-    if !cfg!(target_os = "windows") {
+    if !host_has_personas() {
       return;
     }
-    let p = FingerprintPersona::auto_consistent_windows("148.0.7778.215").unwrap();
+    let p = FingerprintPersona::auto_consistent_host("148.0.7778.215").unwrap();
     p.validate("148.0.7778.215").unwrap();
     assert_eq!(p.brand_version, "148");
-    assert_eq!(p.platform, FingerprintPlatform::Windows);
+    assert_eq!(p.platform, FingerprintPlatform::host_default());
+    assert_eq!(p.webrtc_policy, WebRtcPolicy::Replace);
+  }
+
+  #[test]
+  fn legacy_webrtc_policies_deserialize_into_current_modes() {
+    assert_eq!(
+      serde_json::from_str::<WebRtcPolicy>(r#""disable_non_proxied_udp""#).unwrap(),
+      WebRtcPolicy::Replace
+    );
+    assert_eq!(
+      serde_json::from_str::<WebRtcPolicy>(r#""default_public_interface_only""#).unwrap(),
+      WebRtcPolicy::Privacy
+    );
+    assert_eq!(
+      serde_json::from_str::<WebRtcPolicy>(r#""default_public_and_private_interfaces""#).unwrap(),
+      WebRtcPolicy::Allow
+    );
   }
 
   #[test]
   fn rejects_brand_version_mismatch() {
-    if !cfg!(target_os = "windows") {
+    if !host_has_personas() {
       return;
     }
-    let mut p = FingerprintPersona::auto_consistent_windows("148.0.7778.215").unwrap();
+    let mut p = FingerprintPersona::auto_consistent_host("148.0.7778.215").unwrap();
     p.brand_version = "147".into();
     assert!(p.validate("148.0.7778.215").is_err());
   }
 
   #[test]
   fn rejects_bad_timezone_and_window() {
-    if !cfg!(target_os = "windows") {
+    if !host_has_personas() {
       return;
     }
-    let mut p = FingerprintPersona::auto_consistent_windows("148.0.7778.215").unwrap();
+    let mut p = FingerprintPersona::auto_consistent_host("148.0.7778.215").unwrap();
     p.timezone = "Not/AZone!!!".into();
     assert!(p.validate("148.0.7778.215").is_err());
     p.timezone = "UTC".into();
@@ -396,20 +434,47 @@ mod tests {
 
   #[test]
   fn different_auto_personas_get_different_seeds() {
-    if !cfg!(target_os = "windows") {
+    if !host_has_personas() {
       return;
     }
-    let a = FingerprintPersona::auto_consistent_windows("148.0.7778.215").unwrap();
-    let b = FingerprintPersona::auto_consistent_windows("148.0.7778.215").unwrap();
+    let a = FingerprintPersona::auto_consistent_host("148.0.7778.215").unwrap();
+    let b = FingerprintPersona::auto_consistent_host("148.0.7778.215").unwrap();
     assert_ne!(a.seed, b.seed);
   }
 
   #[test]
-  fn regenerate_changes_seed() {
-    if !cfg!(target_os = "windows") {
+  fn a_persona_from_another_os_never_validates_here() {
+    if !host_has_personas() {
       return;
     }
-    let mut p = FingerprintPersona::auto_consistent_windows("148.0.7778.215").unwrap();
+    let mut p = FingerprintPersona::auto_consistent_host("148.0.7778.215").unwrap();
+    p.platform = if p.platform == FingerprintPlatform::Windows {
+      FingerprintPlatform::Linux
+    } else {
+      FingerprintPlatform::Windows
+    };
+    assert!(p.validate("148.0.7778.215").is_err());
+  }
+
+  #[test]
+  fn linux_personas_carry_no_platform_version() {
+    assert_eq!(
+      host_platform_version_string(FingerprintPlatform::Linux),
+      None
+    );
+    assert_eq!(
+      host_platform_version_string(FingerprintPlatform::Windows),
+      Some("15.0.0".to_string())
+    );
+    assert_eq!(FingerprintPlatform::Linux.as_cli(), Some("linux"));
+  }
+
+  #[test]
+  fn regenerate_changes_seed() {
+    if !host_has_personas() {
+      return;
+    }
+    let mut p = FingerprintPersona::auto_consistent_host("148.0.7778.215").unwrap();
     let old = p.seed;
     p.regenerate_identity();
     assert_ne!(p.seed, old);

@@ -241,7 +241,7 @@ impl ProfileImporter {
     crate::kernel::geo_consistency::reject_cloud_proxy_id(proxy_id.as_deref())?;
 
     let version = self.get_target_kernel_version()?;
-    let persona = crate::kernel::persona::FingerprintPersona::auto_consistent_windows(&version)
+    let persona = crate::kernel::persona::FingerprintPersona::auto_consistent_host(&version)
       .map_err(|e| format!("Failed to create fingerprint persona: {e}"))?;
     persona.validate(&version)?;
 

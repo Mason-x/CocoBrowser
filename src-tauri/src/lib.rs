@@ -66,10 +66,10 @@ use browser_runner::{
 
 use profile::manager::{
   check_browser_status, clone_profile, create_browser_profile_new, delete_profile,
-  list_browser_profiles, regenerate_profile_persona, rename_profile, update_profile_dns_blocklist,
-  update_profile_launch_hook, update_profile_note, update_profile_persona, update_profile_proxy,
-  update_profile_proxy_bypass_rules, update_profile_tags, update_profile_version,
-  update_profile_vpn, update_profile_window_color,
+  list_browser_profiles, regenerate_profile_persona, rename_profile, switch_profile_kernel,
+  update_profile_dns_blocklist, update_profile_launch_hook, update_profile_note,
+  update_profile_persona, update_profile_proxy, update_profile_proxy_bypass_rules,
+  update_profile_tags, update_profile_vpn, update_profile_window_color,
 };
 
 use profile::password::{
@@ -2079,7 +2079,7 @@ pub fn run() {
       update_profile_proxy,
       update_profile_vpn,
       update_profile_tags,
-      update_profile_version,
+      switch_profile_kernel,
       update_profile_note,
       update_profile_launch_hook,
       update_profile_window_color,

@@ -1237,9 +1237,13 @@
       "nameEmpty": "名称不能为空"
     },
     "kernel": {
-      "title": "内核版本",
-      "switchHint": "切换内核可能改变 User-Agent、GPU 字符串和 Canvas 输出，并会清除代理地理签名，配置需要重新审计。",
-      "switchSuccess": "已切换到内核 {{version}}"
+      "title": "内核",
+      "switchHint": "切换内核会保留指纹种子、Cookie 和登录状态，但 User Agent、GPU 字符串和 Canvas 输出取决于新内核。代理地理签名和上次审计结果会被清除，切换后请重新审计。",
+      "switchSuccess": "已切换到 {{kernel}} {{version}}",
+      "option": "{{kernel}} - {{version}}",
+      "downgradeTitle": "切换到更旧的内核？",
+      "downgradeDescription": "该环境上次由 Chromium {{from}} 打开，而 {{to}} 更旧。浏览器将以允许配置降级的方式启动；较新内核写入的数据可能无法读取，如有重要数据请先备份。",
+      "downgradeConfirm": "仍然切换"
     }
   },
   "extensions": {
@@ -1853,11 +1857,14 @@
     "cloakLicenseInvalid": "CloakBrowser 密钥无效或已过期。",
     "cloakLicenseServerUnavailable": "暂时无法验证 CloakBrowser 许可：{{detail}}",
     "cloakLicenseStorageFailed": "无法访问受保护的 CloakBrowser 密钥：{{detail}}",
-    "cloakPlatformUnsupported": "本应用目前仅在 Windows x64 上提供 CloakBrowser。",
+    "cloakPlatformUnsupported": "CloakBrowser 没有适用于当前平台的版本。",
     "cloakReleaseLookupFailed": "无法获取 CloakBrowser v150 官方版本：{{detail}}",
     "cloakDownloadFailed": "CloakBrowser 下载失败：{{detail}}",
     "cloakBinaryVerificationFailed": "CloakBrowser 内核未通过签名或校验和验证，已拒绝安装。",
-    "cloakSessionLimitReached": "v150 的活动会话名额已占用。请关闭另一个正在运行的 v150 环境后重试。"
+    "cloakSessionLimitReached": "v150 的活动会话名额已占用。请关闭另一个正在运行的 v150 环境后重试。",
+    "linuxSandboxUnavailable": "当前 Linux 主机禁用了非特权用户命名空间，Chromium 无法启动沙箱。请执行 sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0 开启，或把内核目录中的 chrome-sandbox 设为 setuid root。",
+    "kernelSwitchUnsupported": "无法把环境从 {{from}} 切换到 {{to}}。只有支持指纹的内核之间才能互换。",
+    "kernelDowngradeBlocked": "该环境上次由 Chromium {{from}} 打开；{{to}} 更旧，未经确认无法打开它。"
   },
   "rail": {
     "profiles": "环境",
@@ -2168,7 +2175,17 @@
     "schemaVersion": "配置架构版本",
     "brandVersion": "浏览器品牌版本",
     "acceptLanguages": "接受的语言（逗号分隔）",
-    "webrtcPolicy": "WebRTC 策略",
+    "webrtcPolicy": "WebRTC",
+    "webrtcModes": {
+      "replace": "替换",
+      "replaceDescription": "开启 WebRTC，将公网 IP 替换为代理 IP，同时掩盖本地 IP。",
+      "privacy": "隐私",
+      "privacyDescription": "开启 WebRTC，但禁止网站获取您的 IP 地址。",
+      "allow": "允许",
+      "allowDescription": "开启 WebRTC，允许网站获取当前电脑的真实 IP 地址。",
+      "disabled": "禁止",
+      "disabledDescription": "关闭 WebRTC，网站可能会检测到 WebRTC 不可用。"
+    },
     "capabilityRevision": "能力配置版本",
     "spoofingDisabled": "停用伪装的指纹面",
     "spoofingDisabledHint": "勾选后该指纹面将使用浏览器原生值，会降低指纹伪装效果。",

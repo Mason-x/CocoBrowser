@@ -5,7 +5,7 @@ use super::driver::{KernelDriver, KernelError, KernelInfo, KernelLaunchRequest};
 use super::install_registry::{find_executable, install_root};
 use super::launch_plan::{AutomationMode, BrowserProcess, LaunchPlan, LocalProxyEndpoint};
 use super::manifest::KernelManifest;
-use super::persona::{ensure_persona, FingerprintPersona};
+use super::persona::{ensure_persona, FingerprintPersona, WebRtcPolicy};
 use super::process_guard::ProcessGuard;
 use super::session::{SessionManager, SessionState};
 use async_trait::async_trait;
@@ -39,7 +39,9 @@ impl FingerprintChromiumDriver {
       .and_then(|m| {
         m.kernels
           .into_iter()
-          .find(|k| k.id == "fingerprint-chromium")
+          .find(|k| {
+            k.id == "fingerprint-chromium" && k.platform == super::manifest::current_platform_id()
+          })
           .map(|k| k.executable_candidates)
       })
       .unwrap_or_else(|| {
@@ -105,12 +107,30 @@ impl FingerprintChromiumDriver {
         "--window-size={},{}",
         persona.window_width, persona.window_height
       ),
-      "--disable-non-proxied-udp".to_string(),
       format!(
         "--webrtc-ip-handling-policy={}",
         persona.webrtc_policy.as_cli()
       ),
+      format!(
+        "--force-webrtc-ip-handling-policy={}",
+        persona.webrtc_policy.as_cli()
+      ),
     ];
+
+    // Chromium refuses a user data dir stamped by a newer build. A profile
+    // moved onto an older kernel is warned about at switch time, so let the
+    // launch that follows through instead of failing into a native dialog.
+    if super::profile_data::is_downgrade(user_data_dir, &persona.brand_version) {
+      args.push("--allow-profile-downgrade".to_string());
+    }
+    if persona.webrtc_policy.restricts_direct_udp() {
+      args.push("--disable-non-proxied-udp".to_string());
+    }
+    if persona.webrtc_policy == WebRtcPolicy::Disabled {
+      // Supported by fingerprint Chromium builds that expose the desktop
+      // switch. The bundled extension is the cross-version enforcement layer.
+      args.push("--disable-webrtc".to_string());
+    }
 
     if let Some(ref pv) = persona.platform_version {
       args.push(format!("--fingerprint-platform-version={pv}"));
@@ -512,7 +532,7 @@ mod tests {
       hardware_concurrency: Some(8),
       window_width: 1920,
       window_height: 1080,
-      webrtc_policy: WebRtcPolicy::DisableNonProxiedUdp,
+      webrtc_policy: WebRtcPolicy::Replace,
       spoofing_disabled: BTreeSet::new(),
       proxy_geo_signature: None,
       capability_revision: "test".into(),
@@ -550,8 +570,30 @@ mod tests {
     assert!(a1.iter().any(|x| x == "--fingerprint-platform=windows"));
     assert!(a1.iter().any(|x| x == "--fingerprint-brand-version=148"));
     assert!(a1.iter().any(|x| x == "--timezone=America/New_York"));
+    assert!(a1.iter().any(|x| x == "--disable-non-proxied-udp"));
     assert!(!a1.iter().any(|x| x.contains("remote-debugging")));
     assert!(!a1.iter().any(|x| x.contains("no-sandbox")));
+  }
+
+  #[test]
+  fn allow_mode_does_not_force_udp_through_the_proxy() {
+    let mut persona = sample_persona();
+    persona.webrtc_policy = WebRtcPolicy::Allow;
+    let args = FingerprintChromiumDriver::build_args(
+      &persona,
+      Path::new("C:/profiles/a"),
+      None,
+      AutomationMode::Manual,
+      None,
+      &[],
+      None,
+      &[],
+    )
+    .unwrap();
+    assert!(args
+      .iter()
+      .any(|arg| arg == "--force-webrtc-ip-handling-policy=default"));
+    assert!(!args.iter().any(|arg| arg == "--disable-non-proxied-udp"));
   }
 
   #[test]

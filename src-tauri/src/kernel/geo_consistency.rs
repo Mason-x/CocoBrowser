@@ -438,7 +438,7 @@ mod tests {
       hardware_concurrency: Some(8),
       window_width: 1920,
       window_height: 1080,
-      webrtc_policy: WebRtcPolicy::DisableNonProxiedUdp,
+      webrtc_policy: WebRtcPolicy::Replace,
       spoofing_disabled: BTreeSet::new(),
       proxy_geo_signature: None,
       capability_revision: "t".into(),

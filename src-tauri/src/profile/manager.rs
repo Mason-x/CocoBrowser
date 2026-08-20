@@ -152,7 +152,7 @@ impl ProfileManager {
     // Persona kernels use a stable identity assembled before launch.
     let final_persona = if crate::kernel::kinds::is_persona_kernel(browser) {
       Some(
-        crate::kernel::persona::FingerprintPersona::auto_consistent_windows(version)
+        crate::kernel::persona::FingerprintPersona::auto_consistent_host(version)
           .map_err(|e| format!("Failed to create persona: {e}"))?,
       )
     } else {
@@ -468,9 +468,32 @@ impl ProfileManager {
 
   pub fn update_profile_version(
     &self,
-    _app_handle: &tauri::AppHandle,
+    app_handle: &tauri::AppHandle,
     profile_id: &str,
     version: &str,
+  ) -> Result<BrowserProfile, Box<dyn std::error::Error>> {
+    self.switch_profile_kernel(app_handle, profile_id, None, version, false)
+  }
+
+  /// Move a stopped profile onto another installed kernel build.
+  ///
+  /// `kernel_id` picks a different kernel (`cloakbrowser-146` <-> `-150`, or
+  /// off the legacy `fingerprint-chromium`); `None` keeps the profile where it
+  /// is and only changes the build. The Persona seed is carried across
+  /// untouched so the profile keeps its identity, but the new build renders
+  /// Canvas/WebGL/UA differently, so the stored audit and the proxy geo
+  /// signature are dropped and have to be re-established.
+  ///
+  /// Moving backwards is refused unless `allow_downgrade` is set: Chromium
+  /// will not open a user data dir stamped by a newer build, and profile data
+  /// written by the newer one is not guaranteed to be readable by the older.
+  pub fn switch_profile_kernel(
+    &self,
+    _app_handle: &tauri::AppHandle,
+    profile_id: &str,
+    kernel_id: Option<&str>,
+    version: &str,
+    allow_downgrade: bool,
   ) -> Result<BrowserProfile, Box<dyn std::error::Error>> {
     // Find the profile by ID
     let profile_uuid =
@@ -481,26 +504,79 @@ impl ProfileManager {
       .find(|p| p.id == profile_uuid)
       .ok_or_else(|| format!("Profile with ID '{profile_id}' not found"))?;
 
-    // Check if the browser is currently running
-    if profile.process_id.is_some() {
+    // Check if the browser is currently running. `process_id` is the stale
+    // record on disk; the session manager is what a Persona kernel actually
+    // launches through, so a switch mid-launch has to lose to it too.
+    if profile.process_id.is_some()
+      || crate::kernel::session::SessionManager::instance().is_running(profile_uuid)
+    {
       return Err(
         "Cannot update version while browser is running. Please stop the browser first.".into(),
       );
     }
 
+    let target_kernel = kernel_id.unwrap_or(&profile.browser).to_string();
+    if target_kernel != profile.browser {
+      // Only Persona kernels share a Persona, and the seed is the whole point
+      // of the move: without one there is no identity to carry across.
+      if !crate::kernel::kinds::is_persona_kernel(&profile.browser)
+        || !crate::kernel::kinds::is_persona_kernel(&target_kernel)
+      {
+        return Err(
+          serde_json::json!({
+            "code": "KERNEL_SWITCH_UNSUPPORTED",
+            "params": { "from": profile.browser, "to": target_kernel }
+          })
+          .to_string()
+          .into(),
+        );
+      }
+      crate::kernel::registry::KernelRegistry::instance().require(&target_kernel)?;
+      // Same gate the launch path applies, checked here so the switch fails
+      // where the user made it rather than on the next launch.
+      if crate::kernel::kinds::requires_cloak_license(&target_kernel)
+        && crate::kernel::cloak_license::load_license_key()
+          .map_err(|detail| {
+            serde_json::json!({
+              "code": "CLOAK_LICENSE_STORAGE_FAILED",
+              "params": { "detail": detail }
+            })
+            .to_string()
+          })?
+          .is_none()
+      {
+        return Err(
+          serde_json::json!({ "code": "CLOAK_LICENSE_KEY_REQUIRED" })
+            .to_string()
+            .into(),
+        );
+      }
+    }
+
     // Verify the new version through the authoritative kernel registry. The
     // legacy downloaded-browser registry deliberately does not own local kernels.
-    if crate::kernel::kinds::is_persona_kernel(&profile.browser) {
+    if crate::kernel::kinds::is_persona_kernel(&target_kernel) {
       let registry = crate::kernel::install_registry::InstallRegistryFile::load();
       let installed = registry
-        .find(&profile.browser, version)
-        .ok_or_else(|| format!("{} {version} is not installed", profile.browser))?;
+        .find(&target_kernel, version)
+        .ok_or_else(|| format!("{target_kernel} {version} is not installed"))?;
       if !std::path::Path::new(&installed.executable).is_file() {
         return Err(
-          format!(
-            "{} {version} registry entry points to a missing executable",
-            profile.browser
-          )
+          format!("{target_kernel} {version} registry entry points to a missing executable").into(),
+        );
+      }
+
+      let data_dir = profile.get_profile_data_path(&self.get_profiles_dir());
+      if !allow_downgrade && crate::kernel::profile_data::is_downgrade(&data_dir, version) {
+        return Err(
+          serde_json::json!({
+            "code": "KERNEL_DOWNGRADE_BLOCKED",
+            "params": {
+              "from": crate::kernel::profile_data::last_version(&data_dir).unwrap_or_default(),
+              "to": version
+            }
+          })
+          .to_string()
           .into(),
         );
       }
@@ -508,16 +584,16 @@ impl ProfileManager {
       let major = crate::kernel::persona::kernel_major(version)?;
       let mut persona = match profile.persona.clone() {
         Some(persona) => persona,
-        None => crate::kernel::persona::FingerprintPersona::auto_consistent_windows(version)?,
+        None => crate::kernel::persona::FingerprintPersona::auto_consistent_host(version)?,
       };
       persona.brand_version = major.clone();
-      persona.capability_revision = format!("{}-{major}-v1", profile.browser);
+      persona.capability_revision = format!("{target_kernel}-{major}-v1");
       persona.proxy_geo_signature = None;
       persona.validate(version)?;
       profile.persona = Some(persona);
     } else {
-      let browser_type = BrowserType::from_str(&profile.browser)
-        .map_err(|_| format!("Invalid browser type: {}", profile.browser))?;
+      let browser_type = BrowserType::from_str(&target_kernel)
+        .map_err(|_| format!("Invalid browser type: {target_kernel}"))?;
       let browser = create_browser(browser_type);
       let binaries_dir = self.get_binaries_dir();
       if !browser.is_version_downloaded(version, &binaries_dir) {
@@ -525,18 +601,29 @@ impl ProfileManager {
       }
     }
 
-    // Update version
+    profile.browser = target_kernel;
     profile.version = version.to_string();
-
     profile.release_type = "stable".to_string();
+    profile.updated_at = Some(crate::proxy_manager::now_secs());
+
+    // The stored audit describes the build that just got replaced, and a stale
+    // pass is worse than no result at all.
+    let audit_file = crate::kernel::audit::audit_path(&profile.id.to_string());
+    if let Err(e) = std::fs::remove_file(&audit_file) {
+      if e.kind() != std::io::ErrorKind::NotFound {
+        log::warn!("Failed to clear audit result after kernel switch: {e}");
+      }
+    }
 
     // Save the updated profile
     self.save_profile(&profile)?;
+    crate::sync::queue_profile_sync_if_eligible(&profile);
 
     // Emit profile update event
     if let Err(e) = events::emit_empty("profiles-changed") {
       log::warn!("Warning: Failed to emit profiles-changed event: {e}");
     }
+    let _ = events::emit("profile-updated", &profile);
 
     Ok(profile)
   }
@@ -1575,22 +1662,33 @@ pub async fn update_profile_vpn(
     .map_err(|e| format!("Failed to update profile VPN: {e}"))
 }
 
-/// Switch a stopped profile to another installed kernel version.
+/// Switch a stopped profile to another installed kernel, keeping its Persona.
 ///
-/// The manager validates that the target version is present in the kernel
-/// install registry and re-derives the Persona's brand version, so a profile can
-/// only ever point at a kernel that was actually installed through the audited
-/// manifest path.
+/// The manager validates that the target kernel and version are present in the
+/// install registry, so a profile can only ever point at a kernel that was
+/// actually installed through the audited manifest path. `kernel_id` is
+/// optional: omitted, this only moves the profile between builds of the kernel
+/// it is already on. Set `allow_downgrade` only after the user has confirmed
+/// the `KERNEL_DOWNGRADE_BLOCKED` warning — the profile directory was
+/// written by a newer Chromium and the older one may not read all of it.
 #[tauri::command]
-pub fn update_profile_version(
+pub fn switch_profile_kernel(
   app_handle: tauri::AppHandle,
   profile_id: String,
+  kernel_id: Option<String>,
   version: String,
+  allow_downgrade: Option<bool>,
 ) -> Result<BrowserProfile, String> {
   let profile_manager = ProfileManager::instance();
   profile_manager
-    .update_profile_version(&app_handle, &profile_id, &version)
-    .map_err(|e| crate::wrap_backend_error(e, "Failed to update profile version"))
+    .switch_profile_kernel(
+      &app_handle,
+      &profile_id,
+      kernel_id.as_deref(),
+      &version,
+      allow_downgrade.unwrap_or(false),
+    )
+    .map_err(|e| crate::wrap_backend_error(e, "Failed to switch profile kernel"))
 }
 
 #[tauri::command]

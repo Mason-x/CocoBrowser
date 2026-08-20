@@ -188,6 +188,12 @@ impl BrowserRunner {
 
       let profile_id_str = profile.id.to_string();
       let blocklist_file = Self::resolve_blocklist_file(profile).await?;
+      let local_proxy_protocol = match persona.webrtc_policy {
+        crate::kernel::persona::WebRtcPolicy::Privacy
+        | crate::kernel::persona::WebRtcPolicy::Disabled => "http",
+        crate::kernel::persona::WebRtcPolicy::Replace
+        | crate::kernel::persona::WebRtcPolicy::Allow => "socks5",
+      };
       let local_proxy = PROXY_MANAGER
         .start_proxy(
           app_handle.clone(),
@@ -196,7 +202,7 @@ impl BrowserRunner {
           Some(&profile_id_str),
           profile.proxy_bypass_rules.clone(),
           blocklist_file,
-          "socks5",
+          local_proxy_protocol,
         )
         .await
         .map_err(|e| format!("Failed to start local proxy: {e}"))?;
@@ -204,7 +210,7 @@ impl BrowserRunner {
       let local_proxy_endpoint = LocalProxyEndpoint {
         host: local_proxy.host.clone(),
         port: local_proxy.port,
-        protocol: "socks5".to_string(),
+        protocol: local_proxy_protocol.to_string(),
       };
 
       // GeoIP data is useful for timezone matching, but its first download
@@ -321,6 +327,22 @@ impl BrowserRunner {
         crate::ephemeral_dirs::get_effective_profile_path(&updated_profile, &profiles_dir);
 
       let mut extension_paths = Vec::new();
+      match crate::kernel::webrtc::extension_for_policy(&profile_id_str, persona.webrtc_policy) {
+        Ok(dir) => extension_paths.push(dir),
+        Err(detail) => {
+          let _ = PROXY_MANAGER
+            .stop_proxy_by_profile_id(app_handle.clone(), &profile_id_str)
+            .await;
+          return Err(
+            serde_json::json!({
+              "code": "INTERNAL_ERROR",
+              "params": { "detail": detail }
+            })
+            .to_string()
+            .into(),
+          );
+        }
+      }
       // Its worker navigates the startup tab to the workbench once the extension
       // is registered. Only when the caller asked for no particular URL 鈥?an
       // automation client that wants a page should get that page.
@@ -356,16 +378,13 @@ impl BrowserRunner {
         profile: updated_profile.clone(),
         profile_path: profile_data_path,
         url: url.clone(),
-        local_proxy: Some(local_proxy_endpoint),
+        local_proxy: Some(local_proxy_endpoint.clone()),
         automation,
         remote_debugging_port,
         headless,
         extension_paths,
         persona: Some(persona),
-        proxy_url: Some(format!(
-          "socks5://{}:{}",
-          local_proxy.host, local_proxy.port
-        )),
+        proxy_url: Some(local_proxy_endpoint.proxy_server_arg()),
         ephemeral: profile.ephemeral,
       };
 

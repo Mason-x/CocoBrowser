@@ -45,6 +45,8 @@ export type BackendErrorCode =
   | "IMPORT_SOURCE_INVALID"
   | "IMPORT_FAILED"
   | "KERNEL_NOT_INSTALLED"
+  | "KERNEL_SWITCH_UNSUPPORTED"
+  | "KERNEL_DOWNGRADE_BLOCKED"
   | "BROWSER_NOT_CREATABLE"
   | "CLOAK_LICENSE_KEY_REQUIRED"
   | "CLOAK_LICENSE_INVALID"
@@ -55,6 +57,7 @@ export type BackendErrorCode =
   | "CLOAK_DOWNLOAD_FAILED"
   | "CLOAK_BINARY_VERIFICATION_FAILED"
   | "CLOAK_SESSION_LIMIT_REACHED"
+  | "LINUX_SANDBOX_UNAVAILABLE"
   | "EXTENSION_PACKAGE_INVALID"
   | "UPDATE_CHECKSUMS_UNAVAILABLE"
   | "UPDATE_CHECKSUM_MISMATCH"
@@ -229,6 +232,8 @@ export function translateBackendError(t: TFunction, err: unknown): string {
       return t("backendErrors.cloakBinaryVerificationFailed");
     case "CLOAK_SESSION_LIMIT_REACHED":
       return t("backendErrors.cloakSessionLimitReached");
+    case "LINUX_SANDBOX_UNAVAILABLE":
+      return t("backendErrors.linuxSandboxUnavailable");
     case "EXTENSION_PACKAGE_INVALID":
       return t("backendErrors.extensionPackageInvalid", {
         detail: parsed.params?.detail ?? "",
@@ -253,6 +258,16 @@ export function translateBackendError(t: TFunction, err: unknown): string {
         exitTimezone: parsed.params?.exitTimezone ?? "",
         personaTimezone: parsed.params?.personaTimezone ?? "",
         exitIp: parsed.params?.exitIp ?? "",
+      });
+    case "KERNEL_SWITCH_UNSUPPORTED":
+      return t("backendErrors.kernelSwitchUnsupported", {
+        from: parsed.params?.from ?? "",
+        to: parsed.params?.to ?? "",
+      });
+    case "KERNEL_DOWNGRADE_BLOCKED":
+      return t("backendErrors.kernelDowngradeBlocked", {
+        from: parsed.params?.from ?? "",
+        to: parsed.params?.to ?? "",
       });
     case "INTERNAL_ERROR":
       return t("backendErrors.internal", {

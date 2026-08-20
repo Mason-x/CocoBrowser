@@ -14,9 +14,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { translateBackendError } from "@/lib/backend-errors";
+import {
+  isBackendErrorCode,
+  parseBackendError,
+  translateBackendError,
+} from "@/lib/backend-errors";
 import { showErrorToast, showSuccessToast } from "@/lib/toast-utils";
 import type { BrowserProfile, ProfileGroup } from "@/types";
+import { DeleteConfirmationDialog } from "./delete-confirmation-dialog";
 
 const NO_GROUP = "__none__";
 
@@ -24,6 +29,23 @@ interface InstalledKernel {
   id: string;
   version: string;
 }
+
+/** One `<Select>` option: which kernel, and which build of it. */
+interface KernelTarget {
+  kernelId: string;
+  version: string;
+}
+
+const targetValue = (target: KernelTarget) =>
+  `${target.kernelId}|${target.version}`;
+
+const parseTargetValue = (value: string): KernelTarget => {
+  const separator = value.indexOf("|");
+  return {
+    kernelId: value.slice(0, separator),
+    version: value.slice(separator + 1),
+  };
+};
 
 interface ProfileBasicsEditorProps {
   profile: BrowserProfile;
@@ -48,6 +70,12 @@ export function ProfileBasicsEditor({
   const [groups, setGroups] = React.useState<ProfileGroup[]>([]);
   const [allTags, setAllTags] = React.useState<string[]>([]);
   const [kernels, setKernels] = React.useState<InstalledKernel[]>([]);
+  const [downgrade, setDowngrade] = React.useState<{
+    target: KernelTarget;
+    from: string;
+    to: string;
+  } | null>(null);
+  const [downgradeLoading, setDowngradeLoading] = React.useState(false);
 
   React.useEffect(() => {
     setName(profile.name);
@@ -124,21 +152,93 @@ export function ProfileBasicsEditor({
     [profile.id, t],
   );
 
-  const onKernelChange = React.useCallback(
-    async (version: string) => {
-      if (version === profile.version) return;
+  const kernelLabel = React.useCallback(
+    (kernelId: string) => {
+      const key = `createProfile.kernelNames.${kernelId}`;
+      const label = t(key);
+      // Kernels that predate the name table (or arrive from a synced profile)
+      // have no key; showing the raw id beats showing the key path.
+      return label === key ? kernelId : label;
+    },
+    [t],
+  );
+
+  // The profile's own kernel always appears, even when its build is missing
+  // from the install registry, so the control never renders blank.
+  const kernelTargets = React.useMemo<KernelTarget[]>(() => {
+    const current: KernelTarget = {
+      kernelId: profile.browser,
+      version: profile.version,
+    };
+    const targets = kernels.map((kernel) => ({
+      kernelId: kernel.id,
+      version: kernel.version,
+    }));
+    if (
+      !targets.some((target) => targetValue(target) === targetValue(current))
+    ) {
+      targets.unshift(current);
+    }
+    return targets.sort((a, b) =>
+      a.kernelId === b.kernelId
+        ? b.version.localeCompare(a.version, undefined, { numeric: true })
+        : a.kernelId.localeCompare(b.kernelId),
+    );
+  }, [kernels, profile.browser, profile.version]);
+
+  const switchKernel = React.useCallback(
+    async (target: KernelTarget, allowDowngrade: boolean) => {
       try {
-        await invoke("update_profile_version", {
+        await invoke("switch_profile_kernel", {
           profileId: profile.id,
-          version,
+          kernelId: target.kernelId,
+          version: target.version,
+          allowDowngrade,
         });
-        showSuccessToast(t("profileInfo.kernel.switchSuccess", { version }));
+        showSuccessToast(
+          t("profileInfo.kernel.switchSuccess", {
+            kernel: kernelLabel(target.kernelId),
+            version: target.version,
+          }),
+        );
       } catch (error) {
+        if (isBackendErrorCode(error, "KERNEL_DOWNGRADE_BLOCKED")) {
+          const params = parseBackendError(error)?.params;
+          setDowngrade({
+            target,
+            from: params?.from ?? "",
+            to: params?.to ?? target.version,
+          });
+          return;
+        }
         showErrorToast(translateBackendError(t as never, error));
       }
     },
-    [profile.id, profile.version, t],
+    [kernelLabel, profile.id, t],
   );
+
+  const onKernelChange = React.useCallback(
+    (value: string) => {
+      const target = parseTargetValue(value);
+      if (
+        target.kernelId === profile.browser &&
+        target.version === profile.version
+      ) {
+        return;
+      }
+      void switchKernel(target, false);
+    },
+    [profile.browser, profile.version, switchKernel],
+  );
+
+  const confirmDowngrade = React.useCallback(async () => {
+    if (!downgrade) return;
+    setDowngradeLoading(true);
+    const target = downgrade.target;
+    setDowngrade(null);
+    await switchKernel(target, true);
+    setDowngradeLoading(false);
+  }, [downgrade, switchKernel]);
 
   const onTagsChange = React.useCallback(
     async (options: Option[]) => {
@@ -218,35 +318,36 @@ export function ProfileBasicsEditor({
         </Select>
       </div>
 
-      {kernels.length > 0 && (
-        <div className="space-y-1.5">
-          <Label htmlFor="profile-basics-kernel">
-            {t("profileInfo.kernel.title")}
-          </Label>
-          <Select
-            value={profile.version}
-            disabled={isRunning}
-            onValueChange={(value) => void onKernelChange(value)}
-          >
-            <SelectTrigger id="profile-basics-kernel" className="w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {kernels.map((kernel) => (
-                <SelectItem
-                  key={`${kernel.id}-${kernel.version}`}
-                  value={kernel.version}
-                >
-                  {kernel.version}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <p className="text-xs text-muted-foreground">
-            {t("profileInfo.kernel.switchHint")}
-          </p>
-        </div>
-      )}
+      <div className="space-y-1.5">
+        <Label htmlFor="profile-basics-kernel">
+          {t("profileInfo.kernel.title")}
+        </Label>
+        <Select
+          value={targetValue({
+            kernelId: profile.browser,
+            version: profile.version,
+          })}
+          disabled={isRunning}
+          onValueChange={onKernelChange}
+        >
+          <SelectTrigger id="profile-basics-kernel" className="w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {kernelTargets.map((target) => (
+              <SelectItem key={targetValue(target)} value={targetValue(target)}>
+                {t("profileInfo.kernel.option", {
+                  kernel: kernelLabel(target.kernelId),
+                  version: target.version,
+                })}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <p className="text-xs text-muted-foreground">
+          {t("profileInfo.kernel.switchHint")}
+        </p>
+      </div>
 
       <div className="space-y-1.5">
         <Label>{t("profileInfo.fields.tags")}</Label>
@@ -281,6 +382,21 @@ export function ProfileBasicsEditor({
           {t("profileInfo.basics.runningHint")}
         </p>
       )}
+
+      <DeleteConfirmationDialog
+        isOpen={downgrade !== null}
+        onClose={() => {
+          setDowngrade(null);
+        }}
+        onConfirm={() => void confirmDowngrade()}
+        title={t("profileInfo.kernel.downgradeTitle")}
+        description={t("profileInfo.kernel.downgradeDescription", {
+          from: downgrade?.from ?? "",
+          to: downgrade?.to ?? "",
+        })}
+        confirmButtonText={t("profileInfo.kernel.downgradeConfirm")}
+        isLoading={downgradeLoading}
+      />
     </div>
   );
 }

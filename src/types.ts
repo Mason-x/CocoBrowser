@@ -193,7 +193,7 @@ export interface AppUpdateProgress {
 export interface FingerprintPersona {
   schemaVersion: number;
   seed: number;
-  platform: "windows" | "unsupported";
+  platform: "windows" | "linux" | "unsupported";
   platformVersion?: string | null;
   brand: "chrome" | "other";
   brandVersion: string;
@@ -207,7 +207,7 @@ export interface FingerprintPersona {
   hardwareConcurrency?: number | null;
   windowWidth: number;
   windowHeight: number;
-  webrtcPolicy: string;
+  webrtcPolicy: "replace" | "privacy" | "allow" | "disabled";
   spoofingDisabled?: string[];
   proxyGeoSignature?: string | null;
   capabilityRevision: string;

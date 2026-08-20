@@ -4,7 +4,9 @@ import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const MANIFEST_DIR = dirname(fileURLToPath(import.meta.url));
-const PROFILE = process.env.PROFILE || "debug";
+const PROFILE =
+  process.env.PROFILE ||
+  (process.env.TAURI_ENV_DEBUG === "false" ? "release" : "debug");
 
 function getTarget() {
   if (process.env.TARGET) return process.env.TARGET;

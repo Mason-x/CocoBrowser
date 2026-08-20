@@ -1787,6 +1787,32 @@ const PERSONA_SPOOFING_SURFACES = [
   "client_rects",
   "webgl",
 ] as const;
+const PERSONA_WEBRTC_MODES = [
+  {
+    value: "replace",
+    labelKey: "identity.webrtcModes.replace",
+    descriptionKey: "identity.webrtcModes.replaceDescription",
+  },
+  {
+    value: "privacy",
+    labelKey: "identity.webrtcModes.privacy",
+    descriptionKey: "identity.webrtcModes.privacyDescription",
+  },
+  {
+    value: "allow",
+    labelKey: "identity.webrtcModes.allow",
+    descriptionKey: "identity.webrtcModes.allowDescription",
+  },
+  {
+    value: "disabled",
+    labelKey: "identity.webrtcModes.disabled",
+    descriptionKey: "identity.webrtcModes.disabledDescription",
+  },
+] as const satisfies ReadonlyArray<{
+  value: FingerprintPersona["webrtcPolicy"];
+  labelKey: string;
+  descriptionKey: string;
+}>;
 
 function normalizeLocalPersona(
   persona: FingerprintPersona,
@@ -1851,6 +1877,9 @@ function FingerprintChromiumPersonaInline({
   const cloakNoiseDisabled =
     persona?.spoofingDisabled?.includes("canvas") === true &&
     persona.spoofingDisabled.includes("webgl");
+  const selectedWebRtcMode = PERSONA_WEBRTC_MODES.find(
+    (mode) => mode.value === persona?.webrtcPolicy,
+  );
   const dirty =
     persona !== null &&
     JSON.stringify(persona) !== JSON.stringify(initialPersona);
@@ -2058,15 +2087,42 @@ function FingerprintChromiumPersonaInline({
             </SelectContent>
           </Select>
         </div>
-        <div className="grid gap-1.5">
-          <Label htmlFor="inline-persona-webrtc">
-            {t("identity.webrtcPolicy")}
-          </Label>
-          <Input
-            id="inline-persona-webrtc"
-            value={persona.webrtcPolicy}
-            disabled
-          />
+        <div className="grid gap-2 sm:col-span-2 sm:grid-cols-[7rem_minmax(0,1fr)]">
+          <Label className="pt-2">{t("identity.webrtcPolicy")}</Label>
+          <div className="grid gap-2 sm:max-w-md">
+            <div
+              className="grid w-full grid-cols-4 rounded-md bg-muted p-1"
+              role="group"
+              aria-label={t("identity.webrtcPolicy")}
+            >
+              {PERSONA_WEBRTC_MODES.map((mode) => {
+                const selected = persona.webrtcPolicy === mode.value;
+                return (
+                  <button
+                    key={mode.value}
+                    type="button"
+                    disabled={readOnly}
+                    aria-pressed={selected}
+                    className={cn(
+                      "rounded-sm px-2 py-1.5 text-xs font-medium transition-colors",
+                      "text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                      "disabled:pointer-events-none disabled:opacity-50",
+                      selected &&
+                        "bg-primary text-primary-foreground shadow-sm hover:text-primary-foreground",
+                    )}
+                    onClick={() => updatePersona("webrtcPolicy", mode.value)}
+                  >
+                    {t(mode.labelKey)}
+                  </button>
+                );
+              })}
+            </div>
+            {selectedWebRtcMode && (
+              <p className="text-xs text-muted-foreground">
+                {t(selectedWebRtcMode.descriptionKey)}
+              </p>
+            )}
+          </div>
         </div>
         <div className="grid gap-1.5">
           <Label htmlFor="inline-persona-width">

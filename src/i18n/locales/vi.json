@@ -1237,9 +1237,13 @@
       "nameEmpty": "Tên không được để trống"
     },
     "kernel": {
-      "title": "Phiên bản nhân",
-      "switchHint": "Chuyển nhân có thể thay đổi user agent, chuỗi GPU và đầu ra Canvas, đồng thời xóa chữ ký địa lý của proxy nên hồ sơ cần được kiểm định lại.",
-      "switchSuccess": "Đã chuyển sang nhân {{version}}"
+      "title": "Nhân",
+      "switchHint": "Đổi nhân vẫn giữ nguyên hạt giống vân tay, cookie và phiên đăng nhập, nhưng user agent, chuỗi GPU và kết quả Canvas đến từ bản dựng mới. Chữ ký vị trí của proxy và lần kiểm tra gần nhất sẽ bị xoá, hãy chạy kiểm tra lại sau khi đổi.",
+      "switchSuccess": "Đã chuyển sang {{kernel}} {{version}}",
+      "option": "{{kernel}} - {{version}}",
+      "downgradeTitle": "Chuyển về nhân cũ hơn?",
+      "downgradeDescription": "Môi trường này được mở lần cuối bằng Chromium {{from}}, còn {{to}} thì cũ hơn. Trình duyệt sẽ khởi động ở chế độ cho phép hạ cấp hồ sơ; dữ liệu do bản dựng mới ghi có thể không đọc được, hãy sao lưu trước nếu cần.",
+      "downgradeConfirm": "Vẫn chuyển"
     }
   },
   "extensions": {
@@ -1853,11 +1857,14 @@
     "cloakLicenseInvalid": "The CloakBrowser key is invalid or expired.",
     "cloakLicenseServerUnavailable": "CloakBrowser license validation is unavailable: {{detail}}",
     "cloakLicenseStorageFailed": "Could not access the protected CloakBrowser key: {{detail}}",
-    "cloakPlatformUnsupported": "CloakBrowser is currently available only on Windows x64 in this app.",
+    "cloakPlatformUnsupported": "CloakBrowser không có bản dựng cho nền tảng này.",
     "cloakReleaseLookupFailed": "Could not resolve the official CloakBrowser v150 release: {{detail}}",
     "cloakDownloadFailed": "CloakBrowser download failed: {{detail}}",
     "cloakBinaryVerificationFailed": "The CloakBrowser binary failed signature or checksum verification and was not installed.",
-    "cloakSessionLimitReached": "The v150 session limit is in use. Close the other running v150 environment and try again."
+    "cloakSessionLimitReached": "The v150 session limit is in use. Close the other running v150 environment and try again.",
+    "linuxSandboxUnavailable": "Chromium không thể khởi động hộp cát vì máy Linux này chặn user namespace không đặc quyền. Hãy bật chúng (sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0) hoặc đặt setuid root cho chrome-sandbox của nhân.",
+    "kernelSwitchUnsupported": "Không thể chuyển môi trường từ {{from}} sang {{to}}. Chỉ những nhân hỗ trợ vân tay mới hoán đổi được cho nhau.",
+    "kernelDowngradeBlocked": "Môi trường này được mở lần cuối bằng Chromium {{from}}; {{to}} cũ hơn nên không thể mở nếu chưa xác nhận."
   },
   "rail": {
     "profiles": "Profile",
@@ -2168,7 +2175,17 @@
     "schemaVersion": "Schema version",
     "brandVersion": "Browser brand",
     "acceptLanguages": "Accepted languages",
-    "webrtcPolicy": "WebRTC policy",
+    "webrtcPolicy": "WebRTC",
+    "webrtcModes": {
+      "replace": "Thay thế",
+      "replaceDescription": "Bật WebRTC, thay IP công khai bằng IP proxy và ẩn IP cục bộ.",
+      "privacy": "Riêng tư",
+      "privacyDescription": "Bật WebRTC nhưng ngăn các trang web lấy địa chỉ IP của bạn.",
+      "allow": "Cho phép",
+      "allowDescription": "Bật WebRTC và cho phép các trang web lấy IP thật của máy tính này.",
+      "disabled": "Chặn",
+      "disabledDescription": "Tắt WebRTC. Các trang web có thể phát hiện WebRTC không khả dụng."
+    },
     "capabilityRevision": "Capability revision",
     "spoofingDisabled": "Disabled spoofing surfaces",
     "spoofingDisabledHint": "Checked surfaces use the browser's native value and reduce fingerprint masking.",

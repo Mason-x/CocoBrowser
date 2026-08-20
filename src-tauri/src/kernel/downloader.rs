@@ -4,9 +4,9 @@
 //! 1. Download to `*.partial` with max size from manifest
 //! 2. Check Content-Length / streamed size
 //! 3. SHA-256 vs manifest
-//! 4. ZIP path traversal / absolute path checks
+//! 4. Archive path traversal / absolute path checks
 //! 5. Extract to random staging
-//! 6. Locate chrome.exe
+//! 6. Locate the chrome executable
 //! 7. Atomic move to `binaries/<id>/<version>`
 //! 8. Write local install registry
 //! 10. Failure deletes only staging/partial 鈥?never the live install
@@ -25,8 +25,13 @@ use zip::ZipArchive;
 
 const CLOAK_DOWNLOAD_BASE: &str = "https://cloakbrowser.dev";
 const CLOAK_SIGNING_PUBKEY: &str = "MKFKwIhUcKWq5xTuNA0Ovg99njcDEcEJvmWYYhApvaU=";
-const CLOAK_WINDOWS_ARCHIVE: &str = "cloakbrowser-windows-x64.zip";
+const CLOAK_ARCHIVE_WINDOWS_X64: &str = "cloakbrowser-windows-x64.zip";
+const CLOAK_ARCHIVE_LINUX_X64: &str = "cloakbrowser-linux-x64.tar.gz";
+const CLOAK_ARCHIVE_LINUX_ARM64: &str = "cloakbrowser-linux-arm64.tar.gz";
 const CLOAK_MAX_ARCHIVE_SIZE: u64 = 1_200_000_000;
+/// Ceiling on what a single archive may write to disk. An unpacked Chromium
+/// tree is well under this; anything past it is a decompression bomb.
+const MAX_EXTRACTED_BYTES: u64 = 4_000_000_000;
 
 #[derive(Debug, thiserror::Error)]
 pub enum KernelDownloadError {
@@ -36,8 +41,8 @@ pub enum KernelDownloadError {
   Sha256Mismatch { expected: String, actual: String },
   #[error("size mismatch: expected {expected}, got {actual}")]
   SizeMismatch { expected: u64, actual: u64 },
-  #[error("unsafe zip entry: {0}")]
-  UnsafeZipEntry(String),
+  #[error("unsafe archive entry: {0}")]
+  UnsafeArchiveEntry(String),
   #[error("network: {0}")]
   Network(String),
   #[error("io: {0}")]
@@ -120,8 +125,46 @@ pub fn verify_download_file(asset: &KernelAsset, path: &Path) -> Result<(), Kern
   Ok(())
 }
 
-/// Reject ZIP entry names that escape the extract root.
-pub fn is_safe_zip_entry_name(name: &str) -> bool {
+/// Container the vendor ships a kernel in. Windows builds are ZIP; Linux
+/// builds are gzipped tar, which is what carries the executable bits.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ArchiveFormat {
+  Zip,
+  TarGz,
+}
+
+impl ArchiveFormat {
+  fn partial_extension(self) -> &'static str {
+    match self {
+      ArchiveFormat::Zip => "zip",
+      ArchiveFormat::TarGz => "tar.gz",
+    }
+  }
+}
+
+/// Resolve the container from the vendor's file name.
+pub fn archive_format_from_url(url: &str) -> Result<ArchiveFormat, KernelDownloadError> {
+  let name = url
+    .split(['?', '#'])
+    .next()
+    .unwrap_or(url)
+    .rsplit('/')
+    .next()
+    .unwrap_or("")
+    .to_ascii_lowercase();
+  if name.ends_with(".zip") {
+    Ok(ArchiveFormat::Zip)
+  } else if name.ends_with(".tar.gz") || name.ends_with(".tgz") {
+    Ok(ArchiveFormat::TarGz)
+  } else {
+    Err(KernelDownloadError::Message(format!(
+      "unsupported kernel archive format: {name}"
+    )))
+  }
+}
+
+/// Reject archive entry names that escape the extract root.
+pub fn is_safe_archive_entry_name(name: &str) -> bool {
   if name.is_empty() {
     return false;
   }
@@ -143,6 +186,91 @@ pub fn is_safe_zip_entry_name(name: &str) -> bool {
   true
 }
 
+fn guard_extracted_total(total: &mut u64, written: u64) -> Result<(), KernelDownloadError> {
+  *total = total.saturating_add(written);
+  if *total > MAX_EXTRACTED_BYTES {
+    return Err(KernelDownloadError::Message(
+      "extracted kernel tree exceeds the safety limit".into(),
+    ));
+  }
+  Ok(())
+}
+
+/// Keep the vendor's permission bits — a Chromium tree whose `chrome` lost its
+/// executable bit cannot launch — while forcing the owner's read/write back on.
+#[cfg(unix)]
+fn apply_archive_mode(path: &Path, mode: Option<u32>) -> Result<(), KernelDownloadError> {
+  use std::os::unix::fs::PermissionsExt;
+  let Some(mode) = mode else {
+    return Ok(());
+  };
+  fs::set_permissions(path, fs::Permissions::from_mode((mode & 0o777) | 0o600))?;
+  Ok(())
+}
+
+#[cfg(not(unix))]
+fn apply_archive_mode(_path: &Path, _mode: Option<u32>) -> Result<(), KernelDownloadError> {
+  Ok(())
+}
+
+/// Extract an archive to `dest` in whichever container the vendor published.
+pub fn extract_archive_safe(
+  archive_path: &Path,
+  dest: &Path,
+  format: ArchiveFormat,
+) -> Result<(), KernelDownloadError> {
+  match format {
+    ArchiveFormat::Zip => extract_zip_safe(archive_path, dest),
+    ArchiveFormat::TarGz => extract_tar_gz_safe(archive_path, dest),
+  }
+}
+
+/// Extract a gzipped tar to `dest`, rejecting unsafe entries. Only regular
+/// files and directories are materialized — no links, no device nodes.
+pub fn extract_tar_gz_safe(archive_path: &Path, dest: &Path) -> Result<(), KernelDownloadError> {
+  fs::create_dir_all(dest)?;
+  let file = File::open(archive_path)?;
+  let mut archive = tar::Archive::new(flate2::read::GzDecoder::new(file));
+  let entries = archive
+    .entries()
+    .map_err(|e| KernelDownloadError::Message(format!("open tar: {e}")))?;
+  let mut total: u64 = 0;
+
+  for entry in entries {
+    let mut entry = entry.map_err(|e| KernelDownloadError::Message(format!("tar entry: {e}")))?;
+    let name = entry
+      .path()
+      .map_err(|e| KernelDownloadError::Message(format!("tar entry path: {e}")))?
+      .to_string_lossy()
+      .to_string();
+    if !is_safe_archive_entry_name(&name) {
+      return Err(KernelDownloadError::UnsafeArchiveEntry(name));
+    }
+
+    let kind = entry.header().entry_type();
+    let out_path = dest.join(&name);
+    if kind.is_dir() {
+      fs::create_dir_all(&out_path)?;
+      continue;
+    }
+    if !kind.is_file() {
+      return Err(KernelDownloadError::UnsafeArchiveEntry(format!(
+        "unsupported tar entry type: {name}"
+      )));
+    }
+    if let Some(parent) = out_path.parent() {
+      fs::create_dir_all(parent)?;
+    }
+    let mode = entry.header().mode().ok();
+    let mut outfile = File::create(&out_path)?;
+    let written = io::copy(&mut entry, &mut outfile)?;
+    drop(outfile);
+    guard_extracted_total(&mut total, written)?;
+    apply_archive_mode(&out_path, mode)?;
+  }
+  Ok(())
+}
+
 /// Extract a ZIP to `dest`, rejecting unsafe entries. No symlink support.
 pub fn extract_zip_safe(zip_path: &Path, dest: &Path) -> Result<(), KernelDownloadError> {
   fs::create_dir_all(dest)?;
@@ -150,20 +278,21 @@ pub fn extract_zip_safe(zip_path: &Path, dest: &Path) -> Result<(), KernelDownlo
   let mut archive =
     ZipArchive::new(file).map_err(|e| KernelDownloadError::Message(format!("open zip: {e}")))?;
 
+  let mut total: u64 = 0;
   for i in 0..archive.len() {
     let mut entry = archive
       .by_index(i)
       .map_err(|e| KernelDownloadError::Message(format!("zip entry {i}: {e}")))?;
     let name = entry.name().to_string();
-    if !is_safe_zip_entry_name(&name) {
-      return Err(KernelDownloadError::UnsafeZipEntry(name));
+    if !is_safe_archive_entry_name(&name) {
+      return Err(KernelDownloadError::UnsafeArchiveEntry(name));
     }
     // Symlinks: zip crate may expose them as files; refuse unix mode symlink bit when present.
     #[cfg(unix)]
     {
       use std::os::unix::fs::PermissionsExt;
       if entry.unix_mode().is_some_and(|m| m & 0o170000 == 0o120000) {
-        return Err(KernelDownloadError::UnsafeZipEntry(format!(
+        return Err(KernelDownloadError::UnsafeArchiveEntry(format!(
           "symlink refused: {name}"
         )));
       }
@@ -177,8 +306,12 @@ pub fn extract_zip_safe(zip_path: &Path, dest: &Path) -> Result<(), KernelDownlo
     if let Some(parent) = out_path.parent() {
       fs::create_dir_all(parent)?;
     }
+    let mode = entry.unix_mode();
     let mut outfile = File::create(&out_path)?;
-    io::copy(&mut entry, &mut outfile)?;
+    let written = io::copy(&mut entry, &mut outfile)?;
+    drop(outfile);
+    guard_extracted_total(&mut total, written)?;
+    apply_archive_mode(&out_path, mode)?;
   }
   Ok(())
 }
@@ -192,9 +325,10 @@ fn cleanup_path(path: &Path) {
 }
 
 /// Install from already-verified bytes (tests + local import path).
-pub fn install_verified_zip_bytes(
+pub fn install_verified_archive_bytes(
   asset: &KernelAsset,
   data: &[u8],
+  format: ArchiveFormat,
   binaries_parent: Option<&Path>,
 ) -> Result<InstalledKernel, KernelDownloadError> {
   verify_download_bytes(asset, data)?;
@@ -202,26 +336,30 @@ pub fn install_verified_zip_bytes(
   let cache = crate::app_dirs::cache_dir().join("kernel_downloads");
   fs::create_dir_all(&cache)?;
   let partial = cache.join(format!(
-    "{}-{}-{}.zip.partial",
-    asset.id, asset.version, asset.platform
+    "{}-{}-{}.{}.partial",
+    asset.id,
+    asset.version,
+    asset.platform,
+    format.partial_extension()
   ));
   {
     let mut f = File::create(&partial)?;
     f.write_all(data)?;
   }
 
-  let result = install_verified_zip_file(asset, &partial, binaries_parent);
+  let result = install_verified_archive_file(asset, &partial, format, binaries_parent);
   cleanup_path(&partial);
   result
 }
 
-/// Install from a verified ZIP file on disk.
-pub fn install_verified_zip_file(
+/// Install from a verified archive file on disk.
+pub fn install_verified_archive_file(
   asset: &KernelAsset,
-  zip_path: &Path,
+  archive_path: &Path,
+  format: ArchiveFormat,
   binaries_parent: Option<&Path>,
 ) -> Result<InstalledKernel, KernelDownloadError> {
-  verify_download_file(asset, zip_path)?;
+  verify_download_file(asset, archive_path)?;
 
   let staging_parent = crate::app_dirs::cache_dir().join("kernel_staging");
   fs::create_dir_all(&staging_parent)?;
@@ -234,7 +372,7 @@ pub fn install_verified_zip_file(
   fs::create_dir_all(&staging)?;
 
   let install_result = (|| {
-    extract_zip_safe(zip_path, &staging)?;
+    extract_archive_safe(archive_path, &staging, format)?;
     find_executable(&staging, &asset.executable_candidates).ok_or_else(|| {
       KernelDownloadError::Message(format!(
         "no executable found under staging (candidates: {:?})",
@@ -359,6 +497,7 @@ pub async fn download_and_install_asset(
       "refusing non-HTTPS kernel download".into(),
     ));
   }
+  let format = archive_format_from_url(&asset.url)?;
 
   // Idempotent: already installed with same hash.
   if let Some(existing) = InstallRegistryFile::load().find(&asset.id, &asset.version) {
@@ -378,8 +517,11 @@ pub async fn download_and_install_asset(
   let cache = crate::app_dirs::cache_dir().join("kernel_downloads");
   fs::create_dir_all(&cache).map_err(|e| KernelDownloadError::Io(e.to_string()))?;
   let partial = cache.join(format!(
-    "{}-{}-{}.zip.partial",
-    asset.id, asset.version, asset.platform
+    "{}-{}-{}.{}.partial",
+    asset.id,
+    asset.version,
+    asset.platform,
+    format.partial_extension()
   ));
   if partial.exists() {
     cleanup_path(&partial);
@@ -429,7 +571,7 @@ pub async fn download_and_install_asset(
   }
   drop(file);
 
-  let install = install_verified_zip_file(asset, &partial, None);
+  let install = install_verified_archive_file(asset, &partial, format, None);
   cleanup_path(&partial);
   install
 }
@@ -453,7 +595,31 @@ pub async fn install_fingerprint_chromium_148() -> Result<InstalledKernel, Kerne
   download_and_install_asset(&asset).await
 }
 
-fn parse_cloak_signed_manifest(text: &str, version: &str) -> Result<String, KernelDownloadError> {
+/// Archive CloakBrowser publishes for `platform`, or `None` where the vendor
+/// ships no build.
+pub fn cloak_archive_name(platform: &str) -> Option<&'static str> {
+  match platform {
+    "windows-x64" => Some(CLOAK_ARCHIVE_WINDOWS_X64),
+    "linux-x64" => Some(CLOAK_ARCHIVE_LINUX_X64),
+    "linux-arm64" => Some(CLOAK_ARCHIVE_LINUX_ARM64),
+    _ => None,
+  }
+}
+
+/// Executable names a CloakBrowser tree is expected to expose on `platform`.
+pub fn cloak_executable_candidates(platform: &str) -> Vec<String> {
+  if platform.starts_with("windows") {
+    vec!["chrome.exe".into()]
+  } else {
+    vec!["chrome".into()]
+  }
+}
+
+fn parse_cloak_signed_manifest(
+  text: &str,
+  version: &str,
+  archive: &str,
+) -> Result<String, KernelDownloadError> {
   let declared = text.lines().find_map(|line| {
     line
       .trim()
@@ -472,16 +638,17 @@ fn parse_cloak_signed_manifest(text: &str, version: &str) -> Result<String, Kern
       let mut fields = line.split_whitespace();
       let sha = fields.next()?;
       let filename = fields.next()?.trim_start_matches('*');
-      (filename == CLOAK_WINDOWS_ARCHIVE && sha.len() == 64).then(|| sha.to_ascii_lowercase())
+      (filename == archive && sha.len() == 64).then(|| sha.to_ascii_lowercase())
     })
     .ok_or_else(|| {
-      KernelDownloadError::Message(format!(
-        "signed manifest does not contain {CLOAK_WINDOWS_ARCHIVE}"
-      ))
+      KernelDownloadError::Message(format!("signed manifest does not contain {archive}"))
     })
 }
 
-async fn fetch_verified_cloak_hash(version: &str) -> Result<String, KernelDownloadError> {
+async fn fetch_verified_cloak_hash(
+  version: &str,
+  archive: &str,
+) -> Result<String, KernelDownloadError> {
   let base = format!("{CLOAK_DOWNLOAD_BASE}/releases/pro/chromium-v{version}");
   let client = reqwest::Client::builder()
     .connect_timeout(std::time::Duration::from_secs(10))
@@ -520,14 +687,21 @@ async fn fetch_verified_cloak_hash(version: &str) -> Result<String, KernelDownlo
     .map_err(|_| KernelDownloadError::Message("CloakBrowser manifest signature rejected".into()))?;
   let manifest_text = std::str::from_utf8(&manifest)
     .map_err(|e| KernelDownloadError::Message(format!("invalid signed manifest text: {e}")))?;
-  parse_cloak_signed_manifest(manifest_text, version)
+  parse_cloak_signed_manifest(manifest_text, version, archive)
 }
 
 async fn download_and_install_cloak_latest(
   key: &str,
   release: &super::cloak_license::CloakLatestRelease,
 ) -> Result<InstalledKernel, KernelDownloadError> {
-  let expected_sha = fetch_verified_cloak_hash(&release.version).await?;
+  let archive = cloak_archive_name(&release.platform).ok_or_else(|| {
+    KernelDownloadError::Message(format!(
+      "CloakBrowser publishes no build for platform {}",
+      release.platform
+    ))
+  })?;
+  let format = archive_format_from_url(archive)?;
+  let expected_sha = fetch_verified_cloak_hash(&release.version, archive).await?;
   if let Some(existing) = InstallRegistryFile::load()
     .find(&release.id, &release.version)
     .filter(|entry| {
@@ -540,8 +714,11 @@ async fn download_and_install_cloak_latest(
   let cache = crate::app_dirs::cache_dir().join("kernel_downloads");
   fs::create_dir_all(&cache).map_err(|e| KernelDownloadError::Io(e.to_string()))?;
   let partial = cache.join(format!(
-    "{}-{}-{}.zip.partial",
-    release.id, release.version, release.platform
+    "{}-{}-{}.{}.partial",
+    release.id,
+    release.version,
+    release.platform,
+    format.partial_extension()
   ));
   cleanup_path(&partial);
 
@@ -607,19 +784,24 @@ async fn download_and_install_cloak_latest(
     url: format!("{CLOAK_DOWNLOAD_BASE}/api/download/{}", release.version),
     sha256: expected_sha,
     size: written,
-    executable_candidates: vec!["chrome.exe".into()],
+    executable_candidates: cloak_executable_candidates(&release.platform),
     source_status: release.source_status.clone(),
   };
-  let result = install_verified_zip_file(&asset, &partial, None);
+  let result = install_verified_archive_file(&asset, &partial, format, None);
   cleanup_path(&partial);
   result
 }
 
 // 鈹€鈹€ Tauri commands 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
 
+/// Audited assets installable on this machine. Callers render the result as
+/// the install choices, so entries for other platforms must not appear.
 #[tauri::command]
 pub fn list_kernel_manifest() -> Result<KernelManifest, String> {
-  KernelManifest::embedded()
+  let mut manifest = KernelManifest::embedded()?;
+  let platform = current_platform_id();
+  manifest.kernels.retain(|asset| asset.platform == platform);
+  Ok(manifest)
 }
 
 #[tauri::command]
@@ -685,6 +867,22 @@ mod tests {
     }
   }
 
+  fn build_tar_gz_with_chrome(path: &Path) -> Vec<u8> {
+    let file = File::create(path).unwrap();
+    let encoder = flate2::write::GzEncoder::new(file, flate2::Compression::fast());
+    let mut builder = tar::Builder::new(encoder);
+    let payload = b"\x7fELF-fake-chrome-binary-for-tests";
+    let mut header = tar::Header::new_gnu();
+    header.set_entry_type(tar::EntryType::Regular);
+    header.set_size(payload.len() as u64);
+    header.set_mode(0o755);
+    builder
+      .append_data(&mut header, "chrome", &payload[..])
+      .unwrap();
+    builder.into_inner().unwrap().finish().unwrap();
+    fs::read(path).unwrap()
+  }
+
   fn build_zip_with_chrome(path: &Path) -> Vec<u8> {
     let file = File::create(path).unwrap();
     let mut zip = ZipWriter::new(file);
@@ -711,22 +909,203 @@ mod tests {
   fn parses_version_bound_cloak_manifest() {
     let text = concat!(
       "version=150.0.7871.114.3\n",
-      "a905bfdaa79c2ac2db2119ac4b153da8c1aebde9732da617de71722176b05084  cloakbrowser-windows-x64.zip\n"
+      "a905bfdaa79c2ac2db2119ac4b153da8c1aebde9732da617de71722176b05084  cloakbrowser-windows-x64.zip\n",
+      "5a4b1e0f8c3d2a97b6e5f4c3d2a1908f7e6d5c4b3a29180f7e6d5c4b3a291807  cloakbrowser-linux-x64.tar.gz\n"
     );
     assert_eq!(
-      parse_cloak_signed_manifest(text, "150.0.7871.114.3").unwrap(),
+      parse_cloak_signed_manifest(text, "150.0.7871.114.3", CLOAK_ARCHIVE_WINDOWS_X64).unwrap(),
       "a905bfdaa79c2ac2db2119ac4b153da8c1aebde9732da617de71722176b05084"
     );
-    assert!(parse_cloak_signed_manifest(text, "150.0.7871.114.2").is_err());
+    assert_eq!(
+      parse_cloak_signed_manifest(text, "150.0.7871.114.3", CLOAK_ARCHIVE_LINUX_X64).unwrap(),
+      "5a4b1e0f8c3d2a97b6e5f4c3d2a1908f7e6d5c4b3a29180f7e6d5c4b3a291807"
+    );
+    // One platform's hash must never satisfy another platform's install.
+    assert!(
+      parse_cloak_signed_manifest(text, "150.0.7871.114.3", CLOAK_ARCHIVE_LINUX_ARM64).is_err()
+    );
+    assert!(
+      parse_cloak_signed_manifest(text, "150.0.7871.114.2", CLOAK_ARCHIVE_WINDOWS_X64).is_err()
+    );
   }
 
   #[test]
-  fn zip_traversal_rejected() {
-    assert!(!is_safe_zip_entry_name("../evil.exe"));
-    assert!(!is_safe_zip_entry_name("/abs/path"));
-    assert!(!is_safe_zip_entry_name("C:\\Windows\\system32\\x"));
-    assert!(is_safe_zip_entry_name("chrome.exe"));
-    assert!(is_safe_zip_entry_name("Chromium/Application/chrome.exe"));
+  fn archive_format_follows_the_vendor_file_name() {
+    assert_eq!(
+      archive_format_from_url("https://example.com/a/cloakbrowser-windows-x64.zip").unwrap(),
+      ArchiveFormat::Zip
+    );
+    assert_eq!(
+      archive_format_from_url("https://example.com/a/cloakbrowser-linux-x64.tar.gz").unwrap(),
+      ArchiveFormat::TarGz
+    );
+    assert_eq!(
+      archive_format_from_url("https://example.com/a/kernel.tgz?token=x").unwrap(),
+      ArchiveFormat::TarGz
+    );
+    assert!(archive_format_from_url("https://example.com/api/download/151.0.1").is_err());
+  }
+
+  #[test]
+  fn cloak_archives_and_executables_are_platform_specific() {
+    assert_eq!(
+      cloak_archive_name("windows-x64"),
+      Some(CLOAK_ARCHIVE_WINDOWS_X64)
+    );
+    assert_eq!(
+      cloak_archive_name("linux-x64"),
+      Some(CLOAK_ARCHIVE_LINUX_X64)
+    );
+    assert_eq!(
+      cloak_archive_name("linux-arm64"),
+      Some(CLOAK_ARCHIVE_LINUX_ARM64)
+    );
+    assert_eq!(cloak_archive_name("macos-arm64"), None);
+    assert_eq!(
+      cloak_executable_candidates("windows-x64"),
+      vec!["chrome.exe"]
+    );
+    assert_eq!(cloak_executable_candidates("linux-x64"), vec!["chrome"]);
+  }
+
+  #[test]
+  fn manifest_listing_only_offers_installable_assets() {
+    let manifest = list_kernel_manifest().unwrap();
+    let platform = current_platform_id();
+    assert!(manifest
+      .kernels
+      .iter()
+      .all(|asset| asset.platform == platform));
+    assert_eq!(
+      manifest.kernels.len(),
+      KernelManifest::embedded()
+        .unwrap()
+        .kernels
+        .iter()
+        .filter(|asset| asset.platform == platform)
+        .count()
+    );
+  }
+
+  #[test]
+  fn archive_traversal_rejected() {
+    assert!(!is_safe_archive_entry_name("../evil.exe"));
+    assert!(!is_safe_archive_entry_name("/abs/path"));
+    assert!(!is_safe_archive_entry_name("C:\\Windows\\system32\\x"));
+    assert!(is_safe_archive_entry_name("chrome.exe"));
+    assert!(is_safe_archive_entry_name(
+      "Chromium/Application/chrome.exe"
+    ));
+  }
+
+  // Proves the audited Linux entry is still downloadable, still hashes to what
+  // the manifest pins, and still unpacks into a tree the launcher can use.
+  #[tokio::test(flavor = "current_thread")]
+  #[ignore = "downloads the audited official CloakBrowser Linux kernel (207 MB)"]
+  async fn installs_the_audited_linux_kernel_archive() {
+    let data_tmp = TempDir::new().unwrap();
+    let _guard = crate::app_dirs::set_test_data_dir(data_tmp.path().to_path_buf());
+    let cache_tmp = TempDir::new().unwrap();
+    let _cguard = crate::app_dirs::set_test_cache_dir(cache_tmp.path().to_path_buf());
+
+    let asset = KernelManifest::embedded()
+      .unwrap()
+      .find("cloakbrowser-146", "146.0.7680.177.5", "linux-x64")
+      .cloned()
+      .expect("audited linux-x64 asset");
+    let installed = download_and_install_asset(&asset)
+      .await
+      .expect("the audited Linux archive must pass size, SHA-256 and extraction checks");
+
+    let executable = Path::new(&installed.executable);
+    assert!(executable.is_file());
+    assert_eq!(executable.file_name().unwrap(), "chrome");
+    assert_eq!(installed.platform, "linux-x64");
+  }
+
+  #[test]
+  fn tar_install_keeps_the_executable_bit() {
+    let data_tmp = TempDir::new().unwrap();
+    let _guard = crate::app_dirs::set_test_data_dir(data_tmp.path().to_path_buf());
+    let cache_tmp = TempDir::new().unwrap();
+    let _cguard = crate::app_dirs::set_test_cache_dir(cache_tmp.path().to_path_buf());
+
+    let archive_path = data_tmp.path().join("k.tar.gz");
+    let bytes = build_tar_gz_with_chrome(&archive_path);
+    let mut asset = make_asset(bytes.len() as u64, &sha256_hex(&bytes));
+    asset.id = "cloakbrowser-146".into();
+    asset.platform = "linux-x64".into();
+    asset.url = "https://example.com/cloakbrowser-linux-x64.tar.gz".into();
+    asset.executable_candidates = vec!["chrome".into()];
+
+    let binaries = data_tmp.path().join("binaries");
+    let installed =
+      install_verified_archive_bytes(&asset, &bytes, ArchiveFormat::TarGz, Some(&binaries))
+        .unwrap();
+    let executable = Path::new(&installed.executable);
+    assert!(executable.is_file());
+    assert_eq!(executable.file_name().unwrap(), "chrome");
+    #[cfg(unix)]
+    {
+      use std::os::unix::fs::PermissionsExt;
+      let mode = fs::metadata(executable).unwrap().permissions().mode();
+      assert_ne!(mode & 0o111, 0, "chrome must stay executable: {mode:o}");
+    }
+  }
+
+  #[test]
+  fn extract_rejects_traversal_tar() {
+    let tmp = TempDir::new().unwrap();
+    let archive_path = tmp.path().join("bad.tar.gz");
+    {
+      let file = File::create(&archive_path).unwrap();
+      let encoder = flate2::write::GzEncoder::new(file, flate2::Compression::fast());
+      let mut builder = tar::Builder::new(encoder);
+      let payload = b"evil";
+      let mut header = tar::Header::new_gnu();
+      header.set_entry_type(tar::EntryType::Regular);
+      header.set_size(payload.len() as u64);
+      header.set_mode(0o644);
+      // tar-rs refuses to *write* a traversing path, so stamp the raw name
+      // field the way a hostile archive would.
+      let escape = b"../escape";
+      let name = &mut header.as_old_mut().name;
+      name.fill(0);
+      name[..escape.len()].copy_from_slice(escape);
+      header.set_cksum();
+      builder.append(&header, &payload[..]).unwrap();
+      builder.into_inner().unwrap().finish().unwrap();
+    }
+    let err = extract_tar_gz_safe(&archive_path, &tmp.path().join("out")).unwrap_err();
+    match err {
+      KernelDownloadError::UnsafeArchiveEntry(_) => {}
+      other => panic!("expected UnsafeArchiveEntry, got {other}"),
+    }
+  }
+
+  #[test]
+  fn extract_rejects_tar_symlink() {
+    let tmp = TempDir::new().unwrap();
+    let archive_path = tmp.path().join("link.tar.gz");
+    {
+      let file = File::create(&archive_path).unwrap();
+      let encoder = flate2::write::GzEncoder::new(file, flate2::Compression::fast());
+      let mut builder = tar::Builder::new(encoder);
+      let mut header = tar::Header::new_gnu();
+      header.set_entry_type(tar::EntryType::Symlink);
+      header.set_size(0);
+      header.set_mode(0o777);
+      header.set_path("chrome").unwrap();
+      header.set_link_name("/etc/passwd").unwrap();
+      header.set_cksum();
+      builder.append(&header, io::empty()).unwrap();
+      builder.into_inner().unwrap().finish().unwrap();
+    }
+    let err = extract_tar_gz_safe(&archive_path, &tmp.path().join("out")).unwrap_err();
+    match err {
+      KernelDownloadError::UnsafeArchiveEntry(_) => {}
+      other => panic!("expected UnsafeArchiveEntry, got {other}"),
+    }
   }
 
   #[test]
@@ -744,7 +1123,7 @@ mod tests {
     let dest = tmp.path().join("out");
     let err = extract_zip_safe(&zip_path, &dest).unwrap_err();
     match err {
-      KernelDownloadError::UnsafeZipEntry(_) => {}
+      KernelDownloadError::UnsafeArchiveEntry(_) => {}
       other => panic!("expected UnsafeZipEntry, got {other}"),
     }
   }
@@ -762,12 +1141,14 @@ mod tests {
     let asset = make_asset(bytes.len() as u64, &hash);
 
     let binaries = data_tmp.path().join("binaries");
-    let first = install_verified_zip_bytes(&asset, &bytes, Some(&binaries)).unwrap();
+    let first =
+      install_verified_archive_bytes(&asset, &bytes, ArchiveFormat::Zip, Some(&binaries)).unwrap();
     assert!(Path::new(&first.executable).is_file());
     assert_eq!(first.version, "148.0.7778.215");
 
     // Second install replaces but stays healthy (idempotent path).
-    let second = install_verified_zip_bytes(&asset, &bytes, Some(&binaries)).unwrap();
+    let second =
+      install_verified_archive_bytes(&asset, &bytes, ArchiveFormat::Zip, Some(&binaries)).unwrap();
     assert!(Path::new(&second.executable).is_file());
     assert_eq!(
       InstallRegistryFile::load()
@@ -788,7 +1169,9 @@ mod tests {
     let bytes = build_zip_with_chrome(&zip_path);
     let asset = make_asset(bytes.len() as u64, &("00".repeat(32)));
     let binaries = data_tmp.path().join("binaries");
-    assert!(install_verified_zip_bytes(&asset, &bytes, Some(&binaries)).is_err());
+    assert!(
+      install_verified_archive_bytes(&asset, &bytes, ArchiveFormat::Zip, Some(&binaries)).is_err()
+    );
     assert!(!binaries.join("fingerprint-chromium").exists());
   }
 
@@ -804,14 +1187,17 @@ mod tests {
     let hash = sha256_hex(&bytes);
     let asset = make_asset(bytes.len() as u64, &hash);
     let binaries = data_tmp.path().join("binaries");
-    let ok = install_verified_zip_bytes(&asset, &bytes, Some(&binaries)).unwrap();
+    let ok =
+      install_verified_archive_bytes(&asset, &bytes, ArchiveFormat::Zip, Some(&binaries)).unwrap();
     let exe_before = ok.executable.clone();
     assert!(Path::new(&exe_before).is_file());
 
     // Bad zip should not wipe the existing install of a *different* version path.
     // Same version replace only happens after verify 鈥?wrong sha never reaches extract.
     let bad = make_asset(4, &sha256_hex(b"bad!"));
-    assert!(install_verified_zip_bytes(&bad, b"bad!", Some(&binaries)).is_err());
+    assert!(
+      install_verified_archive_bytes(&bad, b"bad!", ArchiveFormat::Zip, Some(&binaries)).is_err()
+    );
     assert!(Path::new(&exe_before).is_file());
   }
 
